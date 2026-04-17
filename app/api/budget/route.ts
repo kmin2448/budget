@@ -153,10 +153,11 @@ export async function PATCH(req: NextRequest) {
 
     const sheets = getSheetsClient();
 
-    // 현재 증감액 전체 읽기 (J3:J26)
+    // 현재 증감액 전체 읽기 (Named Range '증감액' = ★취합!J3:J26)
+    // 특수문자(★)가 포함된 시트명을 직접 참조하면 API 오류 발생 → Named Range 사용
     const currentRes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: '★취합!J3:J26',
+      range: NAMED_RANGES.ADJUSTMENT,
       valueRenderOption: 'UNFORMATTED_VALUE',
     });
     const currentValues: (number | null)[] = Array.from({ length: 24 }, (_, i) =>
@@ -170,10 +171,10 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
-    // J3:J26 일괄 쓰기
+    // Named Range '증감액'에 일괄 쓰기
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: '★취합!J3:J26',
+      range: NAMED_RANGES.ADJUSTMENT,
       valueInputOption: 'RAW',
       requestBody: {
         values: currentValues.map((v) => [v ?? 0]),
@@ -183,6 +184,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ message: '증감액이 저장되었습니다.' });
   } catch (error) {
     console.error('Budget PATCH error:', error);
-    return NextResponse.json({ error: '저장 중 오류가 발생했습니다.' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: `저장 중 오류가 발생했습니다: ${msg}` }, { status: 500 });
   }
 }

@@ -118,13 +118,12 @@ export async function getCategoryDropdown(dropRangeName: string): Promise<string
     .filter((v) => v.trim() !== '');
 }
 
-// 증감액 쓰기 (★취합 시트)
+// 증감액 단일 셀 쓰기 (★취합 J열, 특수문자 시트명이므로 따옴표로 감싸야 함)
 export async function writeAdjustment(
   rowOffset: number,
   adjustment: number,
 ): Promise<void> {
-  // ★취합 J열은 3행부터 시작, rowOffset은 0-based 인덱스
-  const cellRef = `★취합!J${rowOffset + 3}`;
+  const cellRef = `'★취합'!J${rowOffset + 3}`;
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
