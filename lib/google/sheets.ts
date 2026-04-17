@@ -133,6 +133,49 @@ export async function writeAdjustment(
   });
 }
 
+// 확정 시: 증감액을 편성액에 반영하고 증감액을 0으로 초기화
+export async function mergeAdjustmentsIntoAllocations(): Promise<void> {
+  const sheets = getSheetsClient();
+
+  const [allocRes, adjRes] = await Promise.all([
+    sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: NAMED_RANGES.ALLOCATION,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    }),
+    sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: NAMED_RANGES.ADJUSTMENT,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    }),
+  ]);
+
+  const allocValues = allocRes.data.values ?? [];
+  const adjValues   = adjRes.data.values ?? [];
+
+  const newAllocations = Array.from({ length: 24 }, (_, i) => {
+    const alloc = Number(allocValues[i]?.[0] ?? 0);
+    const adj   = Number(adjValues[i]?.[0] ?? 0);
+    return [alloc + adj];
+  });
+  const zeros = Array.from({ length: 24 }, () => [0]);
+
+  await Promise.all([
+    sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: NAMED_RANGES.ALLOCATION,
+      valueInputOption: 'RAW',
+      requestBody: { values: newAllocations },
+    }),
+    sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: NAMED_RANGES.ADJUSTMENT,
+      valueInputOption: 'RAW',
+      requestBody: { values: zeros },
+    }),
+  ]);
+}
+
 // 예산변경이력 시트 헤더
 const HISTORY_SHEET_NAME = '예산변경이력';
 const HISTORY_HEADERS = [

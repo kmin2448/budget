@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { appendBudgetHistoryRows } from '@/lib/google/sheets';
+import { appendBudgetHistoryRows, mergeAdjustmentsIntoAllocations } from '@/lib/google/sheets';
 import type { BudgetCategoryRow, BudgetDetailRow } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -113,6 +113,9 @@ export async function POST(req: NextRequest) {
         confirmedBy,
       })),
     );
+
+    // 3. 증감액을 편성액에 반영하고 증감액을 0으로 초기화
+    await mergeAdjustmentsIntoAllocations();
 
     return NextResponse.json({ message: `${records.length}건의 변경이력이 저장되었습니다.` });
   } catch (error) {

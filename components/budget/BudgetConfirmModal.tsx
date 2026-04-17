@@ -62,32 +62,42 @@ export function BudgetConfirmModal({
 
   async function handleDownloadPdf() {
     if (!printRef.current) return;
-    const { default: jsPDF } = await import('jspdf');
+    // jsPDF v4는 named export 사용
+    const { jsPDF } = await import('jspdf');
     const { default: html2canvas } = await import('html2canvas');
 
-    const canvas = await html2canvas(printRef.current, { scale: 2, useCORS: true });
+    const canvas = await html2canvas(printRef.current, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      windowWidth: printRef.current.scrollWidth,
+    });
     const imgData = canvas.toDataURL('image/png');
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const pdfW = pdf.internal.pageSize.getWidth();
-    const pdfH = (canvas.height * pdfW) / canvas.width;
-    const pageH = pdf.internal.pageSize.getHeight();
+    const pdfW = pdf.internal.pageSize.getWidth();   // 297mm
+    const pageH = pdf.internal.pageSize.getHeight(); // 210mm
 
-    if (pdfH <= pageH) {
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
+    // 캔버스 1px당 mm 비율
+    const pxToMm = pdfW / canvas.width;
+    const totalMm = canvas.height * pxToMm;
+
+    if (totalMm <= pageH) {
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfW, totalMm);
     } else {
-      // 긴 경우 페이지 분할
-      let rendered = 0;
-      while (rendered < canvas.height) {
-        const sliceH = Math.min((pageH / pdfW) * canvas.width, canvas.height - rendered);
+      // 페이지 높이에 해당하는 캔버스 px
+      const pageHeightPx = Math.floor(pageH / pxToMm);
+      let renderedPx = 0;
+      while (renderedPx < canvas.height) {
+        const slicePx = Math.min(pageHeightPx, canvas.height - renderedPx);
         const sliceCanvas = document.createElement('canvas');
         sliceCanvas.width = canvas.width;
-        sliceCanvas.height = sliceH;
+        sliceCanvas.height = slicePx;
         const ctx = sliceCanvas.getContext('2d')!;
-        ctx.drawImage(canvas, 0, -rendered);
+        ctx.drawImage(canvas, 0, -renderedPx);
         const sliceData = sliceCanvas.toDataURL('image/png');
-        if (rendered > 0) pdf.addPage();
-        pdf.addImage(sliceData, 'PNG', 0, 0, pdfW, (sliceH * pdfW) / canvas.width);
-        rendered += sliceH;
+        if (renderedPx > 0) pdf.addPage();
+        pdf.addImage(sliceData, 'PNG', 0, 0, pdfW, slicePx * pxToMm);
+        renderedPx += slicePx;
       }
     }
     pdf.save(`예산변경확정서_${changedAt}.pdf`);
