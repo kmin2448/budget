@@ -57,7 +57,7 @@ export function CardManagementTable({ entries, cardHolders, cardTypes, canWrite,
     if (!pastDateGroups.has(d)) pastDateGroups.set(d, []);
     pastDateGroups.get(d)!.push(entry);
   }
-  const sortedPastDates = [...pastDateGroups.keys()].sort();
+  const sortedPastDates = Array.from(pastDateGroups.keys()).sort();
 
   // 오늘+미래 — 날짜별 그룹
   const currentDateGroups = new Map<string, CardEntry[]>();
@@ -66,7 +66,7 @@ export function CardManagementTable({ entries, cardHolders, cardTypes, canWrite,
     if (!currentDateGroups.has(d)) currentDateGroups.set(d, []);
     currentDateGroups.get(d)!.push(entry);
   }
-  const sortedCurrentDates = [...currentDateGroups.keys()].sort();
+  const sortedCurrentDates = Array.from(currentDateGroups.keys()).sort();
 
   // 월별 그룹 (1~12월)
   const monthGroups = new Map<number, CardEntry[]>();
@@ -75,7 +75,6 @@ export function CardManagementTable({ entries, cardHolders, cardTypes, canWrite,
     if (!monthGroups.has(m)) monthGroups.set(m, []);
     monthGroups.get(m)!.push(entry);
   }
-  const sortedMonths = [...monthGroups.keys()].sort((a, b) => a - b);
 
   // ── 인라인 편집 ──────────────────────────────────────────────
 

@@ -133,3 +133,75 @@ export async function writeAdjustment(
     requestBody: { values: [[adjustment]] },
   });
 }
+
+// 예산변경이력 시트 헤더
+const HISTORY_SHEET_NAME = '예산변경이력';
+const HISTORY_HEADERS = [
+  '변경일자', '비목', '변경전 편성액', '증감액', '변경후 편성액',
+  '집행완료', '집행예정', '잔액', '집행률(%)', '확정자',
+];
+
+export interface BudgetHistorySheetRow {
+  changedAt: string;
+  category: string;
+  beforeAmount: number;
+  adjustment: number;
+  afterAmount: number;
+  executionComplete: number;
+  executionPlanned: number;
+  balance: number;
+  executionRate: number;
+  confirmedBy: string;
+}
+
+// 예산변경이력 시트가 없으면 생성하고 헤더를 삽입
+async function ensureHistorySheet(sheets: ReturnType<typeof getSheetsClient>): Promise<void> {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const exists = meta.data.sheets?.some(
+    (s) => s.properties?.title === HISTORY_SHEET_NAME,
+  );
+
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: HISTORY_SHEET_NAME } } }],
+      },
+    });
+    // 헤더 행 삽입
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${HISTORY_SHEET_NAME}!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [HISTORY_HEADERS] },
+    });
+  }
+}
+
+// 예산변경이력 시트에 행 추가
+export async function appendBudgetHistoryRows(rows: BudgetHistorySheetRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  const sheets = getSheetsClient();
+  await ensureHistorySheet(sheets);
+
+  const values = rows.map((r) => [
+    r.changedAt,
+    r.category,
+    r.beforeAmount,
+    r.adjustment,
+    r.afterAmount,
+    r.executionComplete,
+    r.executionPlanned,
+    r.balance,
+    Math.round(r.executionRate * 10) / 10,
+    r.confirmedBy,
+  ]);
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${HISTORY_SHEET_NAME}!A1`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values },
+  });
+}
