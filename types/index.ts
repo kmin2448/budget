@@ -1,0 +1,170 @@
+// 사용자 권한 체계
+export type UserRole = 'super_admin' | 'admin' | 'staff' | 'professor';
+
+export const PERMISSIONS = {
+  DASHBOARD_WRITE:   'dashboard:write',   // 대시보드 (프로그램 추가/수정/삭제)
+  EXPENDITURE_WRITE: 'expenditure:write', // 집행내역 편집/업로드
+  BUDGET_WRITE:      'budget:write',      // 예산관리 (증감액 입력, PDF)
+  ADVANCE_WRITE:     'advance:write',     // 선지원금 편집
+  CARD_WRITE:        'card:write',        // 산단카드 편집
+} as const;
+
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+
+// 사용자
+export interface User {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+  created_at: string;
+}
+
+// 사용자 권한
+export interface UserPermission {
+  id: string;
+  user_id: string;
+  permission: Permission;
+  granted_by: string | null;
+  created_at: string;
+}
+
+// 예산변경 이력
+export interface BudgetChangeHistory {
+  id: string;
+  changed_at: string;
+  changed_by: string | null;
+  category: string;
+  before_amount: number;
+  adjustment: number;
+  after_amount: number;
+  pdf_drive_url: string | null;
+  snapshot: Record<string, unknown> | null;
+  created_at: string;
+}
+
+// 지출부 파일 메타데이터
+export interface ExpenditureFile {
+  id: string;
+  sheet_name: string;
+  row_index: number;
+  drive_file_id: string;
+  drive_url: string;
+  uploaded_by: string | null;
+  uploaded_at: string;
+}
+
+// 산단카드 집행내역
+export interface CardExpenditure {
+  id: string;
+  expense_date: string;
+  category: string;
+  merchant: string | null;
+  description: string | null;
+  amount: number;
+  erp_registered: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+// Google Sheets 집행내역 행
+export interface ExpenditureRow {
+  rowIndex: number;
+  category: string;        // 비목 (C열)
+  subCategory: string;     // 보조비목 (D열)
+  subDetail: string;       // 보조세목 (E열)
+  budgetPlan: number;      // 예산계획 (L열)
+  executionComplete: number; // 집행완료 (O열)
+  executionPlanned: number;  // 집행예정 (P열)
+}
+
+// 예산 요약 카드
+export interface BudgetSummary {
+  totalBudget: number;
+  executionComplete: number;
+  executionPlanned: number;
+  balance: number;
+  executionRate: number;
+}
+
+// 비목별 편성액
+export interface CategoryBudget {
+  category: string;
+  allocation: number;
+  adjustment: number;
+  afterAllocation: number;
+  executionComplete: number;
+  executionPlanned: number;
+  balance: number;
+  executionRate: number;
+}
+
+// 비목별 집행내역 행 (각 비목 시트의 row)
+export interface ExpenditureDetailRow {
+  rowIndex: number;
+  programName: string;      // A열: 구분
+  expenseDate: string;      // B열: 지출일자 YYYY-MM-DD (빈값 = 집행예정)
+  description: string;      // C열: 지출건명 (병합셀 C:H)
+  monthlyAmounts: number[]; // I~T열 (index 0=3월 … 11=2월), 길이 12
+  totalAmount: number;      // monthlyAmounts 합계
+  status: 'complete' | 'planned';
+  hasFile: boolean;
+  fileUrl?: string;
+  fileId?: string;
+}
+
+export interface ExpenditureBudgetInfo {
+  allocation: number;
+  executionComplete: number;
+  executionPlanned: number;
+  balance: number;
+  executionRate: number;
+}
+
+export interface ExpenditurePageData {
+  rows: ExpenditureDetailRow[];
+  budgetInfo: ExpenditureBudgetInfo;
+  dropdownOptions: string[];
+}
+
+// ── Phase 4: 예산관리 ─────────────────────────────────────────────
+
+// ★취합 시트 세목별 행 (B3:J26 각 row)
+export interface BudgetDetailRow {
+  rowOffset: number;        // 0-based (0 = 시트 3행)
+  category: string;         // 이나라비목 (B)
+  subcategory: string;      // 이나라세목 (C)
+  subDetail: string;        // 이나라보조세목 (D)
+  allocation: number;       // 편성액 (F)
+  adjustment: number;       // 증감액 (J)
+  afterAllocation: number;  // 편성액 + 증감액
+  executionComplete: number;
+  executionPlanned: number;
+  balance: number;          // afterAllocation - executionComplete - executionPlanned
+  executionRate: number;
+}
+
+// 비목별 집계 행 (카테고리 레벨 요약)
+export interface BudgetCategoryRow {
+  category: string;
+  allocation: number;        // K36-K44 Named Range 값
+  adjustment: number;        // 해당 비목의 증감액 합계
+  afterAllocation: number;
+  executionComplete: number;
+  executionPlanned: number;
+  balance: number;
+  executionRate: number;
+}
+
+// 예산 API 전체 응답
+export interface BudgetData {
+  detailRows: BudgetDetailRow[];
+  categoryRows: BudgetCategoryRow[];
+}
+
+// 예산변경 확정 요청 payload
+export interface BudgetChangePayload {
+  changedAt: string;                       // YYYY-MM-DD
+  adjustments: { rowOffset: number; value: number }[];
+  snapshot: BudgetCategoryRow[];
+}

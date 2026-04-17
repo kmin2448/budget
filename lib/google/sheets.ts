@@ -1,0 +1,135 @@
+import { google } from 'googleapis';
+import { NAMED_RANGES } from '@/constants/sheets';
+import type { ExpenditureRow, CategoryBudget } from '@/types';
+
+function getAuth() {
+  return new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    },
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+}
+
+export function getSheetsClient() {
+  return google.sheets({ version: 'v4', auth: getAuth() });
+}
+
+const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID!;
+
+// Named Range 값 읽기
+export async function readNamedRange(rangeName: string): Promise<(string | number | null)[][]> {
+  const sheets = getSheetsClient();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: rangeName,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  });
+  return (response.data.values ?? []) as (string | number | null)[][];
+}
+
+// Named Range 값 쓰기
+export async function writeNamedRange(
+  rangeName: string,
+  values: (string | number | null)[][],
+): Promise<void> {
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: rangeName,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  });
+}
+
+// 집행내역 정리 시트 - 전체 행 읽기 (비목/보조비목/보조세목/예산계획/집행완료/집행예정)
+export async function getExpenditureRows(): Promise<ExpenditureRow[]> {
+  const [categories, subCategories, subDetails, budgetPlans, completions, planned] =
+    await Promise.all([
+      readNamedRange(NAMED_RANGES.CATEGORY),
+      readNamedRange(NAMED_RANGES.SUB_CATEGORY),
+      readNamedRange(NAMED_RANGES.SUB_DETAIL),
+      readNamedRange(NAMED_RANGES.BUDGET_PLAN),
+      readNamedRange(NAMED_RANGES.EXECUTION_COMPLETE),
+      readNamedRange(NAMED_RANGES.EXECUTION_PLANNED),
+    ]);
+
+  const rows: ExpenditureRow[] = [];
+  const length = categories.length;
+
+  for (let i = 0; i < length; i++) {
+    const category = String(categories[i]?.[0] ?? '');
+    if (!category) continue;
+
+    rows.push({
+      rowIndex: i + 6, // Sheets는 6행부터 시작
+      category,
+      subCategory: String(subCategories[i]?.[0] ?? ''),
+      subDetail: String(subDetails[i]?.[0] ?? ''),
+      budgetPlan: Number(budgetPlans[i]?.[0] ?? 0),
+      executionComplete: Number(completions[i]?.[0] ?? 0),
+      executionPlanned: Number(planned[i]?.[0] ?? 0),
+    });
+  }
+
+  return rows;
+}
+
+// ★취합 시트 - 비목별 편성액 읽기
+export async function getCategoryAllocations(): Promise<CategoryBudget[]> {
+  const [categories, allocations, adjustments] = await Promise.all([
+    readNamedRange(NAMED_RANGES.ENAARA_CATEGORY),
+    readNamedRange(NAMED_RANGES.ALLOCATION),
+    readNamedRange(NAMED_RANGES.ADJUSTMENT),
+  ]);
+
+  const results: CategoryBudget[] = [];
+  const length = categories.length;
+
+  for (let i = 0; i < length; i++) {
+    const category = String(categories[i]?.[0] ?? '');
+    if (!category) continue;
+
+    const allocation = Number(allocations[i]?.[0] ?? 0);
+    const adjustment = Number(adjustments[i]?.[0] ?? 0);
+    const afterAllocation = allocation + adjustment;
+
+    results.push({
+      category,
+      allocation,
+      adjustment,
+      afterAllocation,
+      executionComplete: 0, // 집행내역 정리 시트에서 별도 집계
+      executionPlanned: 0,
+      balance: afterAllocation,
+      executionRate: 0,
+    });
+  }
+
+  return results;
+}
+
+// 특정 비목의 드롭다운 목록 읽기
+export async function getCategoryDropdown(dropRangeName: string): Promise<string[]> {
+  const values = await readNamedRange(dropRangeName);
+  return values
+    .map((row) => String(row[0] ?? ''))
+    .filter((v) => v.trim() !== '');
+}
+
+// 증감액 쓰기 (★취합 시트)
+export async function writeAdjustment(
+  rowOffset: number,
+  adjustment: number,
+): Promise<void> {
+  // ★취합 J열은 3행부터 시작, rowOffset은 0-based 인덱스
+  const cellRef = `★취합!J${rowOffset + 3}`;
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: cellRef,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[adjustment]] },
+  });
+}

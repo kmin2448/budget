@@ -1,0 +1,89 @@
+import { google } from 'googleapis';
+import { Readable } from 'stream';
+
+const ROOT_FOLDER_NAME = 'COSS_지출부';
+
+/** 사용자 OAuth 액세스 토큰으로 Drive 클라이언트 생성 */
+function getDriveClient(accessToken: string) {
+  const oauth2 = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID!,
+    process.env.GOOGLE_CLIENT_SECRET!,
+  );
+  oauth2.setCredentials({ access_token: accessToken });
+  return google.drive({ version: 'v3', auth: oauth2 });
+}
+
+/** 이름으로 폴더 검색, 없으면 생성 */
+async function getOrCreateFolder(
+  drive: ReturnType<typeof google.drive>,
+  name: string,
+  parentId?: string,
+): Promise<string> {
+  const q = parentId
+    ? `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
+    : `name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+
+  const res = await drive.files.list({ q, fields: 'files(id)', pageSize: 1 });
+  if (res.data.files?.[0]?.id) return res.data.files[0].id;
+
+  const folder = await drive.files.create({
+    requestBody: {
+      name,
+      mimeType: 'application/vnd.google-apps.folder',
+      ...(parentId ? { parents: [parentId] } : {}),
+    },
+    fields: 'id',
+  });
+  if (!folder.data.id) throw new Error(`폴더 생성 실패: ${name}`);
+  return folder.data.id;
+}
+
+/** 사용자 개인 Google Drive에 PDF 업로드 */
+export async function uploadToUserDrive(params: {
+  accessToken: string;
+  categoryName: string;
+  fileName: string;
+  buffer: Buffer;
+}): Promise<{ fileId: string; webViewLink: string }> {
+  const drive = getDriveClient(params.accessToken);
+
+  // 루트 폴더(COSS_지출부) → 비목 폴더 순서로 생성
+  const rootFolderId = await getOrCreateFolder(drive, ROOT_FOLDER_NAME);
+  const categoryFolderId = await getOrCreateFolder(drive, params.categoryName, rootFolderId);
+
+  // 파일 업로드
+  const stream = Readable.from(params.buffer);
+  const uploadRes = await drive.files.create({
+    requestBody: {
+      name: params.fileName,
+      parents: [categoryFolderId],
+      mimeType: 'application/pdf',
+    },
+    media: { mimeType: 'application/pdf', body: stream },
+    fields: 'id, webViewLink',
+  });
+
+  if (!uploadRes.data.id) throw new Error('파일 업로드 실패');
+
+  // 링크 공유 설정 (링크 있는 누구나 읽기)
+  await drive.permissions.create({
+    fileId: uploadRes.data.id,
+    requestBody: { role: 'reader', type: 'anyone' },
+  });
+
+  return {
+    fileId: uploadRes.data.id,
+    webViewLink:
+      uploadRes.data.webViewLink ??
+      `https://drive.google.com/file/d/${uploadRes.data.id}/view`,
+  };
+}
+
+/** Drive 파일 삭제 */
+export async function deleteFromUserDrive(params: {
+  accessToken: string;
+  fileId: string;
+}): Promise<void> {
+  const drive = getDriveClient(params.accessToken);
+  await drive.files.delete({ fileId: params.fileId });
+}
