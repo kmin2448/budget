@@ -136,13 +136,16 @@ export async function writeAdjustment(
 // 예산변경이력 시트 헤더
 const HISTORY_SHEET_NAME = '예산변경이력';
 const HISTORY_HEADERS = [
-  '변경일자', '비목', '변경전 편성액', '증감액', '변경후 편성액',
+  '변경일자', '비목', '세목', '세세목',
+  '변경전 편성액', '증감액', '변경후 편성액',
   '집행완료', '집행예정', '잔액', '집행률(%)', '확정자',
 ];
 
 export interface BudgetHistorySheetRow {
   changedAt: string;
   category: string;
+  subcategory: string;
+  subDetail: string;
   beforeAmount: number;
   adjustment: number;
   afterAmount: number;
@@ -153,7 +156,7 @@ export interface BudgetHistorySheetRow {
   confirmedBy: string;
 }
 
-// 예산변경이력 시트가 없으면 생성하고 헤더를 삽입
+// 예산변경이력 시트가 없으면 생성, 있으면 헤더를 최신으로 갱신
 async function ensureHistorySheet(sheets: ReturnType<typeof getSheetsClient>): Promise<void> {
   const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
   const exists = meta.data.sheets?.some(
@@ -167,14 +170,15 @@ async function ensureHistorySheet(sheets: ReturnType<typeof getSheetsClient>): P
         requests: [{ addSheet: { properties: { title: HISTORY_SHEET_NAME } } }],
       },
     });
-    // 헤더 행 삽입
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${HISTORY_SHEET_NAME}!A1`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [HISTORY_HEADERS] },
-    });
   }
+
+  // 헤더 행을 항상 최신 상태로 덮어씌움 (컬럼 추가 시 자동 반영)
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${HISTORY_SHEET_NAME}!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [HISTORY_HEADERS] },
+  });
 }
 
 // 예산변경이력 시트에 행 추가
@@ -186,6 +190,8 @@ export async function appendBudgetHistoryRows(rows: BudgetHistorySheetRow[]): Pr
   const values = rows.map((r) => [
     r.changedAt,
     r.category,
+    r.subcategory,
+    r.subDetail,
     r.beforeAmount,
     r.adjustment,
     r.afterAmount,

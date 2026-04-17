@@ -61,15 +61,15 @@ export async function POST(req: NextRequest) {
       detailSnapshot:   body.detailSnapshot ?? [],
     };
 
-    // 증감액이 있는 비목만 처리
-    const changedRows = body.categorySnapshot.filter((row) => row.adjustment !== 0);
+    // 증감액이 있는 비목만 Supabase에 저장 (비목 단위)
+    const changedCategoryRows = body.categorySnapshot.filter((row) => row.adjustment !== 0);
 
-    if (changedRows.length === 0) {
+    if (changedCategoryRows.length === 0) {
       return NextResponse.json({ message: '변경된 항목이 없습니다.' });
     }
 
-    // 1. Supabase 저장
-    const records = changedRows.map((row) => ({
+    // 1. Supabase 저장 (비목 단위)
+    const records = changedCategoryRows.map((row) => ({
       changed_at:    body.changedAt,
       changed_by:    user?.id ?? null,
       category:      row.category,
@@ -89,12 +89,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Google Sheets 예산변경이력 시트에 누적 저장
+    // 2. Google Sheets 예산변경이력 시트에 세목·세세목 단위로 누적 저장
     const confirmedBy = user?.name ?? session.user.email ?? '';
+
+    // 증감액이 있는 세목 행만 추출
+    const changedDetailRows = (body.detailSnapshot ?? []).filter(
+      (row) => row.adjustment !== 0,
+    );
+
     await appendBudgetHistoryRows(
-      changedRows.map((row) => ({
+      changedDetailRows.map((row) => ({
         changedAt:         body.changedAt,
         category:          row.category,
+        subcategory:       row.subcategory ?? '',
+        subDetail:         row.subDetail ?? '',
         beforeAmount:      row.allocation,
         adjustment:        row.adjustment,
         afterAmount:       row.afterAllocation,
