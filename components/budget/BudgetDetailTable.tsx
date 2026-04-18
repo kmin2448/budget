@@ -47,14 +47,19 @@ export function BudgetDetailTable({ rows }: Props) {
       });
     }
   }
-  // 취합 후 집행률 재계산
-  const aggregatedRows = Array.from(aggregatedMap.values()).map((r) => ({
-    ...r,
-    executionRate:
-      r.afterAllocation > 0
-        ? Math.round(((r.executionComplete + r.executionPlanned) / r.afterAllocation) * 1000) / 10
-        : 0,
-  }));
+  const SUBCATEGORY_ORDER = ['인건비', '보전금', '업무추진비', '유형자산', '연구개발비', '운영비', '여비'];
+  const subOrder = (s: string) => { const i = SUBCATEGORY_ORDER.indexOf(s); return i === -1 ? SUBCATEGORY_ORDER.length : i; };
+
+  // 취합 후 집행률 재계산 + 세목 지정 순서로 정렬
+  const aggregatedRows = Array.from(aggregatedMap.values())
+    .map((r) => ({
+      ...r,
+      executionRate:
+        r.afterAllocation > 0
+          ? Math.round(((r.executionComplete + r.executionPlanned) / r.afterAllocation) * 1000) / 10
+          : 0,
+    }))
+    .sort((a, b) => subOrder(a.subcategory) - subOrder(b.subcategory));
 
   const totals = aggregatedRows.reduce(
     (s, r) => ({

@@ -1,7 +1,6 @@
 // components/budget/BudgetIntegratedTable.tsx
 'use client';
 
-import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatKRW, parseKRW } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -11,29 +10,26 @@ import type { BudgetDetailRow, BudgetCategoryRow } from '@/types';
 interface Props {
   rows: BudgetDetailRow[];
   categoryRows: BudgetCategoryRow[];
+  edits: Record<number, string>;
+  onEditChange: (rowOffset: number, raw: string) => void;
   canWrite: boolean;
   isSaving: boolean;
-  onOpenConfirm: (adjustments: { rowOffset: number; value: number }[]) => void;
+  onOpenConfirm: () => void;
 }
 
 export function BudgetIntegratedTable({
   rows,
   categoryRows,
+  edits,
+  onEditChange,
   canWrite,
   isSaving,
   onOpenConfirm,
 }: Props) {
-  // 증감액 편집 상태
-  const [edits, setEdits] = useState<Record<number, string>>(() =>
-    Object.fromEntries(
-      rows.map((r) => [r.rowOffset, r.adjustment !== 0 ? String(r.adjustment) : '']),
-    ),
-  );
-
-  const handleChange = useCallback((rowOffset: number, raw: string) => {
+  const handleChange = (rowOffset: number, raw: string) => {
     const cleaned = raw.replace(/[^0-9,\-]/g, '');
-    setEdits((prev) => ({ ...prev, [rowOffset]: cleaned }));
-  }, []);
+    onEditChange(rowOffset, cleaned);
+  };
 
   // 미리보기 계산
   const previewRows: BudgetDetailRow[] = rows.map((r) => {
@@ -106,7 +102,7 @@ export function BudgetIntegratedTable({
           <Button
             size="sm"
             disabled={!hasChanges || isSaving}
-            onClick={() => onOpenConfirm(previewRows.map((r) => ({ rowOffset: r.rowOffset, value: r.adjustment })))}
+            onClick={() => onOpenConfirm()}
             className="ml-4 shrink-0 bg-primary text-white hover:bg-primary-light"
           >
             {isSaving ? '저장 중…' : '변경 확정'}
@@ -131,19 +127,15 @@ export function BudgetIntegratedTable({
           </thead>
           <tbody>
             {Object.entries(grouped).map(([category, catRows]) => {
-              // 세목 기준 정렬 → 같은 세목이 연속되도록
-              const sortedRows = [...catRows].sort((a, b) =>
-                (a.subcategory || '').localeCompare(b.subcategory || '', 'ko'),
-              );
-              const catAlloc = sortedRows.reduce((s, r) => s + r.allocation, 0);
-              const catAfter = sortedRows.reduce((s, r) => s + r.afterAllocation, 0);
+              const catAlloc = catRows.reduce((s, r) => s + r.allocation, 0);
+              const catAfter = catRows.reduce((s, r) => s + r.afterAllocation, 0);
               const catAdj   = catAfter - catAlloc;
               const isFirstCat = globalIdx === 0;
 
-              return sortedRows.map((row, i) => {
+              return catRows.map((row, i) => {
                 const isFirstOfCat = i === 0;
                 // 세목 그룹 첫 행 여부
-                const isFirstOfSub = i === 0 || sortedRows[i - 1].subcategory !== row.subcategory;
+                const isFirstOfSub = i === 0 || catRows[i - 1].subcategory !== row.subcategory;
                 const origAdj = rows.find((o) => o.rowOffset === row.rowOffset)?.adjustment ?? 0;
                 const currentVal = edits[row.rowOffset] ?? '';
                 const parsedVal  = currentVal === '' ? 0 : parseKRW(currentVal);

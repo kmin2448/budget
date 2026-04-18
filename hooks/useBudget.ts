@@ -65,6 +65,27 @@ export function useBudgetHistory() {
   });
 }
 
+// ── 이력 삭제 ─────────────────────────────────────────────────────
+
+export function useDeleteHistory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/budget/history?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '이력 삭제에 실패했습니다.');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['budget-history'] });
+    },
+  });
+}
+
 // ── 이력 저장 ─────────────────────────────────────────────────────
 
 export function useSaveHistory() {
@@ -89,6 +110,7 @@ export function useSaveHistory() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['budget-history'] });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
     },
   });
 }

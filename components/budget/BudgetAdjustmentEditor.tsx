@@ -2,7 +2,7 @@
 // 예산변경 탭: 세목별 증감액 입력 + 미리보기
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatKRW, parseKRW } from '@/lib/utils';
 import type { BudgetDetailRow, BudgetCategoryRow } from '@/types';
@@ -26,6 +26,13 @@ export function BudgetAdjustmentEditor({
   const [edits, setEdits] = useState<Record<number, string>>(() =>
     Object.fromEntries(detailRows.map((r) => [r.rowOffset, r.adjustment !== 0 ? String(r.adjustment) : ''])),
   );
+
+  // 확정 후 refetch 완료 시 detailRows가 바뀌면 edits를 새 값으로 동기화
+  useEffect(() => {
+    setEdits(
+      Object.fromEntries(detailRows.map((r) => [r.rowOffset, r.adjustment !== 0 ? String(r.adjustment) : ''])),
+    );
+  }, [detailRows]);
 
   const handleChange = useCallback((rowOffset: number, raw: string) => {
     // 숫자, 마이너스 부호, 쉼표만 허용

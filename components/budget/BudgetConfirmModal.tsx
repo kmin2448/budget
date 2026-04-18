@@ -2,9 +2,10 @@
 // 변경 확정 모달: 날짜 입력 + PDF 생성 + 이력 저장
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatKRW } from '@/lib/utils';
+import { BudgetPdfDownload } from '@/components/budget/BudgetPdfDownload';
 import type { BudgetDetailRow, BudgetCategoryRow } from '@/types';
 
 interface Props {
@@ -25,6 +26,16 @@ function adjCell(adj: number) {
   );
 }
 
+function PageHeader({ title, changedAt }: { title: string; changedAt: string }) {
+  return (
+    <div className="mb-3 text-center">
+      <p className="text-sm font-bold text-gray-900">예산변경 비교표 — {title}</p>
+      <p className="text-[10px] text-gray-500">변경일자: {changedAt}</p>
+    </div>
+  );
+}
+
+
 export function BudgetConfirmModal({
   open,
   detailSnapshot,
@@ -33,75 +44,45 @@ export function BudgetConfirmModal({
   onConfirm,
   onClose,
 }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
-  const [changedAt, setChangedAt] = useState(today);
-  const printRef = useRef<HTMLDivElement>(null);
+  const getLocalDate = () => new Date().toLocaleDateString('sv');
+  const [changedAt, setChangedAt] = useState(getLocalDate);
+
+  // 모달이 열릴 때마다 오늘 날짜(로컬 시간대)로 초기화
+  useEffect(() => {
+    if (open) setChangedAt(getLocalDate());
+  }, [open]);
 
   if (!open) return null;
 
   const hasChanges = detailSnapshot.some((r) => r.adjustment !== 0);
 
-  // 비목별 그룹 (통합 섹션용)
+  // 화면 미리보기용 데이터 준비
   const grouped = detailSnapshot.reduce<Record<string, BudgetDetailRow[]>>((acc, row) => {
     if (!acc[row.category]) acc[row.category] = [];
     acc[row.category].push(row);
     return acc;
   }, {});
 
-  // 전체 합계
+  const subMap = new Map<string, Map<string, BudgetDetailRow[]>>();
+  for (const row of [...detailSnapshot].sort((a, b) => (a.subcategory || '').localeCompare(b.subcategory || '', 'ko'))) {
+    const sub    = row.subcategory || '-';
+    const detail = row.subDetail   || '-';
+    if (!subMap.has(sub)) subMap.set(sub, new Map());
+    const dm = subMap.get(sub)!;
+    if (!dm.has(detail)) dm.set(detail, []);
+    dm.get(detail)!.push(row);
+  }
+
   const totalBefore = categorySnapshot.reduce((s, r) => s + r.allocation, 0);
   const totalAdj    = categorySnapshot.reduce((s, r) => s + r.adjustment, 0);
   const totalAfter  = categorySnapshot.reduce((s, r) => s + r.afterAllocation, 0);
   const totalExec   = categorySnapshot.reduce((s, r) => s + r.executionComplete + r.executionPlanned, 0);
   const totalBal    = categorySnapshot.reduce((s, r) => s + r.balance, 0);
 
-  const thCls = 'py-1.5 px-1.5 font-semibold text-left';
-  const thRCls = 'py-1.5 px-1.5 font-semibold text-right whitespace-nowrap';
-  const tdCls = 'py-1 px-1.5';
-  const tdRCls = 'py-1 px-1.5 text-right tabular-nums';
-
-  async function handleDownloadPdf() {
-    if (!printRef.current) return;
-    // jsPDF v4는 named export 사용
-    const { jsPDF } = await import('jspdf');
-    const { default: html2canvas } = await import('html2canvas');
-
-    const canvas = await html2canvas(printRef.current, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      windowWidth: printRef.current.scrollWidth,
-    });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const pdfW = pdf.internal.pageSize.getWidth();   // 297mm
-    const pageH = pdf.internal.pageSize.getHeight(); // 210mm
-
-    // 캔버스 1px당 mm 비율
-    const pxToMm = pdfW / canvas.width;
-    const totalMm = canvas.height * pxToMm;
-
-    if (totalMm <= pageH) {
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfW, totalMm);
-    } else {
-      // 페이지 높이에 해당하는 캔버스 px
-      const pageHeightPx = Math.floor(pageH / pxToMm);
-      let renderedPx = 0;
-      while (renderedPx < canvas.height) {
-        const slicePx = Math.min(pageHeightPx, canvas.height - renderedPx);
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = slicePx;
-        const ctx = sliceCanvas.getContext('2d')!;
-        ctx.drawImage(canvas, 0, -renderedPx);
-        const sliceData = sliceCanvas.toDataURL('image/png');
-        if (renderedPx > 0) pdf.addPage();
-        pdf.addImage(sliceData, 'PNG', 0, 0, pdfW, slicePx * pxToMm);
-        renderedPx += slicePx;
-      }
-    }
-    pdf.save(`예산변경확정서_${changedAt}.pdf`);
-  }
+  const thCls  = 'py-1.5 px-1.5 font-semibold text-left text-[10px]';
+  const thRCls = 'py-1.5 px-1.5 font-semibold text-right whitespace-nowrap text-[10px]';
+  const tdCls  = 'py-1 px-1.5 text-[10px]';
+  const tdRCls = 'py-1 px-1.5 text-right tabular-nums text-[10px]';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -121,95 +102,90 @@ export function BudgetConfirmModal({
               type="date"
               value={changedAt}
               onChange={(e) => setChangedAt(e.target.value)}
-              max={today}
+              max={getLocalDate()}
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
             />
           </div>
 
-          {/* PDF 캡처 영역 */}
-          <div ref={printRef} className="rounded-lg border p-5 bg-white space-y-6">
-            {/* 문서 제목 */}
-            <div className="text-center">
-              <p className="text-base font-bold text-gray-900">예산변경 비교표</p>
-              <p className="text-xs text-gray-500">변경일자: {changedAt}</p>
-            </div>
+          {/* ── 미리보기 페이지 1: 통합 ── */}
+          <div className="rounded-lg border p-4 bg-white">
+            <PageHeader title="1. 통합" changedAt={changedAt} />
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-primary text-white">
+                  <th className={thCls} style={{ width: '13%' }}>비목</th>
+                  <th className={thCls} style={{ width: '12%' }}>세목</th>
+                  <th className={thCls} style={{ width: '13%' }}>세세목</th>
+                  <th className={thRCls} style={{ width: '12%' }}>편성액</th>
+                  <th className={thRCls} style={{ width: '10%' }}>증감액</th>
+                  <th className={thRCls} style={{ width: '12%' }}>변경후 편성액</th>
+                  <th className={thRCls} style={{ width: '14%' }}>집행금액</th>
+                  <th className={thRCls} style={{ width: '14%' }}>잔액</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(grouped).map(([category, rows]) => {
+                  const catRow = categorySnapshot.find((c) => c.category === category);
+                  return rows.map((row, i) => (
+                    <tr
+                      key={`${row.rowOffset}`}
+                      className={`border-b border-gray-100 ${i === 0 ? 'border-t border-t-gray-300' : ''} ${row.adjustment !== 0 ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}
+                    >
+                      <td className={`${tdCls} font-semibold text-primary`}>
+                        {i === 0 ? (
+                          <div>
+                            <div>{category}</div>
+                            {(catRow?.adjustment ?? 0) !== 0 && (
+                              <div className={`text-[9px] font-normal ${(catRow?.adjustment ?? 0) > 0 ? 'text-blue-500' : 'text-red-500'}`}>
+                                {(catRow?.adjustment ?? 0) > 0 ? '+' : ''}{formatKRW(catRow?.adjustment ?? 0)}
+                              </div>
+                            )}
+                          </div>
+                        ) : ''}
+                      </td>
+                      <td className={`${tdCls} text-gray-600`}>{row.subcategory || '-'}</td>
+                      <td className={`${tdCls} text-gray-500`}>{row.subDetail || '-'}</td>
+                      <td className={`${tdRCls} text-gray-700`}>{formatKRW(row.allocation)}</td>
+                      <td className={tdRCls}>{adjCell(row.adjustment)}</td>
+                      <td className={`${tdRCls} font-semibold text-gray-900`}>{formatKRW(row.afterAllocation)}</td>
+                      <td className={`${tdRCls} text-gray-700`}>
+                        {i === 0 && catRow ? formatKRW(catRow.executionComplete + catRow.executionPlanned) : ''}
+                      </td>
+                      <td className={`${tdRCls} ${i === 0 && (catRow?.balance ?? 0) < 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                        {i === 0 && catRow ? formatKRW(catRow.balance) : ''}
+                      </td>
+                    </tr>
+                  ));
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-gray-800 font-bold bg-gray-100">
+                  <td className={tdCls} colSpan={3}>합계</td>
+                  <td className={tdRCls}>{formatKRW(totalBefore)}</td>
+                  <td className={tdRCls}>{adjCell(totalAdj)}</td>
+                  <td className={tdRCls}>{formatKRW(totalAfter)}</td>
+                  <td className={tdRCls}>{formatKRW(totalExec)}</td>
+                  <td className={`${tdRCls} ${totalBal < 0 ? 'text-red-600' : ''}`}>{formatKRW(totalBal)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
 
-            {/* ── 1. 통합 ── */}
+          {/* ── 미리보기 페이지 2: 비목별 + 세목별 ── */}
+          <div className="rounded-lg border p-4 bg-white space-y-4">
+            <PageHeader title="2. 비목별 / 3. 세목별" changedAt={changedAt} />
+
             <div>
-              <p className="mb-1.5 text-xs font-bold text-gray-700 border-b border-gray-300 pb-1">1. 통합</p>
-              <table className="w-full text-[11px] border-collapse">
+              <p className="mb-1.5 text-[10px] font-bold text-gray-700 border-b border-gray-300 pb-1">2. 비목별</p>
+              <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-primary text-white">
-                    <th className={thCls} style={{ width: '14%' }}>비목</th>
-                    <th className={thCls} style={{ width: '12%' }}>세목</th>
-                    <th className={thCls} style={{ width: '14%' }}>세세목</th>
-                    <th className={thRCls} style={{ width: '12%' }}>편성액</th>
-                    <th className={thRCls} style={{ width: '10%' }}>증감액</th>
-                    <th className={thRCls} style={{ width: '12%' }}>변경후 편성액</th>
-                    <th className={thRCls} style={{ width: '13%' }}>집행금액</th>
-                    <th className={thRCls} style={{ width: '13%' }}>잔액</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(grouped).map(([category, rows]) => {
-                    const catCategoryRow = categorySnapshot.find(c => c.category === category);
-                    return rows.map((row, i) => (
-                      <tr
-                        key={`${row.rowOffset}`}
-                        className={`border-b border-gray-100 ${i === 0 ? 'border-t border-t-gray-300' : ''} ${row.adjustment !== 0 ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}
-                      >
-                        <td className={`${tdCls} font-semibold text-primary`}>
-                          {i === 0 ? (
-                            <div>
-                              <div>{category}</div>
-                              {(catCategoryRow?.adjustment ?? 0) !== 0 && (
-                                <div className={`text-[10px] font-normal ${(catCategoryRow?.adjustment ?? 0) > 0 ? 'text-blue-500' : 'text-red-500'}`}>
-                                  {(catCategoryRow?.adjustment ?? 0) > 0 ? '+' : ''}{formatKRW(catCategoryRow?.adjustment ?? 0)}
-                                </div>
-                              )}
-                            </div>
-                          ) : ''}
-                        </td>
-                        <td className={`${tdCls} text-gray-600`}>{row.subcategory || '-'}</td>
-                        <td className={`${tdCls} text-gray-500`}>{row.subDetail || '-'}</td>
-                        <td className={`${tdRCls} text-gray-700`}>{formatKRW(row.allocation)}</td>
-                        <td className={tdRCls}>{adjCell(row.adjustment)}</td>
-                        <td className={`${tdRCls} font-semibold text-gray-900`}>{formatKRW(row.afterAllocation)}</td>
-                        <td className={`${tdRCls} text-gray-700`}>
-                          {i === 0 && catCategoryRow ? formatKRW(catCategoryRow.executionComplete + catCategoryRow.executionPlanned) : ''}
-                        </td>
-                        <td className={`${tdRCls} ${i === 0 && (catCategoryRow?.balance ?? 0) < 0 ? 'text-red-600' : 'text-gray-700'}`}>
-                          {i === 0 && catCategoryRow ? formatKRW(catCategoryRow.balance) : ''}
-                        </td>
-                      </tr>
-                    ));
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-gray-800 font-bold bg-gray-100">
-                    <td className={tdCls} colSpan={3}>합계</td>
-                    <td className={tdRCls}>{formatKRW(totalBefore)}</td>
-                    <td className={tdRCls}>{adjCell(totalAdj)}</td>
-                    <td className={tdRCls}>{formatKRW(totalAfter)}</td>
-                    <td className={tdRCls}>{formatKRW(totalExec)}</td>
-                    <td className={`${tdRCls} ${totalBal < 0 ? 'text-red-600' : ''}`}>{formatKRW(totalBal)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* ── 2. 비목별 ── */}
-            <div>
-              <p className="mb-1.5 text-xs font-bold text-gray-700 border-b border-gray-300 pb-1">2. 비목별</p>
-              <table className="w-full text-[11px] border-collapse">
-                <thead>
-                  <tr className="bg-primary text-white">
-                    <th className={thCls} style={{ width: '20%' }}>비목</th>
-                    <th className={thRCls} style={{ width: '16%' }}>편성액</th>
-                    <th className={thRCls} style={{ width: '14%' }}>증감액</th>
-                    <th className={thRCls} style={{ width: '16%' }}>변경후 편성액</th>
+                    <th className={thCls} style={{ width: '22%' }}>비목</th>
+                    <th className={thRCls} style={{ width: '15%' }}>편성액</th>
+                    <th className={thRCls} style={{ width: '13%' }}>증감액</th>
+                    <th className={thRCls} style={{ width: '15%' }}>변경후 편성액</th>
                     <th className={thRCls} style={{ width: '17%' }}>집행금액</th>
-                    <th className={thRCls} style={{ width: '17%' }}>잔액</th>
+                    <th className={thRCls} style={{ width: '18%' }}>잔액</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -240,89 +216,65 @@ export function BudgetConfirmModal({
               </table>
             </div>
 
-            {/* ── 3. 세목별 ── */}
-            {(() => {
-              // 1차: 세목 기준 정렬 후 그룹화
-              const subMap = new Map<string, Map<string, BudgetDetailRow[]>>();
-              const sortedBySubcat = [...detailSnapshot].sort((a, b) =>
-                (a.subcategory || '').localeCompare(b.subcategory || '', 'ko'),
-              );
-              for (const row of sortedBySubcat) {
-                const sub = row.subcategory || '-';
-                const detail = row.subDetail || '-';
-                if (!subMap.has(sub)) subMap.set(sub, new Map());
-                const detailMap = subMap.get(sub)!;
-                if (!detailMap.has(detail)) detailMap.set(detail, []);
-                detailMap.get(detail)!.push(row);
-              }
-
-              return (
-                <div>
-                  <p className="mb-1.5 text-xs font-bold text-gray-700 border-b border-gray-300 pb-1">3. 세목별</p>
-                  <table className="w-full text-[11px] border-collapse">
-                    <thead>
-                      <tr className="bg-primary text-white">
-                        <th className={thCls} style={{ width: '22%' }}>세목</th>
-                        <th className={thCls} style={{ width: '26%' }}>세세목</th>
-                        <th className={thRCls} style={{ width: '17%' }}>편성액</th>
-                        <th className={thRCls} style={{ width: '13%' }}>증감액</th>
-                        <th className={thRCls} style={{ width: '22%' }}>변경후 편성액</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Array.from(subMap.entries()).map(([subcategory, detailMap]) => {
-                        const subRows = Array.from(detailMap.values()).flat();
-                        const subAlloc = subRows.reduce((s, r) => s + r.allocation, 0);
-                        const subAdj   = subRows.reduce((s, r) => s + r.adjustment, 0);
-                        const subAfter = subRows.reduce((s, r) => s + r.afterAllocation, 0);
-
-                        // 2차: 세세목 기준 정렬
-                        const sortedDetails = Array.from(detailMap.entries()).sort(([a], [b]) =>
-                          a.localeCompare(b, 'ko'),
-                        );
-
-                        return [
-                          // 세목 헤더 행 (취합액)
-                          <tr key={`sub-hdr-${subcategory}`} className="border-t border-gray-300 bg-gray-50">
-                            <td className={`${tdCls} font-semibold text-gray-800`}>{subcategory}</td>
+            <div>
+              <p className="mb-1.5 text-[10px] font-bold text-gray-700 border-b border-gray-300 pb-1">3. 세목별</p>
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-primary text-white">
+                    <th className={thCls} style={{ width: '25%' }}>세목</th>
+                    <th className={thCls} style={{ width: '30%' }}>세세목</th>
+                    <th className={thRCls} style={{ width: '15%' }}>편성액</th>
+                    <th className={thRCls} style={{ width: '12%' }}>증감액</th>
+                    <th className={thRCls} style={{ width: '18%' }}>변경후 편성액</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from(subMap.entries()).map(([subcategory, detailMap]) => {
+                    const subRows = Array.from(detailMap.values()).flat();
+                    const subAlloc = subRows.reduce((s, r) => s + r.allocation, 0);
+                    const subAdj   = subRows.reduce((s, r) => s + r.adjustment, 0);
+                    const subAfter = subRows.reduce((s, r) => s + r.afterAllocation, 0);
+                    const sortedDetails = Array.from(detailMap.entries()).sort(([a], [b]) =>
+                      a.localeCompare(b, 'ko'),
+                    );
+                    return [
+                      <tr key={`sub-hdr-${subcategory}`} className="border-t border-gray-300 bg-gray-50">
+                        <td className={`${tdCls} font-semibold text-gray-800`}>{subcategory}</td>
+                        <td className={tdCls} />
+                        <td className={`${tdRCls} font-semibold text-gray-800`}>{formatKRW(subAlloc)}</td>
+                        <td className={`${tdRCls} font-semibold`}>{adjCell(subAdj)}</td>
+                        <td className={`${tdRCls} font-semibold text-gray-900`}>{formatKRW(subAfter)}</td>
+                      </tr>,
+                      ...sortedDetails.map(([subDetail, detailRows]) => {
+                        const dAlloc = detailRows.reduce((s, r) => s + r.allocation, 0);
+                        const dAdj   = detailRows.reduce((s, r) => s + r.adjustment, 0);
+                        const dAfter = detailRows.reduce((s, r) => s + r.afterAllocation, 0);
+                        return (
+                          <tr
+                            key={`sub-detail-${subcategory}-${subDetail}`}
+                            className={`border-b border-gray-100 ${dAdj !== 0 ? 'bg-blue-50/40' : 'bg-white'}`}
+                          >
                             <td className={tdCls} />
-                            <td className={`${tdRCls} font-semibold text-gray-800`}>{formatKRW(subAlloc)}</td>
-                            <td className={`${tdRCls} font-semibold`}>{adjCell(subAdj)}</td>
-                            <td className={`${tdRCls} font-semibold text-gray-900`}>{formatKRW(subAfter)}</td>
-                          </tr>,
-                          // 세세목별 취합 행 (중복 합산)
-                          ...sortedDetails.map(([subDetail, detailRows]) => {
-                            const dAlloc = detailRows.reduce((s, r) => s + r.allocation, 0);
-                            const dAdj   = detailRows.reduce((s, r) => s + r.adjustment, 0);
-                            const dAfter = detailRows.reduce((s, r) => s + r.afterAllocation, 0);
-                            return (
-                              <tr
-                                key={`sub-detail-${subcategory}-${subDetail}`}
-                                className={`border-b border-gray-100 ${dAdj !== 0 ? 'bg-blue-50/40' : 'bg-white'}`}
-                              >
-                                <td className={tdCls} />
-                                <td className={`${tdCls} text-gray-500`}>{subDetail}</td>
-                                <td className={`${tdRCls} text-gray-700`}>{formatKRW(dAlloc)}</td>
-                                <td className={tdRCls}>{adjCell(dAdj)}</td>
-                                <td className={`${tdRCls} text-gray-800`}>{formatKRW(dAfter)}</td>
-                              </tr>
-                            );
-                          }),
-                        ];
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t-2 border-gray-800 font-bold bg-gray-100">
-                        <td className={tdCls} colSpan={2}>합계</td>
-                        <td className={tdRCls}>{formatKRW(totalBefore)}</td>
-                        <td className={tdRCls}>{adjCell(totalAdj)}</td>
-                        <td className={tdRCls}>{formatKRW(totalAfter)}</td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
-              );
-            })()}
+                            <td className={`${tdCls} text-gray-500`}>{subDetail}</td>
+                            <td className={`${tdRCls} text-gray-700`}>{formatKRW(dAlloc)}</td>
+                            <td className={tdRCls}>{adjCell(dAdj)}</td>
+                            <td className={`${tdRCls} text-gray-800`}>{formatKRW(dAfter)}</td>
+                          </tr>
+                        );
+                      }),
+                    ];
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-800 font-bold bg-gray-100">
+                    <td className={tdCls} colSpan={2}>합계</td>
+                    <td className={tdRCls}>{formatKRW(totalBefore)}</td>
+                    <td className={tdRCls}>{adjCell(totalAdj)}</td>
+                    <td className={tdRCls}>{formatKRW(totalAfter)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
 
           {!hasChanges && (
@@ -332,9 +284,12 @@ export function BudgetConfirmModal({
 
         {/* 푸터 */}
         <div className="flex items-center justify-between border-t px-6 py-4 shrink-0">
-          <Button variant="outline" size="sm" onClick={handleDownloadPdf} className="gap-1.5 text-gray-600">
-            PDF 다운로드
-          </Button>
+          <BudgetPdfDownload
+            detailSnapshot={detailSnapshot}
+            categorySnapshot={categorySnapshot}
+            changedAt={changedAt}
+            label="PDF 다운로드 (2페이지)"
+          />
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onClose} disabled={isLoading}>취소</Button>
             <Button

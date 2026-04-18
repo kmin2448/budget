@@ -1,14 +1,13 @@
 // app/(dashboard)/budget/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BudgetCategoryTable } from '@/components/budget/BudgetCategoryTable';
 import { BudgetDetailTable } from '@/components/budget/BudgetDetailTable';
 import { BudgetIntegratedTable } from '@/components/budget/BudgetIntegratedTable';
-import { BudgetAdjustmentEditor } from '@/components/budget/BudgetAdjustmentEditor';
 import { BudgetConfirmModal } from '@/components/budget/BudgetConfirmModal';
 import { BudgetHistoryTable } from '@/components/budget/BudgetHistoryTable';
 import {
@@ -16,10 +15,12 @@ import {
   useSaveAdjustments,
   useBudgetHistory,
   useSaveHistory,
+  useDeleteHistory,
 } from '@/hooks/useBudget';
+import { parseKRW } from '@/lib/utils';
 import type { BudgetCategoryRow, BudgetDetailRow } from '@/types';
 
-type MainTab = 'status' | 'change' | 'history';
+type MainTab = 'status' | 'history';
 type StatusSubTab = 'category' | 'detail' | 'integrated';
 
 export default function BudgetPage() {
@@ -29,30 +30,70 @@ export default function BudgetPage() {
 
   const saveAdjustments = useSaveAdjustments();
   const saveHistory     = useSaveHistory();
+  const deleteHistory   = useDeleteHistory();
 
   const [mainTab, setMainTab]   = useState<MainTab>('status');
   const [subTab, setSubTab]     = useState<StatusSubTab>('integrated');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingAdjustments, setPendingAdjustments] = useState<{ rowOffset: number; value: number }[]>([]);
 
+  // ── 증감액 편집 상태 (통합 탭 입력 → 비목별·세목별 탭에도 반영) ──
+  const [edits, setEdits] = useState<Record<number, string>>({});
+
+  // refetch 완료 후 detailRows 교체 시 edits 동기화 (확정 후 초기화 포함)
+  const detailRows = data?.detailRows;
+  useEffect(() => {
+    if (!detailRows) return;
+    setEdits(
+      Object.fromEntries(
+        detailRows.map((r) => [r.rowOffset, r.adjustment !== 0 ? String(r.adjustment) : '']),
+      ),
+    );
+  }, [detailRows]);
+
+  const handleEditChange = useCallback((rowOffset: number, raw: string) => {
+    setEdits((prev) => ({ ...prev, [rowOffset]: raw }));
+  }, []);
+
   // 권한 체크
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const userPermissions = (session?.user as { permissions?: string[] } | undefined)?.permissions ?? [];
   const canWrite = userRole === 'super_admin' || userPermissions.includes('budget:write');
 
-  // 증감액 Sheets 저장만 (이력 미기록)
-  async function handleSaveOnly(adjustments: { rowOffset: number; value: number }[]) {
-    try {
-      await saveAdjustments.mutateAsync(adjustments);
-      alert('Sheets에 저장되었습니다.');
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '저장에 실패했습니다.');
-    }
-  }
+  // ── 입력된 증감액이 반영된 미리보기 행 (서브탭 전체 공유) ──
+  const previewDetailRows: BudgetDetailRow[] = (data?.detailRows ?? []).map((r) => {
+    const raw   = edits[r.rowOffset] ?? '';
+    const adj   = raw === '' ? 0 : parseKRW(raw);
+    const after = r.allocation + adj;
+    return {
+      ...r,
+      adjustment:      adj,
+      afterAllocation: after,
+      balance:         after - r.executionComplete - r.executionPlanned,
+      executionRate:
+        after > 0
+          ? Math.round(((r.executionComplete + r.executionPlanned) / after) * 1000) / 10
+          : 0,
+    };
+  });
 
-  // 확정 모달 열기 (이력 기록 예정)
-  function handleOpenConfirm(adjustments: { rowOffset: number; value: number }[]) {
-    setPendingAdjustments(adjustments);
+  const previewCategoryRows: BudgetCategoryRow[] = (data?.categoryRows ?? []).map((catRow) => {
+    const catDetail       = previewDetailRows.filter((r) => r.category === catRow.category);
+    const adjustment      = catDetail.reduce((s, r) => s + r.adjustment, 0);
+    const afterAllocation = catRow.allocation + adjustment;
+    return {
+      ...catRow,
+      adjustment,
+      afterAllocation,
+      balance: afterAllocation - catRow.executionComplete - catRow.executionPlanned,
+    };
+  });
+
+  // 변경 확정 모달 열기
+  function handleOpenConfirm() {
+    setPendingAdjustments(
+      previewDetailRows.map((r) => ({ rowOffset: r.rowOffset, value: r.adjustment })),
+    );
     setConfirmOpen(true);
   }
 
@@ -60,44 +101,18 @@ export default function BudgetPage() {
   async function handleConfirm(changedAt: string) {
     if (!data) return;
     try {
-      // 1. Sheets에 증감액 저장
       await saveAdjustments.mutateAsync(pendingAdjustments);
 
-      // 2. 증감액 적용 후 snapshot 계산
-      const adjMap = new Map(pendingAdjustments.map((a) => [a.rowOffset, a.value]));
-
-      const updatedDetailRows: BudgetDetailRow[] = data.detailRows.map((r) => {
-        const adj   = adjMap.has(r.rowOffset) ? (adjMap.get(r.rowOffset) ?? r.adjustment) : r.adjustment;
-        const after = r.allocation + adj;
-        return {
-          ...r,
-          adjustment: adj,
-          afterAllocation: after,
-          balance: after - r.executionComplete - r.executionPlanned,
-        };
-      });
-
-      const categorySnapshot: BudgetCategoryRow[] = data.categoryRows.map((catRow) => {
-        const catDetail   = updatedDetailRows.filter((r) => r.category === catRow.category);
-        const adjustment  = catDetail.reduce((s, r) => s + r.adjustment, 0);
-        const after       = catRow.allocation + adjustment;
-        return {
-          ...catRow,
-          adjustment,
-          afterAllocation: after,
-          balance: after - catRow.executionComplete - catRow.executionPlanned,
-        };
-      });
-
-      // 3. Supabase 이력 저장 (categorySnapshot + detailSnapshot)
       await saveHistory.mutateAsync({
         changedAt,
-        categorySnapshot,
-        detailSnapshot: updatedDetailRows,
+        categorySnapshot: previewCategoryRows,
+        detailSnapshot:   previewDetailRows,
       });
 
       setConfirmOpen(false);
       setPendingAdjustments([]);
+      setEdits({}); // 저장 성공 즉시 초기화
+      void refetch();
       alert('예산변경이 확정되었습니다. 변경이력이 저장되었습니다.');
       setMainTab('history');
     } catch (err) {
@@ -106,32 +121,6 @@ export default function BudgetPage() {
   }
 
   const isConfirming = saveAdjustments.isPending || saveHistory.isPending;
-
-  // 확정 모달용 스냅샷 (preview)
-  const confirmDetailSnapshot = data
-    ? (() => {
-        const adjMap = new Map(pendingAdjustments.map((a) => [a.rowOffset, a.value]));
-        return data.detailRows.map((r) => {
-          const adj   = adjMap.has(r.rowOffset) ? (adjMap.get(r.rowOffset) ?? r.adjustment) : r.adjustment;
-          const after = r.allocation + adj;
-          return { ...r, adjustment: adj, afterAllocation: after };
-        });
-      })()
-    : [];
-
-  const confirmCategorySnapshot: BudgetCategoryRow[] = data
-    ? data.categoryRows.map((catRow) => {
-        const catDetail   = confirmDetailSnapshot.filter((r) => r.category === catRow.category);
-        const adjustment  = catDetail.reduce((s, r) => s + r.adjustment, 0);
-        const afterAllocation = catRow.allocation + adjustment;
-        return {
-          ...catRow,
-          adjustment,
-          afterAllocation,
-          balance: afterAllocation - catRow.executionComplete - catRow.executionPlanned,
-        };
-      })
-    : [];
 
   return (
     <div className="space-y-5">
@@ -160,26 +149,20 @@ export default function BudgetPage() {
         {(
           [
             { key: 'status',  label: '예산현황' },
-            { key: 'change',  label: '예산변경', disabled: !canWrite },
             { key: 'history', label: '변경이력' },
-          ] as { key: MainTab; label: string; disabled?: boolean }[]
-        ).map(({ key, label, disabled }) => (
+          ] as { key: MainTab; label: string }[]
+        ).map(({ key, label }) => (
           <button
             key={key}
-            disabled={disabled}
             onClick={() => setMainTab(key)}
-            className={`relative px-5 py-2.5 text-sm font-medium transition-colors
-              ${disabled ? 'cursor-not-allowed text-gray-300' : 'cursor-pointer'}
+            className={`relative px-5 py-2.5 text-sm font-medium transition-colors cursor-pointer
               ${
-                mainTab === key && !disabled
+                mainTab === key
                   ? 'text-primary after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-primary'
                   : 'text-gray-500 hover:text-gray-800'
               }`}
           >
             {label}
-            {disabled && (
-              <span className="ml-1 text-xs text-gray-400">(권한 필요)</span>
-            )}
           </button>
         ))}
       </div>
@@ -221,35 +204,20 @@ export default function BudgetPage() {
             <div className="h-64 animate-pulse rounded-lg bg-gray-100" />
           ) : data ? (
             subTab === 'category' ? (
-              <BudgetCategoryTable rows={data.categoryRows} />
+              <BudgetCategoryTable rows={previewCategoryRows} />
             ) : subTab === 'detail' ? (
-              <BudgetDetailTable rows={data.detailRows} />
+              <BudgetDetailTable rows={previewDetailRows} />
             ) : (
               <BudgetIntegratedTable
                 rows={data.detailRows}
                 categoryRows={data.categoryRows}
+                edits={edits}
+                onEditChange={handleEditChange}
                 canWrite={canWrite}
-                isSaving={saveAdjustments.isPending || saveHistory.isPending}
+                isSaving={isConfirming}
                 onOpenConfirm={handleOpenConfirm}
               />
             )
-          ) : null}
-        </div>
-      )}
-
-      {/* ── 예산변경 탭 ── */}
-      {mainTab === 'change' && canWrite && (
-        <div>
-          {isLoading ? (
-            <div className="h-64 animate-pulse rounded-lg bg-gray-100" />
-          ) : data ? (
-            <BudgetAdjustmentEditor
-              detailRows={data.detailRows}
-              categoryRows={data.categoryRows}
-              isSaving={saveAdjustments.isPending}
-              onSave={handleSaveOnly}
-              onConfirm={handleOpenConfirm}
-            />
           ) : null}
         </div>
       )}
@@ -260,7 +228,13 @@ export default function BudgetPage() {
           {historyLoading ? (
             <div className="h-40 animate-pulse rounded-lg bg-gray-100" />
           ) : (
-            <BudgetHistoryTable records={historyData ?? []} />
+            <BudgetHistoryTable
+              records={historyData ?? []}
+              canDelete={canWrite}
+              onDelete={async (id) => {
+                await deleteHistory.mutateAsync(id);
+              }}
+            />
           )}
         </div>
       )}
@@ -269,8 +243,8 @@ export default function BudgetPage() {
       {data && (
         <BudgetConfirmModal
           open={confirmOpen}
-          detailSnapshot={confirmDetailSnapshot}
-          categorySnapshot={confirmCategorySnapshot}
+          detailSnapshot={previewDetailRows}
+          categorySnapshot={previewCategoryRows}
           isLoading={isConfirming}
           onConfirm={handleConfirm}
           onClose={() => setConfirmOpen(false)}

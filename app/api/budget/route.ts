@@ -54,19 +54,23 @@ export async function GET() {
     );
     const validExecRows = sentinelIdx === -1 ? allExecRows : allExecRows.slice(0, sentinelIdx);
 
-    // C열(idx 2)=비목, D열(idx 3)=세목, O열(idx 14)=집행완료, P열(idx 15)=집행예정
+    // C열(idx 2)=비목, D열(idx 3)=보조비목(이나라세목), E열(idx 4)=보조세목(이나라보조세목)
+    // O열(idx 14)=집행완료, P열(idx 15)=집행예정
     const execByCategory: Record<string, { complete: number; planned: number }> = {};
+    // 3단계 키(비목||이나라세목||이나라보조세목)로 집계 — 2단계 키는 동일 비목+세목에 여러
+    // 보조세목이 존재할 때 중복 합산되는 버그를 유발함
     const execBySubcategory: Record<string, { complete: number; planned: number }> = {};
     for (const row of validExecRows) {
-      const cat    = String(row[2] ?? '').trim();
-      const subcat = String(row[3] ?? '').trim();
+      const cat       = String(row[2] ?? '').trim();
+      const subcat    = String(row[3] ?? '').trim();
+      const subdetail = String(row[4] ?? '').trim();
       if (!cat) continue;
       // 비목별 집계
       if (!execByCategory[cat]) execByCategory[cat] = { complete: 0, planned: 0 };
       execByCategory[cat].complete += Number(row[14] ?? 0);
       execByCategory[cat].planned  += Number(row[15] ?? 0);
-      // 세목별 집계 (key: 비목||세목)
-      const subKey = `${cat}||${subcat}`;
+      // 세목+보조세목별 집계 (key: 비목||이나라세목||이나라보조세목)
+      const subKey = `${cat}||${subcat}||${subdetail}`;
       if (!execBySubcategory[subKey]) execBySubcategory[subKey] = { complete: 0, planned: 0 };
       execBySubcategory[subKey].complete += Number(row[14] ?? 0);
       execBySubcategory[subKey].planned  += Number(row[15] ?? 0);
@@ -83,7 +87,7 @@ export async function GET() {
       const subcategory = String(subcategories[i]?.[0] ?? '').trim();
       const subDetail   = String(subDetails[i]?.[0] ?? '').trim();
       const afterAllocation = allocation + adjustment;
-      const execSub = execBySubcategory[`${category}||${subcategory}`] ?? { complete: 0, planned: 0 };
+      const execSub = execBySubcategory[`${category}||${subcategory}||${subDetail}`] ?? { complete: 0, planned: 0 };
       detailRows.push({
         rowOffset: i,
         category,
