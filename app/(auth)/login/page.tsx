@@ -28,7 +28,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-xs text-gray-400">
-          승인된 KNU 계정으로만 접근 가능합니다.
+          승인된 계정으로만 접근 가능합니다.
         </p>
       </div>
     </div>

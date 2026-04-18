@@ -10,7 +10,7 @@ import { formatKRW } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import {
   Pencil, Trash2, Upload, ExternalLink, Plus,
-  ChevronDown, ChevronRight, GripVertical, X,
+  ChevronUp, ChevronDown, ChevronRight, GripVertical, X,
 } from 'lucide-react';
 import { MONTH_COLUMNS, PERSONNEL_CATEGORY } from '@/constants/sheets';
 import type { ExpenditureDetailRow } from '@/types';
@@ -285,13 +285,13 @@ export function ExpenditureTable({
         {isPersonnel ? (
           <>
             <TableCell
-              className="max-w-0 overflow-hidden py-2 text-sm text-gray-700"
+              className="max-w-0 overflow-hidden py-2 text-gray-700"
               onDoubleClick={editMode ? (e) => startInlineEdit(row, 'programName', e) : undefined}
               title={editMode ? '더블클릭하여 편집' : undefined}
             >
               {isEditingProgramName
                 ? renderInlineInput('programName')
-                : <span className={cn('block truncate', editMode && onUpdate && 'cursor-text')} title={row.programName}>{row.programName || '-'}</span>
+                : <span className={cn('block truncate text-[10px]', editMode && onUpdate && 'cursor-text')} title={row.programName}>{row.programName || '-'}</span>
               }
             </TableCell>
             <TableCell className="py-2 text-right text-sm font-medium tabular-nums text-gray-800">
@@ -302,7 +302,7 @@ export function ExpenditureTable({
           <>
             {/* 구분(프로그램명) */}
             <TableCell
-              className="w-44 max-w-[11rem] overflow-hidden py-2 text-sm"
+              className="w-44 max-w-[11rem] overflow-hidden py-2"
               onDoubleClick={editMode ? (e) => startInlineEdit(row, 'programName', e) : undefined}
               title={editMode ? '더블클릭하여 편집' : undefined}
             >
@@ -314,7 +314,7 @@ export function ExpenditureTable({
                     <GripVertical className="h-3.5 w-3.5 shrink-0 text-gray-200" />
                   )}
                   <span
-                    className={cn('block truncate text-gray-500', editMode && onUpdate && 'cursor-text')}
+                    className={cn('block truncate text-[10px] text-gray-500', editMode && onUpdate && 'cursor-text')}
                     title={row.programName}
                   >
                     {row.programName || '-'}
@@ -598,8 +598,16 @@ export function ExpenditureTable({
           ) : isPersonnel ? (
             rows.flatMap((row) => renderDataRow(row, `${row.rowIndex}`))
           ) : (
-            groups!.flatMap(({ label, monthIdx, entries }) => {
+            groups!.flatMap(({ label, monthIdx, entries }, groupIndex) => {
               const isCollapsed = collapsedGroups.has(monthIdx);
+
+              // 접혀있는 상태에서 이후 그룹 중 펼쳐진 것이 있으면 숨김
+              // (펼쳐진 달은 전체 펼치기 등에서도 계속 보여야 하므로 제외)
+              const hiddenByLaterExpand = isCollapsed && groups!.slice(groupIndex + 1).some(
+                (g) => !collapsedGroups.has(g.monthIdx),
+              );
+              if (hiddenByLaterExpand) return [];
+
               const isDragTarget = dragOverMonthIdx === monthIdx;
               const isDraggingActive = !!dragState && dragState.sourceMonthIdx !== monthIdx;
               const groupTotal = entries.reduce((s, e) => s + e.monthAmount, 0);
@@ -610,7 +618,7 @@ export function ExpenditureTable({
                 .filter((e) => e.row.status === 'planned')
                 .reduce((s, e) => s + e.monthAmount, 0);
 
-              return [
+              const totalRow = (
                 <TableRow
                   key={`group-${monthIdx}`}
                   className={cn(
@@ -621,7 +629,7 @@ export function ExpenditureTable({
                         ? 'border-gray-200 bg-blue-50/40 hover:bg-blue-50'
                         : 'border-gray-200 hover:bg-gray-50/60',
                   )}
-                  style={!isDragTarget && !isDraggingActive ? { backgroundColor: 'rgba(255,255,255,0.3)' } : undefined}
+                  style={!isDragTarget && !isDraggingActive ? { backgroundColor: isCollapsed ? 'rgba(255,255,255,0.3)' : 'rgba(214,228,240,0.55)' } : undefined}
                   onDragEnter={(e) => handleGroupDragEnter(e, monthIdx)}
                   onDragOver={(e) => handleGroupDragOver(e, monthIdx)}
                   onDragLeave={() => {
@@ -631,24 +639,24 @@ export function ExpenditureTable({
                   onClick={() => toggleGroup(monthIdx)}
                 >
                   <TableCell colSpan={colCount} className="py-1.5 pl-3 pr-4">
-                    <div className="flex items-center gap-10">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 shrink-0">
                         {isCollapsed
                           ? <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-                          : <ChevronDown className="h-3.5 w-3.5 text-gray-400" />}
+                          : <ChevronUp className="h-3.5 w-3.5 text-gray-400" />}
                         <span className={cn(
                           'inline-block w-8 text-xs font-semibold',
                           isDragTarget ? 'text-blue-600' : 'text-primary',
                         )}>{label}</span>
+                        {isDragTarget && (
+                          <span className="text-xs font-medium text-blue-500">여기에 놓기</span>
+                        )}
                       </div>
                       <div className="flex items-center gap-5 text-xs">
-                        {isDragTarget && (
-                          <span className="font-medium text-blue-500">여기에 놓기</span>
-                        )}
                         <div className="flex items-center">
-                          <span className="w-[3rem] shrink-0 text-gray-500">합계</span>
-                          <span className="w-[5.5rem] text-right tabular-nums font-semibold text-gray-700">{formatKRW(groupTotal)}</span>
-                          <span className="ml-0.5 text-gray-500">원</span>
+                          <span className="w-[3rem] shrink-0 text-gray-400">집행예정</span>
+                          <span className="w-[5.5rem] text-right tabular-nums font-medium text-planned">{formatKRW(plannedTotal)}</span>
+                          <span className="ml-0.5 text-gray-400">원</span>
                         </div>
                         <div className="flex items-center">
                           <span className="w-[3rem] shrink-0 text-gray-400">집행완료</span>
@@ -656,28 +664,30 @@ export function ExpenditureTable({
                           <span className="ml-0.5 text-gray-400">원</span>
                         </div>
                         <div className="flex items-center">
-                          <span className="w-[3rem] shrink-0 text-gray-400">집행예정</span>
-                          <span className="w-[5.5rem] text-right tabular-nums font-medium text-planned">{formatKRW(plannedTotal)}</span>
-                          <span className="ml-0.5 text-gray-400">원</span>
+                          <span className="w-[3rem] shrink-0 text-gray-500">합계</span>
+                          <span className="w-[5.5rem] text-right tabular-nums font-semibold text-gray-700">{formatKRW(groupTotal)}</span>
+                          <span className="ml-0.5 text-gray-500">원</span>
                         </div>
                       </div>
                     </div>
                   </TableCell>
-                </TableRow>,
+                </TableRow>
+              );
 
-                ...(isCollapsed
-                  ? []
-                  : entries.flatMap(({ row, monthAmount }) =>
-                      renderDataRow(
-                        row,
-                        `${row.rowIndex}-${monthIdx}`,
-                        monthIdx,
-                        monthAmount,
-                        getActiveMonths(row),
-                      )
+              const detailRows = isCollapsed
+                ? []
+                : entries.flatMap(({ row, monthAmount }) =>
+                    renderDataRow(
+                      row,
+                      `${row.rowIndex}-${monthIdx}`,
+                      monthIdx,
+                      monthAmount,
+                      getActiveMonths(row),
                     )
-                ),
-              ];
+                  );
+
+              // 상세 행이 합계 행 위에 렌더링됨 (위로 펼치기)
+              return [...detailRows, totalRow];
             })
           )}
         </TableBody>
