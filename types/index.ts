@@ -1,5 +1,5 @@
 // 사용자 권한 체계
-export type UserRole = 'super_admin' | 'admin' | 'staff' | 'professor';
+export type UserRole = 'super_admin' | 'admin' | 'viewer';
 
 export const PERMISSIONS = {
   DASHBOARD_WRITE:   'dashboard:write',   // 대시보드 (프로그램 추가/수정/삭제)

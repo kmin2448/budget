@@ -32,12 +32,22 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createServerSupabaseClient();
+
+    // 이미 부여된 권한이면 그대로 반환
+    const { data: existing } = await supabase
+      .from('user_permissions')
+      .select('*')
+      .eq('user_id', body.user_id)
+      .eq('permission', body.permission)
+      .maybeSingle();
+
+    if (existing) {
+      return NextResponse.json({ permission: existing }, { status: 200 });
+    }
+
     const { data, error } = await supabase
       .from('user_permissions')
-      .upsert(
-        { user_id: body.user_id, permission: body.permission, granted_by: granterId },
-        { onConflict: 'user_id,permission' },
-      )
+      .insert({ user_id: body.user_id, permission: body.permission, granted_by: granterId })
       .select()
       .single();
 

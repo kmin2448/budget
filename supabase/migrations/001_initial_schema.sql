@@ -7,8 +7,8 @@ create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   email text unique not null,
   name text,
-  role text not null default 'staff'
-    check (role in ('super_admin', 'admin', 'staff', 'professor')),
+  role text not null default 'viewer'
+    check (role in ('super_admin', 'admin', 'viewer')),
   created_at timestamptz default now()
 );
 
@@ -17,7 +17,7 @@ create table if not exists user_permissions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references users(id) on delete cascade,
   permission text not null
-    check (permission in ('program:write', 'expenditure:write', 'advance:write')),
+    check (permission in ('dashboard:write', 'expenditure:write', 'budget:write', 'advance:write', 'card:write')),
   granted_by uuid references users(id),
   created_at timestamptz default now(),
   unique(user_id, permission)

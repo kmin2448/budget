@@ -50,8 +50,7 @@ export default function AdminPage() {
         <ul className="space-y-1 text-gray-600 text-xs">
           <li><span className="font-medium text-red-600">슈퍼어드민</span> — 모든 기능 + 권한 관리</li>
           <li><span className="font-medium text-primary">어드민</span> — 슈퍼어드민이 부여한 세부 권한 범위 내 작업 가능</li>
-          <li><span className="font-medium text-green-600">스태프</span> — 기본 집행내역 입력 (집행내역 작성 권한 자동 부여)</li>
-          <li><span className="font-medium text-yellow-600">교수</span> — 담당 프로그램 조회·일부 입력</li>
+          <li><span className="font-medium text-gray-600">뷰어</span> — 전체 조회 + 대시보드 추가 반영사항 작성만 가능</li>
         </ul>
         <p className="mt-2 text-xs text-gray-500">
           세부 권한 (프로그램 작성 / 집행내역 작성 / 선지원금 관리)은 역할이 <strong>어드민</strong>인 경우에만 적용됩니다.

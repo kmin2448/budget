@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Trash2, UserPlus, X } from 'lucide-react';
 import type { UserRole } from '@/types';
@@ -12,15 +11,13 @@ import type { AdminUser } from '@/hooks/useAdmin';
 const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: '슈퍼어드민',
   admin: '어드민',
-  staff: '스태프',
-  professor: '교수',
+  viewer: '뷰어',
 };
 
 const ROLE_COLORS: Record<UserRole, string> = {
   super_admin: 'bg-red-100 text-red-700',
   admin: 'bg-primary-bg text-primary',
-  staff: 'bg-green-100 text-green-700',
-  professor: 'bg-yellow-100 text-yellow-700',
+  viewer: 'bg-gray-100 text-gray-600',
 };
 
 const PERM_LABELS: Record<string, string> = {
@@ -62,7 +59,7 @@ export function UserTable({
   const [showAddForm, setShowAddForm] = useState(false);
   const [addEmail, setAddEmail] = useState('');
   const [addName, setAddName] = useState('');
-  const [addRole, setAddRole] = useState<UserRole>('staff');
+  const [addRole, setAddRole] = useState<UserRole>('viewer');
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
@@ -75,7 +72,7 @@ export function UserTable({
       await onAddUser({ email: addEmail.trim(), name: addName.trim() || undefined, role: addRole });
       setAddEmail('');
       setAddName('');
-      setAddRole('staff');
+      setAddRole('viewer');
       setShowAddForm(false);
     } catch (err) {
       setAddError(err instanceof Error ? err.message : '추가 실패');
@@ -251,20 +248,16 @@ export function UserTable({
                           {ROLE_LABELS[user.role]}
                         </span>
                       ) : (
-                        <Select
+                        <select
                           value={user.role}
-                          onValueChange={(v) => handleRoleChange(user, v as UserRole)}
+                          onChange={(e) => handleRoleChange(user, e.target.value as UserRole)}
                           disabled={roleLoading === user.id}
+                          className={`${inputCls} h-7 py-0.5 text-xs`}
                         >
-                          <SelectTrigger className="h-7 w-32 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(Object.entries(ROLE_LABELS) as [UserRole, string][]).map(([role, label]) => (
-                              <SelectItem key={role} value={role} className="text-xs">{label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          {(Object.entries(ROLE_LABELS) as [UserRole, string][]).map(([role, label]) => (
+                            <option key={role} value={role}>{label}</option>
+                          ))}
+                        </select>
                       )}
                     </td>
 

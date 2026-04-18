@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type { UserRole } from '@/types';
 
-const VALID_ROLES: UserRole[] = ['super_admin', 'admin', 'staff', 'professor'];
+const VALID_ROLES: UserRole[] = ['super_admin', 'admin', 'viewer'];
 
 async function assertSuperAdmin(email: string) {
   const supabase = createServerSupabaseClient();
