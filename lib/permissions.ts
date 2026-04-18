@@ -1,6 +1,5 @@
 // lib/permissions.ts
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { PERMISSIONS } from '@/types';
 
 export async function checkPermission(email: string, permission: string): Promise<boolean> {
   const supabase = createServerSupabaseClient();
