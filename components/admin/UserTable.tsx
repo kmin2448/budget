@@ -85,7 +85,7 @@ export function UserTable({
     setShowAddForm(false);
     setAddEmail('');
     setAddName('');
-    setAddRole('staff');
+    setAddRole('viewer');
     setAddError(null);
   }
 
