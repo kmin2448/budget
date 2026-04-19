@@ -8,7 +8,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { formatKRW, cn } from '@/lib/utils';
 import type { ProgramRow } from '@/hooks/useDashboard';
 import { ChevronDown, ChevronRight, GripVertical, Pencil, Trash2 } from 'lucide-react';
