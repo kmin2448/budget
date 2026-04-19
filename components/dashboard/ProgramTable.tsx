@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { formatKRW, cn } from '@/lib/utils';
 import type { ProgramRow } from '@/hooks/useDashboard';
-import { ChevronDown, ChevronRight, GripVertical, Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Trash2, CheckSquare, Square } from 'lucide-react';
 import { useSidebar } from '@/components/layout/SidebarContext';
 import {
   DndContext,
@@ -54,6 +54,7 @@ interface ProgramTableProps {
   onAutoSave?: (rowIndex: number, field: keyof ProgramRow, value: string | number) => void;
   openGroups?: Record<string, boolean>;
   onToggleGroup?: (key: string) => void;
+  forcedOpenRows?: number[];
 }
 
 type EditingCell = { rowIndex: number; field: string } | null;
@@ -162,6 +163,7 @@ export function ProgramTable({
   rows, onEdit, onDelete, canWrite, isLoggedIn = false,
   editMode = false, changes = {}, onCellChange, onAutoSave,
   openGroups: externalOpenGroups, onToggleGroup: externalToggleGroup,
+  forcedOpenRows,
 }: ProgramTableProps) {
   const { collapsed } = useSidebar();
   const grouped = rows.reduce<{ key: string; rows: ProgramRow[] }[]>((acc, row) => {
@@ -178,6 +180,7 @@ export function ProgramTable({
   const openGroups = externalOpenGroups ?? internalOpenGroups;
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
+  const [localStatus, setLocalStatus] = useState<Record<number, { isCompleted?: boolean; isOnHold?: boolean }>>({});
 
   // ── 카테고리 / 행 정렬 순서 상태 ──
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
@@ -268,8 +271,15 @@ export function ProgramTable({
     else setInternalOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
+  const forcedOpenSet = useMemo(() => new Set(forcedOpenRows ?? []), [forcedOpenRows]);
+
   function toggleRow(rowIndex: number) {
     setOpenRows((prev) => ({ ...prev, [rowIndex]: !prev[rowIndex] }));
+  }
+
+  function getRowOpen(rowIndex: number) {
+    if (forcedOpenSet.has(rowIndex)) return true;
+    return openRows[rowIndex] ?? false;
   }
 
   function getVal<K extends keyof ProgramRow>(row: ProgramRow, field: K): ProgramRow[K] {
@@ -288,7 +298,7 @@ export function ProgramTable({
     );
   }
 
-  const colSpan = canWrite ? 10 : 9;
+  const colSpan = 10;
 
   return (
     <div className={cn(
@@ -310,7 +320,7 @@ export function ProgramTable({
                 <TableHead className="w-24 text-right text-text-secondary font-medium">집행완료</TableHead>
                 <TableHead className="w-24 text-right text-text-secondary font-medium">집행예정</TableHead>
                 <TableHead className="w-16 text-right text-text-secondary font-medium">집행률</TableHead>
-                {canWrite && <TableHead className="w-16 text-center text-text-secondary font-medium">관리</TableHead>}
+                <TableHead className="w-24 text-center text-text-secondary font-medium">완료/보류</TableHead>
               </TableRow>
             </TableHeader>
             <SortableContext items={orderedGrouped.map((g) => `cat:${g.key}`)} strategy={verticalListSortingStrategy}>
@@ -378,7 +388,7 @@ export function ProgramTable({
                   <TableCell className="py-2 text-right">
                     <ExecutionRateBadge rate={catRate} />
                   </TableCell>
-                  {canWrite && <TableCell />}
+                  <TableCell />
                 </TableRow>
 
                 {/* ── 개별 프로그램 행들 ── */}
@@ -390,7 +400,7 @@ export function ProgramTable({
                       strategy={verticalListSortingStrategy}
                     >
                         {orderedRows.map((row) => {
-                    const isRowOpen = openRows[row.rowIndex] ?? false;
+                    const isRowOpen = getRowOpen(row.rowIndex);
                     const hasDetail =
                       getVal(row, 'note') ||
                       getVal(row, 'budget') ||
@@ -513,26 +523,52 @@ export function ProgramTable({
                           <TableCell className="py-2 text-right">
                             <ExecutionRateBadge rate={row.executionRate} />
                           </TableCell>
-                          {canWrite && (
-                            <TableCell className="py-2 text-center">
-                              <div className="flex justify-center gap-1">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); onEdit?.(row); }}
-                                  title="수정"
-                                  className="rounded-lg p-1.5 text-gray-300 hover:bg-primary-bg hover:text-primary transition-colors"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); onDelete?.(row); }}
-                                  title="삭제"
-                                  className="rounded-lg p-1.5 text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </TableCell>
-                          )}
+                          <TableCell className="py-2 text-center">
+                            {(() => {
+                              const isCompleted = localStatus[row.rowIndex]?.isCompleted ?? row.isCompleted ?? false;
+                              const isOnHold = localStatus[row.rowIndex]?.isOnHold ?? row.isOnHold ?? false;
+                              return (
+                                <div className="flex items-center justify-center gap-0.5">
+                                  <button
+                                    disabled={!isLoggedIn}
+                                    title={isLoggedIn ? (isCompleted ? '완료 해제' : '완료 처리') : '로그인 필요'}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const next = !isCompleted;
+                                      setLocalStatus((prev) => ({ ...prev, [row.rowIndex]: { ...prev[row.rowIndex], isCompleted: next } }));
+                                      onAutoSave?.(row.rowIndex, 'isCompleted', next ? 'TRUE' : 'FALSE');
+                                    }}
+                                    className={cn(
+                                      'flex items-center gap-0.5 rounded px-1 py-0.5 text-xs transition-colors',
+                                      isLoggedIn ? 'cursor-pointer hover:opacity-70' : 'cursor-default opacity-40',
+                                      isCompleted ? 'text-complete' : 'text-gray-300',
+                                    )}
+                                  >
+                                    {isCompleted ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                                    <span>완료</span>
+                                  </button>
+                                  <button
+                                    disabled={!isLoggedIn}
+                                    title={isLoggedIn ? (isOnHold ? '보류 해제' : '보류 처리') : '로그인 필요'}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const next = !isOnHold;
+                                      setLocalStatus((prev) => ({ ...prev, [row.rowIndex]: { ...prev[row.rowIndex], isOnHold: next } }));
+                                      onAutoSave?.(row.rowIndex, 'isOnHold', next ? 'TRUE' : 'FALSE');
+                                    }}
+                                    className={cn(
+                                      'flex items-center gap-0.5 rounded px-1 py-0.5 text-xs transition-colors',
+                                      isLoggedIn ? 'cursor-pointer hover:opacity-70' : 'cursor-default opacity-40',
+                                      isOnHold ? 'text-planned' : 'text-gray-300',
+                                    )}
+                                  >
+                                    {isOnHold ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                                    <span>보류</span>
+                                  </button>
+                                </div>
+                              );
+                            })()}
+                          </TableCell>
                         </TableRow>
 
                         {/* 상세 펼침 행 */}
@@ -542,13 +578,21 @@ export function ProgramTable({
                               <div className="text-sm space-y-2">
                                 {/* 추가 반영사항 */}
                                 <div>
-                                  <div className="font-medium text-text-secondary mb-1">추가 반영사항</div>
+                                  <div className="font-medium text-text-secondary mb-1 flex items-center gap-1">
+                                    추가 반영사항
+                                    {row.additionalReflectionDate && (
+                                      <span className="font-normal text-gray-400">({row.additionalReflectionDate})</span>
+                                    )}
+                                  </div>
                                   <textarea
                                     defaultValue={getVal(row, 'additionalReflection')}
                                     onBlur={(e) => {
                                       if (e.target.value !== row.additionalReflection) {
+                                        const newDate = e.target.value ? new Date().toISOString().slice(0, 10) : '';
                                         onAutoSave?.(row.rowIndex, 'additionalReflection', e.target.value);
+                                        onAutoSave?.(row.rowIndex, 'additionalReflectionDate', newDate);
                                         row.additionalReflection = e.target.value;
+                                        row.additionalReflectionDate = newDate || undefined;
                                       }
                                     }}
                                     disabled={!isLoggedIn}
@@ -683,6 +727,18 @@ export function ProgramTable({
                                       </span>
                                     </div>
                                   </div>
+                                  {canWrite && (
+                                    <div className="flex justify-end pt-1">
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); onDelete?.(row); }}
+                                        title="삭제"
+                                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        삭제
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </TableCell>

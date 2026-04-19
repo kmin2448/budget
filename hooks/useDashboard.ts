@@ -7,7 +7,10 @@ export interface ProgramRow {
   budget: string;         // C열: 비목
   subCategory: string;    // D열: 보조비목(세목)
   subDetail: string;      // E열: 보조세목
-  additionalReflection?: string; // R열: 추가 반영사항
+  additionalReflection?: string;     // R열: 추가 반영사항
+  additionalReflectionDate?: string; // S열: 추가 반영사항 작성일
+  isCompleted?: boolean;             // T열: 완료 여부
+  isOnHold?: boolean;                // U열: 보류 여부
   professor: string;      // F열: 소관
   note: string;           // I열: 비고
   teacher: string;        // J열: 담당교원

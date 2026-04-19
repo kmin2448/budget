@@ -5,6 +5,16 @@ import { calcExecutionRate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
+// Google Sheets 날짜 시리얼 → YYYY-MM-DD 변환
+function sheetsSerialToDateStr(raw: unknown): string {
+  if (typeof raw === 'number') {
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const epoch = new Date(1899, 11, 30).getTime();
+    return new Date(epoch + raw * msPerDay).toISOString().slice(0, 10);
+  }
+  return String(raw ?? '').trim();
+}
+
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID!;
 const SHEET = "'집행내역 정리'";
 
@@ -33,10 +43,10 @@ export async function GET() {
         ],
         valueRenderOption: 'UNFORMATTED_VALUE',
       }),
-      // 프로그램 행: A~R열, 6행~500행 (sentinel 행까지 동적 탐색)
+      // 프로그램 행: A~U열, 6행~500행 (sentinel 행까지 동적 탐색)
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET}!A6:R500`,
+        range: `${SHEET}!A6:U500`,
         valueRenderOption: 'UNFORMATTED_VALUE',
       }),
     ]);
@@ -98,7 +108,10 @@ export async function GET() {
         const execComplete  = Number(row[14] ?? 0);         // O: 집행완료
         const execPlanned   = Number(row[15] ?? 0);         // P: 집행예정
         const advanceFunds  = Number(row[16] ?? 0);         // Q: 선지원금
-        const additionalReflection = String(row[17] ?? '').trim(); // R: 추가 반영사항
+        const additionalReflection     = String(row[17] ?? '').trim(); // R: 추가 반영사항
+        const additionalReflectionDate = sheetsSerialToDateStr(row[18]);         // S: 작성일
+        const isCompleted = row[19] === true || String(row[19] ?? '').toUpperCase() === 'TRUE'; // T: 완료여부
+        const isOnHold    = row[20] === true || String(row[20] ?? '').toUpperCase() === 'TRUE'; // U: 보류여부
 
         return {
           rowIndex: idx + 6,
@@ -108,6 +121,9 @@ export async function GET() {
           subCategory,
           subDetail,
           additionalReflection,
+          additionalReflectionDate: additionalReflectionDate || undefined,
+          isCompleted,
+          isOnHold,
           professor,
           note,
           teacher,

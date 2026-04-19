@@ -240,6 +240,9 @@ const FIELD_COLUMN: Record<string, string> = {
   staff: 'K',
   budgetPlan: 'L',
   additionalReflection: 'R',
+  additionalReflectionDate: 'S',
+  isCompleted: 'T',
+  isOnHold: 'U',
 };
 
 // 인라인 편집 일괄 저장
@@ -259,10 +262,10 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ message: '변경 사항이 없습니다.' });
     }
 
-    // additionalReflection 필드만 포함된 경우 로그인 사용자 누구나 허용
-    // 그 외 필드가 포함된 경우 DASHBOARD_WRITE 권한 필요
-    const isOnlyAdditionalReflection = updates.every((u) => u.field === 'additionalReflection');
-    if (!isOnlyAdditionalReflection) {
+    // 아래 필드는 로그인 사용자 누구나 허용 (권한 불필요)
+    const NO_PERMISSION_FIELDS = new Set(['additionalReflection', 'additionalReflectionDate', 'isCompleted', 'isOnHold']);
+    const isOnlyFreeFields = updates.every((u) => NO_PERMISSION_FIELDS.has(u.field));
+    if (!isOnlyFreeFields) {
       const hasPermission = await checkPermission(session.user.email, PERMISSIONS.DASHBOARD_WRITE);
       if (!hasPermission) {
         return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
@@ -271,24 +274,35 @@ export async function PATCH(req: NextRequest) {
 
     const sheets = getSheetsClient();
 
-    const data = updates
-      .filter(({ field }) => field in FIELD_COLUMN)
+    // additionalReflectionDate는 RAW로 저장 (USER_ENTERED 시 Sheets가 날짜 시리얼로 변환)
+    const RAW_FIELDS = new Set(['additionalReflectionDate']);
+
+    const rawData = updates
+      .filter(({ field }) => field in FIELD_COLUMN && RAW_FIELDS.has(field))
       .map(({ rowIndex, field, value }) => ({
         range: `${SHEET}!${FIELD_COLUMN[field]}${rowIndex}`,
         values: [[value]],
       }));
 
-    if (data.length > 0) {
-      await sheets.spreadsheets.values.batchUpdate({
-        spreadsheetId: SPREADSHEET_ID,
-        requestBody: {
-          valueInputOption: 'USER_ENTERED',
-          data,
-        },
-      });
-    }
+    const normalData = updates
+      .filter(({ field }) => field in FIELD_COLUMN && !RAW_FIELDS.has(field))
+      .map(({ rowIndex, field, value }) => ({
+        range: `${SHEET}!${FIELD_COLUMN[field]}${rowIndex}`,
+        values: [[value]],
+      }));
 
-    return NextResponse.json({ message: `${data.length}개 셀이 수정되었습니다.` });
+    await Promise.all([
+      rawData.length > 0 && sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: { valueInputOption: 'RAW', data: rawData },
+      }),
+      normalData.length > 0 && sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: { valueInputOption: 'USER_ENTERED', data: normalData },
+      }),
+    ]);
+
+    return NextResponse.json({ message: `${rawData.length + normalData.length}개 셀이 수정되었습니다.` });
   } catch (error) {
     console.error('Program PATCH error:', error);
     return NextResponse.json({ error: '수정 중 오류가 발생했습니다.' }, { status: 500 });

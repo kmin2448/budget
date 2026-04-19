@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, Pencil } from 'lucide-react';
 import { useSession } from 'next-auth/react';
+import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
   const { data, isLoading, isError, error, refetch } = useDashboard();
@@ -51,6 +52,11 @@ export default function DashboardPage() {
   function toggleAll(open: boolean) {
     setOpenGroups(Object.fromEntries(groupKeys.map((k) => [k, open])));
   }
+
+  // 필터
+  const [filterRecent, setFilterRecent] = useState(false);
+  const [filterExcludeCompleted, setFilterExcludeCompleted] = useState(false);
+  const [filterExcludeOnHold, setFilterExcludeOnHold] = useState(false);
 
   // 인라인 편집 모드
   const [editMode, setEditMode] = useState(false);
@@ -166,6 +172,25 @@ export default function DashboardPage() {
 
   const changedRowCount = Object.keys(changes).length;
 
+  const oneMonthAgo = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
+  const filteredRows = useMemo(() => {
+    let rows = data?.programRows ?? [];
+    if (filterRecent) rows = rows.filter((r) => !!r.additionalReflectionDate && r.additionalReflectionDate >= oneMonthAgo);
+    if (filterExcludeCompleted) rows = rows.filter((r) => !r.isCompleted);
+    if (filterExcludeOnHold) rows = rows.filter((r) => !r.isOnHold);
+    return rows;
+  }, [data?.programRows, filterRecent, filterExcludeCompleted, filterExcludeOnHold, oneMonthAgo]);
+
+  const forcedOpenRows = useMemo(() => {
+    if (!filterRecent) return undefined;
+    return filteredRows.map((r) => r.rowIndex);
+  }, [filterRecent, filteredRows]);
+
   return (
     <div className="space-y-6">
       {/* 헤더 */}
@@ -203,13 +228,47 @@ export default function DashboardPage() {
       {/* 프로그램별 테이블 */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-lg font-semibold text-[#131310]">프로그램별 집행 현황</h2>
             <button
               onClick={() => toggleAll(!allOpen)}
               className="text-xs text-primary hover:underline"
             >
               {allOpen ? '전체 접기' : '전체 펼치기'}
+            </button>
+            <span className="text-[#E3E3E0]">|</span>
+            <button
+              onClick={() => setFilterRecent((v) => !v)}
+              className={cn(
+                'text-xs rounded-full px-2.5 py-0.5 border transition-colors',
+                filterRecent
+                  ? 'bg-primary text-white border-primary'
+                  : 'text-text-secondary border-[#E3E3E0] hover:border-primary hover:text-primary',
+              )}
+            >
+              추가반영(1달이내)
+            </button>
+            <button
+              onClick={() => setFilterExcludeCompleted((v) => !v)}
+              className={cn(
+                'text-xs rounded-full px-2.5 py-0.5 border transition-colors',
+                filterExcludeCompleted
+                  ? 'bg-complete text-white border-complete'
+                  : 'text-text-secondary border-[#E3E3E0] hover:border-complete hover:text-complete',
+              )}
+            >
+              완료건 제외
+            </button>
+            <button
+              onClick={() => setFilterExcludeOnHold((v) => !v)}
+              className={cn(
+                'text-xs rounded-full px-2.5 py-0.5 border transition-colors',
+                filterExcludeOnHold
+                  ? 'bg-planned text-white border-planned'
+                  : 'text-text-secondary border-[#E3E3E0] hover:border-planned hover:text-planned',
+              )}
+            >
+              보류건 제외
             </button>
           </div>
           <div className="flex items-center gap-2">
@@ -277,7 +336,7 @@ export default function DashboardPage() {
           <div className="h-64 animate-pulse rounded-lg bg-[#F3F3EE]" />
         ) : data ? (
           <ProgramTable
-            rows={data.programRows}
+            rows={filteredRows}
             onEdit={handleEdit}
             onDelete={handleDeleteClick}
             canWrite={canWrite}
@@ -288,6 +347,7 @@ export default function DashboardPage() {
             onAutoSave={handleAutoSave}
             openGroups={openGroups}
             onToggleGroup={toggleGroup}
+            forcedOpenRows={forcedOpenRows}
           />
         ) : null}
       </div>
