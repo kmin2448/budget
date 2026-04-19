@@ -41,7 +41,7 @@ export default function DashboardPage() {
         return next;
       });
     }
-  }, [groupKeys.join(',')]);
+  }, [groupKeys]);
 
   const allOpen = groupKeys.length > 0 && groupKeys.every((k) => openGroups[k] !== false);
 
