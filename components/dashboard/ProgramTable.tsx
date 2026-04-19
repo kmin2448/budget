@@ -519,14 +519,14 @@ export function ProgramTable({
                                 <button
                                   onClick={(e) => { e.stopPropagation(); onEdit?.(row); }}
                                   title="수정"
-                                  className="rounded-lg p-1.5 text-text-secondary hover:bg-primary-bg hover:text-primary transition-colors"
+                                  className="rounded-lg p-1.5 text-gray-300 hover:bg-primary-bg hover:text-primary transition-colors"
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                 </button>
                                 <button
                                   onClick={(e) => { e.stopPropagation(); onDelete?.(row); }}
                                   title="삭제"
-                                  className="rounded-lg p-1.5 text-text-secondary hover:bg-red-50 hover:text-red-500 transition-colors"
+                                  className="rounded-lg p-1.5 text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>
