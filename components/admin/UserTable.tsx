@@ -99,7 +99,18 @@ export function UserTable({
   const [roleLoading, setRoleLoading] = useState<string | null>(null);
   const [permLoading, setPermLoading] = useState<string | null>(null);
 
-  useEffect(() => { setOrderedUsers(users); }, [users]);
+  useEffect(() => {
+    setOrderedUsers((prev) => {
+      // 기존 순서를 유지하면서 삭제된 사용자 제거, 데이터 갱신, 신규 사용자 맨 뒤에 추가
+      const userMap = new Map(users.map((u) => [u.id, u]));
+      const updated = prev
+        .filter((u) => userMap.has(u.id))
+        .map((u) => userMap.get(u.id)!);
+      const existingIds = new Set(prev.map((u) => u.id));
+      const added = users.filter((u) => !existingIds.has(u.id));
+      return [...updated, ...added];
+    });
+  }, [users]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
