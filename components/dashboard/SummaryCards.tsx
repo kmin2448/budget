@@ -1,6 +1,6 @@
 import { formatKRW } from '@/lib/utils';
 import type { DashboardSummary } from '@/hooks/useDashboard';
-import { CheckCircle, Clock, TrendingUp, BarChart2 } from 'lucide-react';
+import { CheckCircle, Clock, BarChart2 } from 'lucide-react';
 
 interface SummaryCardsProps {
   summary: DashboardSummary;
@@ -15,7 +15,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
 
       {/* ── 1. 총예산 카드 ── */}
       <div className="rounded-[2px] border border-[#E3E3E0] bg-white shadow-soft h-[150px] p-4 flex flex-col gap-2">
-        <div>
+        <div className="flex items-center h-[22px]">
           <p className="text-xs font-medium text-text-secondary">총예산</p>
         </div>
         <div className="flex-1 flex flex-col justify-between">
@@ -38,11 +38,8 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
 
       {/* ── 2. 잔액 카드 ── */}
       <div className="rounded-[2px] border border-[#E3E3E0] bg-white shadow-soft h-[150px] p-4 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center h-[22px]">
           <p className="text-xs font-medium text-text-secondary">잔액</p>
-          <div className="rounded-full p-1 bg-[#F3F3EE]">
-            <TrendingUp className={`h-3.5 w-3.5 ${balanceColor}`} />
-          </div>
         </div>
         <div className="flex-1 flex flex-col justify-between">
           <div>
@@ -51,7 +48,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <p className="text-xs text-text-secondary truncate">총예산 - (집행완료 + 집행예정 + 간접비)</p>
-              <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-[#F3F3EE] px-1.5 py-0.5 text-xs font-medium text-text-secondary">
+              <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-[#F3F3EE] px-1.5 py-px text-xs font-medium text-text-secondary">
                 <BarChart2 className="h-3 w-3" />
                 {(summary.mainBudgetExecutionRate ?? 0).toFixed(1)}%
               </span>
@@ -61,7 +58,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
             <p className={`text-sm font-medium ${planBalanceColor}`}>
               {formatKRW(summary.balance)}
             </p>
-            <p className="text-xs text-text-secondary">예산계획 - 집행완료 - 집행예정</p>
+            <p className="text-xs text-text-secondary">예산계획 - (집행완료 + 집행예정)</p>
           </div>
         </div>
       </div>
