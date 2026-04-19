@@ -291,7 +291,7 @@ export function ExpenditureTable({
             >
               {isEditingProgramName
                 ? renderInlineInput('programName')
-                : <span className={cn('block truncate text-[10px]', editMode && onUpdate && 'cursor-text')} title={row.programName}>{row.programName || '-'}</span>
+                : <span className={cn('block truncate text-sm', editMode && onUpdate && 'cursor-text')} title={row.programName}>{row.programName || '-'}</span>
               }
             </TableCell>
             <TableCell className="py-2 text-right text-sm font-medium tabular-nums text-gray-800">
