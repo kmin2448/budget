@@ -57,25 +57,28 @@ interface InlineEditCellProps {
   editingCell: EditingCell;
   setEditingCell: (v: EditingCell) => void;
   onCellChange?: (rowIndex: number, field: keyof ProgramRow, value: string | number) => void;
+  onAutoSave?: (rowIndex: number, field: keyof ProgramRow, value: string | number) => void;
   displayValue?: React.ReactNode;
   className?: string;
   multiline?: boolean;
   showTitle?: boolean;
+  editKey?: string;
 }
 
 function InlineEditCell({
   rowIndex, field, value, editMode, isChanged,
-  editingCell, setEditingCell, onCellChange,
-  displayValue, className, multiline = false, showTitle = false,
+  editingCell, setEditingCell, onCellChange, onAutoSave,
+  displayValue, className, multiline = false, showTitle = false, editKey,
 }: InlineEditCellProps) {
+  const cellKey = editKey ?? (field as string);
   const isEditing =
-    editingCell?.rowIndex === rowIndex && editingCell?.field === (field as string);
+    editingCell?.rowIndex === rowIndex && editingCell?.field === cellKey;
   const [draft, setDraft] = useState('');
 
   function start(e: React.MouseEvent) {
     e.stopPropagation();
     setDraft(String(value ?? ''));
-    setEditingCell({ rowIndex, field: field as string });
+    setEditingCell({ rowIndex, field: cellKey });
   }
 
   function commit() {
@@ -83,7 +86,11 @@ function InlineEditCell({
     const final: string | number = isNum
       ? Number(draft.replace(/,/g, '')) || 0
       : draft;
-    onCellChange?.(rowIndex, field, final);
+    if (editMode) {
+      onCellChange?.(rowIndex, field, final);
+    } else {
+      onAutoSave?.(rowIndex, field, final);
+    }
     setEditingCell(null);
   }
 
@@ -126,13 +133,13 @@ function InlineEditCell({
   return (
     <div
       className={cn(
-        'min-h-[1.25rem] rounded',
-        editMode && 'cursor-text hover:bg-amber-50/60',
+        'rounded cursor-text hover:bg-amber-50/60 leading-none',
         isChanged && 'bg-amber-100 px-1 ring-1 ring-amber-300',
         className,
       )}
-      onDoubleClick={editMode ? start : undefined}
-      title={editMode ? `더블클릭하여 수정${showTitle && strValue ? ` | ${strValue}` : ''}` : (showTitle && strValue ? strValue : undefined)}
+      onClick={editMode ? start : undefined}
+      onDoubleClick={!editMode ? start : undefined}
+      title={editMode ? `클릭하여 수정${showTitle && strValue ? ` | ${strValue}` : ''}` : `더블클릭하여 수정${showTitle && strValue ? ` | ${strValue}` : ''}`}
     >
       {displayValue ?? (value !== '' && value !== 0 ? strValue : (editMode ? <span className="text-gray-300 text-xs">—</span> : '-'))}
     </div>
@@ -342,20 +349,22 @@ export function ProgramTable({
                       <React.Fragment key={`row-group-${row.rowIndex}`}>
                         {/* 프로그램 행 */}
                         <TableRow
-                          className={cn(
-                            'transition-colors bg-white hover:bg-[#FAFAF8]',
-                            hasDetail && 'cursor-pointer',
-                          )}
-                          onClick={() => hasDetail && toggleRow(row.rowIndex)}
+                          className="transition-colors bg-white hover:bg-[#FAFAF8]"
                         >
-                          <TableCell className="py-2 pl-7 pr-1">
+                          <TableCell
+                            className="py-2 pl-7 pr-1 cursor-pointer"
+                            onClick={() => hasDetail && toggleRow(row.rowIndex)}
+                          >
                             {hasDetail && (
                               isRowOpen
                                 ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                                 : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
                             )}
                           </TableCell>
-                          <TableCell className={cn("py-2 pl-5 text-sm overflow-hidden", isIncomplete ? "text-primary" : "text-gray-800")}>
+                          <TableCell
+                            className={cn("py-2 pl-5 text-sm overflow-hidden", isIncomplete ? "text-primary" : "text-gray-800", !editMode && hasDetail && "cursor-pointer")}
+                            onClick={!editMode ? () => toggleRow(row.rowIndex) : undefined}
+                          >
                             <InlineEditCell
                               rowIndex={row.rowIndex} field="programName"
                               value={getVal(row, 'programName')}
@@ -374,6 +383,8 @@ export function ProgramTable({
                               isChanged={isCellChanged(row.rowIndex, 'professor')}
                               editingCell={editingCell} setEditingCell={setEditingCell}
                               onCellChange={onCellChange}
+                              onAutoSave={onAutoSave}
+                              editKey={`${row.rowIndex}_col_professor`}
                               className={collapsed ? "whitespace-normal break-keep" : "truncate"}
                               showTitle
                             />
@@ -386,6 +397,8 @@ export function ProgramTable({
                               isChanged={isCellChanged(row.rowIndex, 'teacher')}
                               editingCell={editingCell} setEditingCell={setEditingCell}
                               onCellChange={onCellChange}
+                              onAutoSave={onAutoSave}
+                              editKey={`${row.rowIndex}_col_teacher`}
                               className={collapsed ? "whitespace-normal break-keep" : "truncate"}
                               showTitle
                             />
@@ -398,6 +411,8 @@ export function ProgramTable({
                               isChanged={isCellChanged(row.rowIndex, 'staff')}
                               editingCell={editingCell} setEditingCell={setEditingCell}
                               onCellChange={onCellChange}
+                              onAutoSave={onAutoSave}
+                              editKey={`${row.rowIndex}_col_staff`}
                               className={collapsed ? "whitespace-normal break-keep" : "truncate"}
                               showTitle
                             />
@@ -410,6 +425,8 @@ export function ProgramTable({
                               isChanged={isCellChanged(row.rowIndex, 'budgetPlan')}
                               editingCell={editingCell} setEditingCell={setEditingCell}
                               onCellChange={onCellChange}
+                              onAutoSave={onAutoSave}
+                              editKey={`${row.rowIndex}_col_budgetPlan`}
                               displayValue={formatKRW(getVal(row, 'budgetPlan'))}
                               className="text-right"
                             />
@@ -450,83 +467,8 @@ export function ProgramTable({
                           <TableRow className="bg-[#FAFAF8]">
                             <TableCell colSpan={colSpan} className="pb-4 pt-2 pl-[52px] pr-6">
                               <div className="text-sm space-y-2">
-                                {/* 프로그램명 (풀 텍스트) */}
-                                <div className="pb-2 border-b border-divider flex gap-2">
-                                  <span className="font-medium text-text-secondary shrink-0">프로그램명</span>
-                                  <span className="text-[#131310] whitespace-pre-wrap flex-1">{getVal(row, 'programName')}</span>
-                                </div>
-                                {/* 비고 */}
-                                {(getVal(row, 'note') || editMode) && (
-                                  <div className="pb-2 border-b border-divider flex gap-2">
-                                    <span className="font-medium text-text-secondary shrink-0">비고</span>
-                                    <InlineEditCell
-                                      rowIndex={row.rowIndex} field="note"
-                                      value={getVal(row, 'note')}
-                                      editMode={editMode}
-                                      isChanged={isCellChanged(row.rowIndex, 'note')}
-                                      editingCell={editingCell} setEditingCell={setEditingCell}
-                                      onCellChange={onCellChange}
-                                      multiline
-                                      className="text-gray-500 whitespace-pre-wrap flex-1"
-                                    />
-                                  </div>
-                                )}
-                                {/* 비목/세목/보조세목/잔액 */}
-                                <div className="flex flex-wrap gap-4 items-center">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium text-text-secondary">비목</span>
-                                    {editMode ? (
-                                      <InlineEditCell
-                                        rowIndex={row.rowIndex} field="budget"
-                                        value={getVal(row, 'budget')}
-                                        editMode={editMode}
-                                        isChanged={isCellChanged(row.rowIndex, 'budget')}
-                                        editingCell={editingCell} setEditingCell={setEditingCell}
-                                        onCellChange={onCellChange}
-                                        className="text-gray-500"
-                                      />
-                                    ) : (
-                                      <Badge variant="outline" className="border-[#E3E3E0] text-text-secondary">
-                                        {getVal(row, 'budget') || '-'}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium text-text-secondary">세목</span>
-                                    <InlineEditCell
-                                      rowIndex={row.rowIndex} field="subCategory"
-                                      value={getVal(row, 'subCategory')}
-                                      editMode={editMode}
-                                      isChanged={isCellChanged(row.rowIndex, 'subCategory')}
-                                      editingCell={editingCell} setEditingCell={setEditingCell}
-                                      onCellChange={onCellChange}
-                                      className="text-gray-500"
-                                    />
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium text-text-secondary">보조세목</span>
-                                    <InlineEditCell
-                                      rowIndex={row.rowIndex} field="subDetail"
-                                      value={getVal(row, 'subDetail')}
-                                      editMode={editMode}
-                                      isChanged={isCellChanged(row.rowIndex, 'subDetail')}
-                                      editingCell={editingCell} setEditingCell={setEditingCell}
-                                      onCellChange={onCellChange}
-                                      className="text-gray-500"
-                                    />
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium text-text-secondary">잔액</span>
-                                    <span className={cn(
-                                      'font-medium tabular-nums text-text-secondary',
-                                      row.balance < 0 && 'text-red-400',
-                                    )}>
-                                      {formatKRW(row.balance)}원
-                                    </span>
-                                  </div>
-                                </div>
                                 {/* 추가 반영사항 */}
-                                <div className="pt-2 border-t border-divider mt-2">
+                                <div>
                                   <div className="font-medium text-text-secondary mb-1">추가 반영사항</div>
                                   <textarea
                                     defaultValue={getVal(row, 'additionalReflection')}
@@ -541,6 +483,133 @@ export function ProgramTable({
                                     className="w-full resize-y rounded-lg border border-[#E3E3E0] p-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-[#F3F3EE] disabled:text-text-secondary disabled:border-transparent transition-colors"
                                     rows={2}
                                   />
+                                </div>
+                                {/* 하단 메타 정보 */}
+                                <div className="pt-2 border-t border-divider mt-1 space-y-1.5 text-xs">
+                                  {/* 비고 */}
+                                  {(getVal(row, 'note') || editMode) && (
+                                    <div className="flex h-5 items-center gap-1 text-gray-400">
+                                      <span className="shrink-0">비고</span>
+                                      <InlineEditCell
+                                        rowIndex={row.rowIndex} field="note"
+                                        value={getVal(row, 'note')}
+                                        editMode={editMode}
+                                        isChanged={isCellChanged(row.rowIndex, 'note')}
+                                        editingCell={editingCell} setEditingCell={setEditingCell}
+                                        onCellChange={onCellChange}
+                                        onAutoSave={onAutoSave}
+                                        className="flex items-center text-gray-400"
+                                      />
+                                    </div>
+                                  )}
+                                  {/* 소관/담당교원/담당직원 */}
+                                  <div className="flex flex-wrap gap-x-5 gap-y-1 text-gray-400">
+                                    <div className="flex h-5 items-center gap-1">
+                                      <span className="shrink-0">소관</span>
+                                      <InlineEditCell
+                                        rowIndex={row.rowIndex} field="professor"
+                                        value={getVal(row, 'professor')}
+                                        editMode={editMode}
+                                        isChanged={isCellChanged(row.rowIndex, 'professor')}
+                                        editingCell={editingCell} setEditingCell={setEditingCell}
+                                        onCellChange={onCellChange}
+                                        onAutoSave={onAutoSave}
+                                        className="flex items-center"
+                                      />
+                                    </div>
+                                    <div className="flex h-5 items-center gap-1">
+                                      <span className="shrink-0">담당교원</span>
+                                      <InlineEditCell
+                                        rowIndex={row.rowIndex} field="teacher"
+                                        value={getVal(row, 'teacher')}
+                                        editMode={editMode}
+                                        isChanged={isCellChanged(row.rowIndex, 'teacher')}
+                                        editingCell={editingCell} setEditingCell={setEditingCell}
+                                        onCellChange={onCellChange}
+                                        onAutoSave={onAutoSave}
+                                        className="flex items-center"
+                                      />
+                                    </div>
+                                    <div className="flex h-5 items-center gap-1">
+                                      <span className="shrink-0">담당직원</span>
+                                      <InlineEditCell
+                                        rowIndex={row.rowIndex} field="staff"
+                                        value={getVal(row, 'staff')}
+                                        editMode={editMode}
+                                        isChanged={isCellChanged(row.rowIndex, 'staff')}
+                                        editingCell={editingCell} setEditingCell={setEditingCell}
+                                        onCellChange={onCellChange}
+                                        onAutoSave={onAutoSave}
+                                        className="flex items-center"
+                                      />
+                                    </div>
+                                  </div>
+                                  {/* 비목/세목/보조세목/예산계획/집행/잔액 */}
+                                  <div className="flex flex-wrap gap-x-5 gap-y-1 text-gray-300">
+                                    <div className="flex h-5 items-center gap-1">
+                                      <span>비목</span>
+                                      <InlineEditCell
+                                        rowIndex={row.rowIndex} field="budget"
+                                        value={getVal(row, 'budget')}
+                                        editMode={editMode}
+                                        isChanged={isCellChanged(row.rowIndex, 'budget')}
+                                        editingCell={editingCell} setEditingCell={setEditingCell}
+                                        onCellChange={onCellChange}
+                                        onAutoSave={onAutoSave}
+                                        className="flex items-center"
+                                      />
+                                    </div>
+                                    <div className="flex h-5 items-center gap-1">
+                                      <span>세목</span>
+                                      <InlineEditCell
+                                        rowIndex={row.rowIndex} field="subCategory"
+                                        value={getVal(row, 'subCategory')}
+                                        editMode={editMode}
+                                        isChanged={isCellChanged(row.rowIndex, 'subCategory')}
+                                        editingCell={editingCell} setEditingCell={setEditingCell}
+                                        onCellChange={onCellChange}
+                                        onAutoSave={onAutoSave}
+                                        className="flex items-center"
+                                      />
+                                    </div>
+                                    <div className="flex h-5 items-center gap-1">
+                                      <span>보조세목</span>
+                                      <InlineEditCell
+                                        rowIndex={row.rowIndex} field="subDetail"
+                                        value={getVal(row, 'subDetail')}
+                                        editMode={editMode}
+                                        isChanged={isCellChanged(row.rowIndex, 'subDetail')}
+                                        editingCell={editingCell} setEditingCell={setEditingCell}
+                                        onCellChange={onCellChange}
+                                        onAutoSave={onAutoSave}
+                                        className="flex items-center"
+                                      />
+                                    </div>
+                                    <div className="flex h-5 items-center gap-1 text-gray-400">
+                                      <span>예산계획</span>
+                                      <InlineEditCell
+                                        rowIndex={row.rowIndex} field="budgetPlan"
+                                        value={getVal(row, 'budgetPlan')}
+                                        editMode={editMode}
+                                        isChanged={isCellChanged(row.rowIndex, 'budgetPlan')}
+                                        editingCell={editingCell} setEditingCell={setEditingCell}
+                                        onCellChange={onCellChange}
+                                        onAutoSave={onAutoSave}
+                                        displayValue={<span className="tabular-nums">{formatKRW(Number(getVal(row, 'budgetPlan')))}원</span>}
+                                        className="flex items-center"
+                                      />
+                                    </div>
+                                    <div className="flex h-5 items-center gap-1 text-gray-400">
+                                      <span>집행</span>
+                                      <span className="tabular-nums">{formatKRW(row.executionComplete + row.executionPlanned)}원</span>
+                                    </div>
+                                    <div className="flex h-5 items-center gap-1 text-gray-400">
+                                      <span>잔액</span>
+                                      <span className={cn('tabular-nums', row.balance < 0 ? 'text-red-400' : 'text-gray-400')}>
+                                        {formatKRW(row.balance)}원
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </TableCell>
