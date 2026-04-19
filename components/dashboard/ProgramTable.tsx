@@ -160,7 +160,7 @@ function InlineEditCell({
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
 export function ProgramTable({
-  rows, onEdit, onDelete, canWrite, isLoggedIn = false,
+  rows, onEdit: _onEdit, onDelete, canWrite, isLoggedIn = false,
   editMode = false, changes = {}, onCellChange, onAutoSave,
   openGroups: externalOpenGroups, onToggleGroup: externalToggleGroup,
   forcedOpenRows,
