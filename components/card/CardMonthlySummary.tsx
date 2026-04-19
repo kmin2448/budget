@@ -28,7 +28,7 @@ export function CardMonthlySummaryTable({ summaries }: CardMonthlySummaryTablePr
   const grandTotal = monthTotals.reduce((a, b) => a + b, 0);
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
+    <div className="overflow-x-auto rounded-[2px] border border-gray-200">
       <table className="min-w-full text-xs">
         <thead>
           <tr className="border-b border-gray-200 bg-gray-50 text-left font-medium text-gray-500">

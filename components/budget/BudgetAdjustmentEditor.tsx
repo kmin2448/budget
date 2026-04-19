@@ -84,14 +84,14 @@ export function BudgetAdjustmentEditor({
   return (
     <div className="space-y-4">
       {/* 상단 안내 */}
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <div className="rounded-[2px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         증감액 셀에 금액을 입력하세요. 양수(증액) 또는 음수(감액) 모두 가능합니다.
         입력 후 <strong>저장</strong>을 누르면 Sheets에 반영되고,
         <strong>변경 확정</strong>을 누르면 이력이 기록됩니다.
       </div>
 
       {/* 세목별 편집 테이블 */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-[2px] border border-gray-200">
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-gray-200 bg-primary text-white">
@@ -157,7 +157,7 @@ export function BudgetAdjustmentEditor({
 
       {/* 비목별 미리보기 */}
       {hasChanges && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <div className="rounded-[2px] border border-blue-200 bg-blue-50 p-4">
           <h3 className="mb-3 text-sm font-semibold text-blue-800">변경 미리보기 (비목별 합계)</h3>
           <table className="w-full text-xs">
             <thead>

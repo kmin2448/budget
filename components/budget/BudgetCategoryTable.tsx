@@ -26,7 +26,7 @@ export function BudgetCategoryTable({ rows }: Props) {
       : 0;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-[#E3E3E0] shadow-soft">
+    <div className="overflow-x-auto rounded-[2px] border border-[#E3E3E0] shadow-soft">
       <table className="min-w-full text-sm">
         <thead>
           <tr className="border-b border-[#E3E3E0] bg-[#F3F3EE]">

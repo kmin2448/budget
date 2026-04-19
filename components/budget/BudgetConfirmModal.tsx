@@ -108,7 +108,7 @@ export function BudgetConfirmModal({
           </div>
 
           {/* ── 미리보기 페이지 1: 통합 ── */}
-          <div className="rounded-lg border p-4 bg-white">
+          <div className="rounded-[2px] border p-4 bg-white">
             <PageHeader title="1. 통합" changedAt={changedAt} />
             <table className="w-full border-collapse">
               <thead>
@@ -172,7 +172,7 @@ export function BudgetConfirmModal({
           </div>
 
           {/* ── 미리보기 페이지 2: 비목별 + 세목별 ── */}
-          <div className="rounded-lg border p-4 bg-white space-y-4">
+          <div className="rounded-[2px] border p-4 bg-white space-y-4">
             <PageHeader title="2. 비목별 / 3. 세목별" changedAt={changedAt} />
 
             <div>

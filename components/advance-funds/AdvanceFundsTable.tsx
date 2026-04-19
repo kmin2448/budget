@@ -140,7 +140,7 @@ export function AdvanceFundsTable({
           )}
         </div>
 
-        <div className="rounded-lg border border-gray-200 overflow-hidden">
+        <div className="rounded-[2px] border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500">

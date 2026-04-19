@@ -263,7 +263,7 @@ export function UserTable({
 
       {/* 엑셀 가져오기 결과 */}
       {importResult && (
-        <div className={`rounded-lg border p-3 text-sm ${importResult.errors.length > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50'}`}>
+        <div className={`rounded-[2px] border p-3 text-sm ${importResult.errors.length > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50'}`}>
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2">
               {importResult.errors.length === 0
@@ -323,7 +323,7 @@ export function UserTable({
       ) : (
         <form
           onSubmit={handleAddSubmit}
-          className="rounded-lg border border-primary/30 bg-primary-bg/20 p-4 space-y-3"
+          className="rounded-[2px] border border-primary/30 bg-primary-bg/20 p-4 space-y-3"
         >
           <div className="flex items-center justify-between mb-1">
             <p className="text-sm font-semibold text-gray-700">새 사용자 추가</p>
@@ -396,7 +396,7 @@ export function UserTable({
           등록된 사용자가 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <div className="overflow-x-auto rounded-[2px] border border-gray-200">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500">

@@ -351,7 +351,7 @@ export function CardManagementTable({ entries, cardHolders, cardTypes, canWrite,
 
       {error && <p className="text-xs text-red-500">{error}</p>}
 
-      <div className="rounded-lg border border-gray-200 overflow-hidden">
+      <div className="rounded-[2px] border border-gray-200 overflow-hidden">
         <table className="w-full table-fixed text-xs">
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50 text-left font-medium text-gray-500">

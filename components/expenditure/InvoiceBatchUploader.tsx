@@ -384,7 +384,7 @@ export function InvoiceBatchUploader({
   }
 
   return (
-    <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+    <div className="bg-white rounded-[2px] border shadow-sm overflow-hidden">
       {/* 헤더 */}
       <div
         className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"

@@ -135,7 +135,7 @@ export function CardCalendar({ entries, canWrite, cardHolders = {}, cardTypes = 
 
       {/* 추가 폼 */}
       {adding && (
-        <div className="rounded-lg border border-primary/20 bg-blue-50/30 p-3 space-y-2">
+        <div className="rounded-[2px] border border-primary/20 bg-blue-50/30 p-3 space-y-2">
           {error && <p className="text-xs text-red-500">{error}</p>}
           <div className="grid grid-cols-6 gap-2">
             <div>
@@ -215,7 +215,7 @@ export function CardCalendar({ entries, canWrite, cardHolders = {}, cardTypes = 
       )}
 
       {/* 캘린더 그리드 */}
-      <div className="rounded-lg border border-gray-200 overflow-hidden">
+      <div className="rounded-[2px] border border-gray-200 overflow-hidden">
         {/* 요일 헤더 */}
         <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
           {DAY_LABELS.map((d, i) => (

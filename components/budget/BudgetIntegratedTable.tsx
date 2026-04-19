@@ -97,7 +97,7 @@ export function BudgetIntegratedTable({
     <div className="space-y-3">
       {/* 안내 + 변경확정 버튼 */}
       {canWrite && (
-        <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+        <div className="flex items-center justify-between rounded-[2px] border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           <span>증감액 열에 금액을 입력하세요 (양수=증액, 음수=감액). 변경확정 시 이력이 기록됩니다.</span>
           <Button
             size="sm"
@@ -110,7 +110,7 @@ export function BudgetIntegratedTable({
         </div>
       )}
 
-      <div className="rounded-lg border border-[#E3E3E0] shadow-soft">
+      <div className="rounded-[2px] border border-[#E3E3E0] shadow-soft">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[#E3E3E0] bg-[#F3F3EE]">
@@ -276,7 +276,7 @@ export function BudgetIntegratedTable({
 
       {/* 변경 미리보기 */}
       {hasChanges && (
-        <div className="rounded-lg border border-[#E3E3E0] bg-[#E8F4F5] p-4">
+        <div className="rounded-[2px] border border-[#E3E3E0] bg-[#E8F4F5] p-4">
           <h3 className="mb-3 text-sm font-semibold text-primary">변경 미리보기 (비목별 합계)</h3>
           <table className="w-full text-xs">
             <thead>

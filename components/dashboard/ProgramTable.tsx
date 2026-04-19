@@ -233,7 +233,7 @@ export function ProgramTable({
 
   if (rows.length === 0) {
     return (
-      <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-[#E3E3E0] text-sm text-text-secondary">
+      <div className="flex h-40 items-center justify-center rounded-[2px] border border-dashed border-[#E3E3E0] text-sm text-text-secondary">
         데이터가 없습니다.
       </div>
     );
@@ -243,7 +243,7 @@ export function ProgramTable({
 
   return (
     <div className={cn(
-        'overflow-x-auto rounded-lg border bg-white shadow-soft transition-colors',
+        'overflow-x-auto rounded-[2px] border bg-white shadow-soft transition-colors',
         editMode ? 'border-amber-300' : 'border-[#E3E3E0]',
       )}>
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -480,7 +480,7 @@ export function ProgramTable({
                                     }}
                                     disabled={!isLoggedIn}
                                     placeholder={isLoggedIn ? "추가 반영사항을 입력하세요 (작성 후 바깥을 클릭하면 자동 저장됩니다)" : "추가 반영사항이 없습니다"}
-                                    className="w-full resize-y rounded-lg border border-[#E3E3E0] p-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-[#F3F3EE] disabled:text-text-secondary disabled:border-transparent transition-colors"
+                                    className="w-full resize-y rounded-[2px] border border-[#E3E3E0] p-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:bg-[#F3F3EE] disabled:text-text-secondary disabled:border-transparent transition-colors"
                                     rows={2}
                                   />
                                 </div>

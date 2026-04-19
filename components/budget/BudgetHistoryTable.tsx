@@ -347,7 +347,7 @@ function SessionView({
 
   return (
     <>
-      <div className="rounded-lg border border-[#E3E3E0] overflow-hidden shadow-soft">
+      <div className="rounded-[2px] border border-[#E3E3E0] overflow-hidden shadow-soft">
         {/* 헤더 */}
         <div className="flex items-center justify-between bg-[#F3F3EE] border-b border-divider px-4 py-2.5">
           <span className="font-semibold text-primary text-sm">{label}</span>
@@ -792,7 +792,7 @@ export function BudgetHistoryTable({ records, canDelete, onDelete }: Props) {
 
       {/* ── 이전 변경사항 보기 ── */}
       {olderRecords.length > 0 && (
-        <div className="rounded-lg border border-gray-200 overflow-hidden">
+        <div className="rounded-[2px] border border-gray-200 overflow-hidden">
           <button
             onClick={() => setShowOlder((v) => !v)}
             className="flex w-full items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
