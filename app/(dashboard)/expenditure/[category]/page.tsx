@@ -175,7 +175,7 @@ export default function ExpenditurePage({
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-baseline gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">비목별 집행내역</h1>
+            <h1 className="text-2xl font-semibold text-[#131310] tracking-tight">비목별 집행내역</h1>
             <span className="text-sm text-gray-400">비목을 선택하여 집행내역을 조회하고 입력합니다.</span>
           </div>
         </div>
@@ -227,7 +227,7 @@ export default function ExpenditurePage({
 
         {/* 역삼각형 + 예산 요약 (탭 바로 아래 붙임) */}
         {isLoading ? (
-          <div className="h-[52px] animate-pulse rounded-md bg-gray-100" />
+          <div className="h-[52px] animate-pulse rounded-md bg-[#F3F3EE]" />
         ) : (
           data && (
             <ExpenditureSummary
@@ -243,7 +243,7 @@ export default function ExpenditurePage({
 
       {/* 집행내역 테이블 */}
       {isLoading ? (
-        <div className="h-64 animate-pulse rounded-lg bg-gray-100" />
+        <div className="h-64 animate-pulse rounded-lg bg-[#F3F3EE]" />
       ) : (
         <ExpenditureTable
           rows={data?.rows ?? []}

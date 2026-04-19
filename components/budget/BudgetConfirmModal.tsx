@@ -180,28 +180,35 @@ export function BudgetConfirmModal({
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-primary text-white">
-                    <th className={thCls} style={{ width: '22%' }}>비목</th>
-                    <th className={thRCls} style={{ width: '15%' }}>편성액</th>
-                    <th className={thRCls} style={{ width: '13%' }}>증감액</th>
-                    <th className={thRCls} style={{ width: '15%' }}>변경후 편성액</th>
-                    <th className={thRCls} style={{ width: '17%' }}>집행금액</th>
+                    <th className={thCls} style={{ width: '20%' }}>비목</th>
+                    <th className={thRCls} style={{ width: '14%' }}>편성액</th>
+                    <th className={thRCls} style={{ width: '11%' }}>증감액</th>
+                    <th className={thRCls} style={{ width: '14%' }}>변경후 편성액</th>
+                    <th className={thRCls} style={{ width: '9%' }}>예산비율</th>
+                    <th className={thRCls} style={{ width: '14%' }}>집행금액</th>
                     <th className={thRCls} style={{ width: '18%' }}>잔액</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {categorySnapshot.map((row, i) => (
-                    <tr
-                      key={row.category}
-                      className={`border-b border-gray-100 ${row.adjustment !== 0 ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}
-                    >
-                      <td className={`${tdCls} font-medium text-gray-800`}>{row.category}</td>
-                      <td className={`${tdRCls} text-gray-700`}>{formatKRW(row.allocation)}</td>
-                      <td className={tdRCls}>{adjCell(row.adjustment)}</td>
-                      <td className={`${tdRCls} font-semibold text-gray-900`}>{formatKRW(row.afterAllocation)}</td>
-                      <td className={`${tdRCls} text-gray-700`}>{formatKRW(row.executionComplete + row.executionPlanned)}</td>
-                      <td className={`${tdRCls} ${row.balance < 0 ? 'text-red-600' : 'text-gray-700'}`}>{formatKRW(row.balance)}</td>
-                    </tr>
-                  ))}
+                  {categorySnapshot.map((row, i) => {
+                    const budgetRatio = totalAfter > 0
+                      ? Math.round((row.afterAllocation / totalAfter) * 1000) / 10
+                      : 0;
+                    return (
+                      <tr
+                        key={row.category}
+                        className={`border-b border-gray-100 ${row.adjustment !== 0 ? 'bg-blue-50/40' : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}
+                      >
+                        <td className={`${tdCls} font-medium text-gray-800`}>{row.category}</td>
+                        <td className={`${tdRCls} text-gray-700`}>{formatKRW(row.allocation)}</td>
+                        <td className={tdRCls}>{adjCell(row.adjustment)}</td>
+                        <td className={`${tdRCls} font-semibold text-gray-900`}>{formatKRW(row.afterAllocation)}</td>
+                        <td className={`${tdRCls} text-gray-500`}>{budgetRatio.toFixed(1)}%</td>
+                        <td className={`${tdRCls} text-gray-700`}>{formatKRW(row.executionComplete + row.executionPlanned)}</td>
+                        <td className={`${tdRCls} ${row.balance < 0 ? 'text-red-600' : 'text-gray-700'}`}>{formatKRW(row.balance)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-gray-800 font-bold bg-gray-100">
@@ -209,6 +216,7 @@ export function BudgetConfirmModal({
                     <td className={tdRCls}>{formatKRW(totalBefore)}</td>
                     <td className={tdRCls}>{adjCell(totalAdj)}</td>
                     <td className={tdRCls}>{formatKRW(totalAfter)}</td>
+                    <td className={`${tdRCls} text-gray-500`}>100%</td>
                     <td className={tdRCls}>{formatKRW(totalExec)}</td>
                     <td className={`${tdRCls} ${totalBal < 0 ? 'text-red-600' : ''}`}>{formatKRW(totalBal)}</td>
                   </tr>

@@ -566,8 +566,8 @@ export function ExpenditureTable({
       <Table>
         <TableHeader>
           <TableRow
-            className="border-b border-gray-200 hover:bg-transparent"
-            style={{ backgroundColor: 'rgba(31, 92, 153, 0.1)' }}
+            className="border-b border-gray-200 hover:bg-transparent [&>th]:h-auto [&>th]:py-1 [&>th]:leading-none"
+            style={{ backgroundColor: 'rgba(32, 128, 141, 0.1)' }}
           >
             <TableHead className="w-6 text-gray-400" />
             {isPersonnel ? (
@@ -629,7 +629,7 @@ export function ExpenditureTable({
                         ? 'border-gray-200 bg-blue-50/40 hover:bg-blue-50'
                         : 'border-gray-200 hover:bg-gray-50/60',
                   )}
-                  style={!isDragTarget && !isDraggingActive ? { backgroundColor: isCollapsed ? 'rgba(255,255,255,0.3)' : 'rgba(214,228,240,0.55)' } : undefined}
+                  style={!isDragTarget && !isDraggingActive ? { backgroundColor: 'rgba(32,128,141,0.03)' } : undefined}
                   onDragEnter={(e) => handleGroupDragEnter(e, monthIdx)}
                   onDragOver={(e) => handleGroupDragOver(e, monthIdx)}
                   onDragLeave={() => {
@@ -638,7 +638,7 @@ export function ExpenditureTable({
                   onDrop={(e) => handleGroupDrop(e, monthIdx)}
                   onClick={() => toggleGroup(monthIdx)}
                 >
-                  <TableCell colSpan={colCount} className="py-1.5 pl-3 pr-4">
+                  <TableCell colSpan={colCount} className="py-1 pl-3 pr-4 leading-none">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 shrink-0">
                         {isCollapsed

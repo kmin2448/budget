@@ -45,17 +45,17 @@ export function CategoryTabs({ activeCategory }: CategoryTabsProps) {
             href={`/expenditure/${encodeURIComponent(cat)}`}
             title={cat}
             className={cn(
-              'flex flex-1 flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-center text-[10px] font-medium leading-tight transition-colors',
+              'flex flex-1 flex-row items-center gap-1.5 rounded-lg px-2 py-2 text-[10px] font-medium leading-tight transition-all duration-150',
               isActive
-                ? 'bg-primary text-white shadow-sm'
-                : 'bg-white border border-gray-200 text-gray-500 hover:border-primary hover:text-primary',
+                ? 'bg-primary text-white shadow-soft'
+                : 'bg-white border border-[#E3E3E0] text-text-secondary hover:border-primary hover:text-primary hover:bg-primary-bg',
             )}
           >
-            <Icon className="h-3 w-3 shrink-0" />
+            <Icon className="h-4 w-4 shrink-0" />
             {CATEGORY_LABEL[cat] ? (
-              <span className="flex flex-col items-center leading-tight">{CATEGORY_LABEL[cat]}</span>
+              <span className="flex flex-col leading-tight">{CATEGORY_LABEL[cat]}</span>
             ) : (
-              <span>{cat}</span>
+              <span className="leading-tight">{cat}</span>
             )}
           </Link>
         );

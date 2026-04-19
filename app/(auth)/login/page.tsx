@@ -3,33 +3,39 @@ import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-primary">COSS 예산관리</h1>
-          <p className="mt-2 text-sm text-gray-500">
-            KNU SDU COSS 2026년 본예산 관리 시스템
+    <div className="flex min-h-screen items-center justify-center bg-[#F8F8F5]">
+      <div className="w-full max-w-sm">
+        {/* 카드 */}
+        <div className="rounded-xl border border-[#E3E3E0] bg-white p-8 shadow-card">
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary-bg">
+              <span className="text-xl font-bold text-primary">C</span>
+            </div>
+            <h1 className="text-xl font-semibold text-[#131310] tracking-tight">COSS 예산관리</h1>
+            <p className="mt-1.5 text-sm text-text-secondary">
+              KNU SDU COSS 2026년 본예산 관리 시스템
+            </p>
+          </div>
+
+          <form
+            action={async () => {
+              'use server';
+              await signIn('google', { redirectTo: '/dashboard' });
+            }}
+          >
+            <Button
+              type="submit"
+              className="w-full bg-primary hover:bg-primary-light text-white font-medium rounded-lg transition-colors"
+            >
+              <GoogleIcon />
+              Google 계정으로 로그인
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-xs text-text-secondary">
+            승인된 계정으로만 접근 가능합니다.
           </p>
         </div>
-
-        <form
-          action={async () => {
-            'use server';
-            await signIn('google', { redirectTo: '/dashboard' });
-          }}
-        >
-          <Button
-            type="submit"
-            className="w-full bg-primary hover:bg-primary-light text-white"
-          >
-            <GoogleIcon />
-            Google 계정으로 로그인
-          </Button>
-        </form>
-
-        <p className="mt-6 text-center text-xs text-gray-400">
-          승인된 계정으로만 접근 가능합니다.
-        </p>
       </div>
     </div>
   );

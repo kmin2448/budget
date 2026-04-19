@@ -110,19 +110,19 @@ export function BudgetIntegratedTable({
         </div>
       )}
 
-      <div className="rounded-lg border border-gray-200">
+      <div className="rounded-lg border border-[#E3E3E0] shadow-soft">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-gray-200 bg-primary text-white">
-              <th className={cn('px-2 py-3 text-left font-semibold', collapsed ? 'whitespace-nowrap' : 'w-[12%]')}>비목</th>
-              <th className="w-[11%] px-2 py-3 text-left font-semibold">세목</th>
-              <th className="w-[13%] px-2 py-3 text-left font-semibold">보조세목</th>
-              <th className="w-[10%] px-2 py-3 text-right font-semibold whitespace-nowrap">편성액</th>
-              <th className="w-[9%] px-2 py-3 text-right font-semibold leading-tight">증감액{canWrite && <><br /><span className="font-normal text-[10px] opacity-80">입력</span></>}</th>
-              <th className="w-[10%] px-2 py-3 text-right font-semibold leading-tight">변경후<br />편성액</th>
-              <th className="w-[16%] px-2 py-3 text-right font-semibold leading-tight">집행금액<br />(완료+예정)</th>
-              <th className="w-[10%] px-2 py-3 text-right font-semibold whitespace-nowrap">잔액</th>
-              <th className="w-[7%] px-2 py-3 text-right font-semibold whitespace-nowrap">집행률</th>
+            <tr className="border-b border-[#E3E3E0] bg-[#F3F3EE]">
+              <th className={cn('px-2 py-3 text-left font-medium text-text-secondary', collapsed ? 'whitespace-nowrap' : 'w-[12%]')}>비목</th>
+              <th className="w-[11%] px-2 py-3 text-left font-medium text-text-secondary">세목</th>
+              <th className="w-[13%] px-2 py-3 text-left font-medium text-text-secondary">보조세목</th>
+              <th className="w-[10%] px-2 py-3 text-right font-medium text-text-secondary whitespace-nowrap">편성액</th>
+              <th className="w-[9%] px-2 py-3 text-right font-medium text-text-secondary leading-tight">증감액{canWrite && <><br /><span className="font-normal text-[10px] opacity-70">입력</span></>}</th>
+              <th className="w-[10%] px-2 py-3 text-right font-medium text-text-secondary leading-tight">변경후<br />편성액</th>
+              <th className="w-[16%] px-2 py-3 text-right font-medium text-text-secondary leading-tight">집행금액<br />(완료+예정)</th>
+              <th className="w-[10%] px-2 py-3 text-right font-medium text-text-secondary whitespace-nowrap">잔액</th>
+              <th className="w-[7%] px-2 py-3 text-right font-medium text-text-secondary whitespace-nowrap">집행률</th>
             </tr>
           </thead>
           <tbody>
@@ -140,16 +140,16 @@ export function BudgetIntegratedTable({
                 const currentVal = edits[row.rowOffset] ?? '';
                 const parsedVal  = currentVal === '' ? 0 : parseKRW(currentVal);
                 const isChanged  = parsedVal !== origAdj;
-                const rowBg      = globalIdx++ % 2 === 0 ? 'bg-white' : 'bg-row-even';
+                const rowBg      = globalIdx++ % 2 === 0 ? 'bg-white' : 'bg-[#FAFAF8]';
 
                 return (
                   <tr
                     key={row.rowOffset}
                     className={cn(
-                      'border-b border-gray-100 transition-colors hover:bg-primary-bg/30',
-                      isFirstOfCat && !isFirstCat ? 'border-t border-t-gray-300' : '',
-                      !isFirstOfCat && isFirstOfSub ? 'border-t border-t-gray-200' : '',
-                      isChanged ? 'bg-blue-50 hover:bg-blue-100' : rowBg,
+                      'border-b border-[#F0F0EE] transition-colors hover:bg-primary-bg/20',
+                      isFirstOfCat && !isFirstCat ? 'border-t border-t-[#E3E3E0]' : '',
+                      !isFirstOfCat && isFirstOfSub ? 'border-t border-t-[#F0F0EE]' : '',
+                      isChanged ? 'bg-[#E8F4F5] hover:bg-[#D6EEF1]' : rowBg,
                     )}
                   >
                     {/* 비목 — 비목 그룹 첫 행에만 */}
@@ -167,9 +167,9 @@ export function BudgetIntegratedTable({
                     </td>
 
                     {/* 세목 — 세목 그룹 첫 행에만 */}
-                    <td className="px-2 py-2 text-gray-700">{isFirstOfSub ? (row.subcategory || '-') : ''}</td>
-                    <td className="px-2 py-2 text-gray-600">{row.subDetail || '-'}</td>
-                    <td className="px-2 py-2 text-right tabular-nums text-gray-700 whitespace-nowrap">
+                    <td className="px-2 py-2 text-text-secondary">{isFirstOfSub ? (row.subcategory || '-') : ''}</td>
+                    <td className="px-2 py-2 text-text-secondary">{row.subDetail || '-'}</td>
+                    <td className="px-2 py-2 text-right tabular-nums text-[#131310] whitespace-nowrap">
                       {formatKRW(row.allocation)}
                     </td>
 
@@ -183,14 +183,14 @@ export function BudgetIntegratedTable({
                           placeholder="0"
                           className={cn(
                             'w-full rounded border px-1.5 py-1 text-right tabular-nums text-xs outline-none focus:ring-2 focus:ring-primary/40',
-                            isChanged ? 'border-blue-400 bg-white' : 'border-gray-200 bg-gray-50',
+                            isChanged ? 'border-primary bg-white' : 'border-[#E3E3E0] bg-[#F3F3EE]',
                           )}
                         />
                       </td>
                     ) : (
                       <td className={cn(
                         'px-2 py-2 text-right tabular-nums whitespace-nowrap',
-                        row.adjustment > 0 ? 'text-blue-600' : row.adjustment < 0 ? 'text-red-600' : 'text-gray-400',
+                        row.adjustment > 0 ? 'text-primary' : row.adjustment < 0 ? 'text-red-500' : 'text-text-secondary',
                       )}>
                         {row.adjustment !== 0 ? (row.adjustment > 0 ? '+' : '') + formatKRW(row.adjustment) : '-'}
                       </td>
@@ -198,16 +198,16 @@ export function BudgetIntegratedTable({
 
                     <td className={cn(
                       'px-2 py-2 text-right tabular-nums font-semibold whitespace-nowrap',
-                      isChanged ? 'text-blue-700' : 'text-gray-900',
+                      isChanged ? 'text-primary' : 'text-[#131310]',
                     )}>
                       {formatKRW(row.afterAllocation)}
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">
                       <div className="flex flex-col items-end gap-0.5">
-                        <span className="font-medium text-gray-800 whitespace-nowrap">
+                        <span className="font-medium text-[#131310] whitespace-nowrap">
                           {formatKRW(row.executionComplete + row.executionPlanned)}
                         </span>
-                        <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                        <span className="text-[10px] text-text-secondary whitespace-nowrap">
                           (<span className="text-complete">{formatKRW(row.executionComplete)}</span>
                           {' + '}
                           <span className="text-planned">{formatKRW(row.executionPlanned)}</span>)
@@ -216,16 +216,16 @@ export function BudgetIntegratedTable({
                     </td>
                     <td className={cn(
                       'px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap',
-                      row.balance < 0 ? 'text-red-600' : 'text-gray-700',
+                      row.balance < 0 ? 'text-red-500' : 'text-[#131310]',
                     )}>
                       {formatKRW(row.balance)}
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">
                       <span className={cn(
                         'inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-                        row.executionRate >= 90 ? 'bg-green-100 text-green-700'
-                        : row.executionRate >= 50 ? 'bg-amber-100 text-amber-700'
-                        : 'bg-gray-100 text-gray-600',
+                        row.executionRate >= 90 ? 'bg-green-50 text-complete'
+                        : row.executionRate >= 50 ? 'bg-amber-50 text-planned'
+                        : 'bg-[#F3F3EE] text-text-secondary',
                       )}>
                         {row.executionRate}%
                       </span>
@@ -236,20 +236,20 @@ export function BudgetIntegratedTable({
             })}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-              <td className="px-2 py-2.5 text-gray-700" colSpan={3}>합계</td>
-              <td className="px-2 py-2.5 text-right tabular-nums text-gray-700 whitespace-nowrap">{formatKRW(totals.allocation)}</td>
+            <tr className="border-t border-[#E3E3E0] bg-[#F3F3EE] font-semibold">
+              <td className="px-2 py-2.5 text-[#131310]" colSpan={3}>합계</td>
+              <td className="px-2 py-2.5 text-right tabular-nums text-[#131310] whitespace-nowrap">{formatKRW(totals.allocation)}</td>
               <td className={cn(
                 'px-2 py-2.5 text-right tabular-nums whitespace-nowrap font-semibold',
-                totals.adjustment > 0 ? 'text-blue-600' : totals.adjustment < 0 ? 'text-red-600' : 'text-gray-400',
+                totals.adjustment > 0 ? 'text-primary' : totals.adjustment < 0 ? 'text-red-500' : 'text-text-secondary',
               )}>
                 {totals.adjustment !== 0 ? (totals.adjustment > 0 ? '+' : '') + formatKRW(totals.adjustment) : '-'}
               </td>
-              <td className="px-2 py-2.5 text-right tabular-nums text-gray-900 whitespace-nowrap">{formatKRW(totals.afterAllocation)}</td>
+              <td className="px-2 py-2.5 text-right tabular-nums text-[#131310] whitespace-nowrap">{formatKRW(totals.afterAllocation)}</td>
               <td className="px-2 py-2.5 text-right tabular-nums">
                 <div className="flex flex-col items-end gap-0.5">
-                  <span className="whitespace-nowrap">{formatKRW(totals.executionComplete + totals.executionPlanned)}</span>
-                  <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                  <span className="whitespace-nowrap text-[#131310]">{formatKRW(totals.executionComplete + totals.executionPlanned)}</span>
+                  <span className="text-[10px] text-text-secondary whitespace-nowrap">
                     (<span className="text-complete">{formatKRW(totals.executionComplete)}</span>
                     {' + '}
                     <span className="text-planned">{formatKRW(totals.executionPlanned)}</span>)
@@ -276,11 +276,11 @@ export function BudgetIntegratedTable({
 
       {/* 변경 미리보기 */}
       {hasChanges && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <h3 className="mb-3 text-sm font-semibold text-blue-800">변경 미리보기 (비목별 합계)</h3>
+        <div className="rounded-lg border border-[#E3E3E0] bg-[#E8F4F5] p-4">
+          <h3 className="mb-3 text-sm font-semibold text-primary">변경 미리보기 (비목별 합계)</h3>
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-blue-200 text-blue-700">
+              <tr className="border-b border-[#C5DFE3] text-primary">
                 <th className="py-1 text-left">비목</th>
                 <th className="py-1 text-right">현재 편성액</th>
                 <th className="py-1 text-right">증감액</th>
@@ -290,14 +290,14 @@ export function BudgetIntegratedTable({
             </thead>
             <tbody>
               {previewCategories.filter((r) => r.adjustment !== 0).map((r) => (
-                <tr key={r.category} className="border-b border-blue-100">
-                  <td className="py-1 font-medium text-blue-900">{r.category}</td>
-                  <td className="py-1 text-right tabular-nums text-gray-700">{formatKRW(r.allocation)}</td>
-                  <td className={`py-1 text-right tabular-nums font-semibold ${r.adjustment > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                <tr key={r.category} className="border-b border-[#C5DFE3]">
+                  <td className="py-1 font-medium text-[#131310]">{r.category}</td>
+                  <td className="py-1 text-right tabular-nums text-text-secondary">{formatKRW(r.allocation)}</td>
+                  <td className={`py-1 text-right tabular-nums font-semibold ${r.adjustment > 0 ? 'text-primary' : 'text-red-500'}`}>
                     {r.adjustment > 0 ? '+' : ''}{formatKRW(r.adjustment)}
                   </td>
-                  <td className="py-1 text-right tabular-nums font-semibold text-blue-900">{formatKRW(r.afterAllocation)}</td>
-                  <td className={`py-1 text-right tabular-nums ${r.balance < 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                  <td className="py-1 text-right tabular-nums font-semibold text-[#131310]">{formatKRW(r.afterAllocation)}</td>
+                  <td className={`py-1 text-right tabular-nums ${r.balance < 0 ? 'text-red-500' : 'text-[#131310]'}`}>
                     {formatKRW(r.balance)}
                   </td>
                 </tr>

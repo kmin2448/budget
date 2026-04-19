@@ -127,15 +127,15 @@ export default function BudgetPage() {
       {/* 페이지 헤더 */}
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">예산관리</h1>
-          <span className="text-sm text-gray-500">비목별 편성액 현황을 확인하고 증감액을 입력하여 예산을 변경합니다.</span>
+          <h1 className="text-2xl font-semibold text-[#131310] tracking-tight">예산관리</h1>
+          <span className="text-sm text-text-secondary">비목별 편성액 현황을 확인하고 증감액을 입력하여 예산을 변경합니다.</span>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={() => refetch()}
           disabled={isLoading}
-          className="gap-1.5 text-gray-600"
+          className="gap-1.5 text-text-secondary border-[#E3E3E0] hover:bg-sidebar"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           새로고침
@@ -143,7 +143,7 @@ export default function BudgetPage() {
       </div>
 
       {/* 메인 탭 */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-[#E3E3E0]">
         {(
           [
             { key: 'status',  label: '예산현황' },
@@ -157,7 +157,7 @@ export default function BudgetPage() {
               ${
                 mainTab === key
                   ? 'text-primary after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-primary'
-                  : 'text-gray-500 hover:text-gray-800'
+                  : 'text-text-secondary hover:text-[#131310]'
               }`}
           >
             {label}
@@ -190,7 +190,7 @@ export default function BudgetPage() {
                 className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                   subTab === key
                     ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-[#F3F3EE] text-text-secondary hover:bg-[#E8F4F5] hover:text-primary'
                 }`}
               >
                 {label}
@@ -199,7 +199,7 @@ export default function BudgetPage() {
           </div>
 
           {isLoading ? (
-            <div className="h-64 animate-pulse rounded-lg bg-gray-100" />
+            <div className="h-64 animate-pulse rounded-lg bg-[#F3F3EE]" />
           ) : data ? (
             subTab === 'category' ? (
               <BudgetCategoryTable rows={previewCategoryRows} />
@@ -224,7 +224,7 @@ export default function BudgetPage() {
       {mainTab === 'history' && (
         <div>
           {historyLoading ? (
-            <div className="h-40 animate-pulse rounded-lg bg-gray-100" />
+            <div className="h-40 animate-pulse rounded-lg bg-[#F3F3EE]" />
           ) : (
             <BudgetHistoryTable
               records={historyData ?? []}

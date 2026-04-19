@@ -19,7 +19,7 @@ interface Props {
   className?: string;
 }
 
-// ── PDF 전용 인라인 스타일 상수 ──────────────────────────────────────
+// ── PDF 전용 인라인 스타일 ───────────────────────────────────────────
 const PDF_PAGE: CSSProperties = {
   width: 800,
   padding: '22px 28px',
@@ -27,48 +27,118 @@ const PDF_PAGE: CSSProperties = {
   fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "Malgun Gothic", sans-serif',
   boxSizing: 'border-box',
 };
-const PDF_TITLE_WRAP: CSSProperties = { textAlign: 'center', marginBottom: 18, paddingBottom: 10, borderBottom: '2px solid #1F5C99' };
-const PDF_TITLE_MAIN: CSSProperties = { display: 'block', fontSize: 17, fontWeight: 700, color: '#111827', letterSpacing: '-0.5px', marginBottom: 5 };
-const PDF_TITLE_DATE: CSSProperties = { display: 'block', fontSize: 10, color: '#6b7280', fontWeight: 400 };
+const PDF_TITLE_WRAP: CSSProperties = {
+  textAlign: 'center', marginBottom: 18, paddingBottom: 10, borderBottom: '2px solid #374151',
+};
+const PDF_TITLE_MAIN: CSSProperties = {
+  display: 'block', fontSize: 17, fontWeight: 700, color: '#111827',
+  letterSpacing: '-0.5px', marginBottom: 5, lineHeight: 1.4,
+};
+const PDF_TITLE_DATE: CSSProperties = {
+  display: 'block', fontSize: 10, color: '#6b7280', fontWeight: 400, lineHeight: 1.4,
+};
 const pdfSecLabel = (mt = 0): CSSProperties => ({
-  fontSize: 12, fontWeight: 700, color: '#1F5C99',
-  borderBottom: '1.5px solid #1F5C99',
-  paddingBottom: 4, marginBottom: 7, marginTop: mt,
+  fontSize: 12, fontWeight: 700, color: '#374151',
+  borderBottom: '1.5px solid #9ca3af',
+  paddingBottom: 4, marginBottom: 7, marginTop: mt, lineHeight: 1.4,
 });
 const PDF_TABLE: CSSProperties = { width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' };
+
+// th — verticalAlign middle은 th에서 비교적 잘 동작함
 const pdfTh = (w: string, right = false): CSSProperties => ({
-  padding: '7px 5px 10px 5px', background: '#1F5C99', color: '#ffffff',
-  fontWeight: 600, fontSize: 8, textAlign: right ? 'right' : 'left',
+  paddingTop: 8, paddingBottom: 8, paddingLeft: 5, paddingRight: 5,
+  background: '#4b5563', color: '#ffffff',
+  fontWeight: 600, fontSize: 8,
+  textAlign: right ? 'right' : 'left',
   width: w, lineHeight: 1.4, verticalAlign: 'middle',
 });
-const PDF_TD: CSSProperties = {
-  padding: '7px 5px', fontSize: 8, lineHeight: 1.5,
-  verticalAlign: 'middle', whiteSpace: 'nowrap',
-};
-const PDF_TDR: CSSProperties = {
-  padding: '7px 5px', fontSize: 8, textAlign: 'right', lineHeight: 1.5,
-  verticalAlign: 'middle', whiteSpace: 'nowrap',
-};
-const pdfBg = (idx: number, hasAdj: boolean): CSSProperties => ({
-  background: hasAdj ? '#eff6ff' : idx % 2 === 0 ? '#ffffff' : '#f8fafc',
-  borderBottom: '1px solid #f0f0f0',
-});
-const pdfAdjStyle = (v: number): CSSProperties => ({
-  padding: '7px 5px', fontSize: 8, textAlign: 'right', lineHeight: 1.5,
-  verticalAlign: 'middle', whiteSpace: 'nowrap',
-  fontWeight: v !== 0 ? 600 : 400,
-  color: v > 0 ? '#1d4ed8' : v < 0 ? '#dc2626' : '#9ca3af',
-});
-const PDF_TFOOT_TD: CSSProperties = {
-  padding: '7px 5px', fontSize: 8, lineHeight: 1.5,
-  verticalAlign: 'middle', background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700,
-};
-const PDF_TFOOT_TDR: CSSProperties = {
-  padding: '7px 5px', fontSize: 8, textAlign: 'right', lineHeight: 1.5,
-  verticalAlign: 'middle', background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700,
+
+// td outer — 높이 고정 없이 상하 패딩만으로 높이를 잡음
+const pdfTd = (right = false, extra: CSSProperties = {}): CSSProperties => ({
+  paddingTop: 5,
+  paddingBottom: 9,
+  paddingLeft: 5,
+  paddingRight: 5,
+  fontSize: 8,
   whiteSpace: 'nowrap',
+  textAlign: right ? 'right' : 'left',
+  ...extra,
+});
+
+// td 내부 flex wrapper — 텍스트 세로 중앙 정렬의 실질적 담당
+const pdfInner = (right = false, extra: CSSProperties = {}): CSSProperties => ({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: right ? 'flex-end' : 'flex-start',
+  minHeight: '100%',
+  lineHeight: 'normal',
+  ...extra,
+});
+
+const pdfBg = (idx: number, hasAdj: boolean): CSSProperties => ({
+  background: hasAdj ? '#f0f0f0' : idx % 2 === 0 ? '#ffffff' : '#f8fafc',
+  borderBottom: '1px solid #e5e7eb',
+});
+
+const pdfFootBg: CSSProperties = {
+  background: '#e5e7eb', borderTop: '2px solid #374151',
 };
-const pdfAdjStr = (v: number) => v !== 0 ? `${v > 0 ? '+' : ''}${formatKRW(v)}` : '-';
+
+const adjColor = (v: number) =>
+  v > 0 ? '#374151' : v < 0 ? '#6b7280' : '#9ca3af';
+
+const pdfAdjStr = (v: number) =>
+  v !== 0 ? `${v > 0 ? '+' : ''}${formatKRW(v)}` : '-';
+
+// ── 셀 렌더 헬퍼 ────────────────────────────────────────────────────
+// 단순 텍스트 셀
+function Td({
+  children, right = false, tdExtra = {}, innerExtra = {},
+}: {
+  children: React.ReactNode;
+  right?: boolean;
+  tdExtra?: CSSProperties;
+  innerExtra?: CSSProperties;
+}) {
+  return (
+    <td style={pdfTd(right, tdExtra)}>
+      <div style={pdfInner(right, innerExtra)}>{children}</div>
+    </td>
+  );
+}
+
+// 증감액 전용 셀
+function AdjTd({ v, tdExtra = {} }: { v: number; tdExtra?: CSSProperties }) {
+  return (
+    <td style={pdfTd(true, { fontWeight: v !== 0 ? 600 : 400, ...tdExtra })}>
+      <div style={pdfInner(true, { color: adjColor(v) })}>{pdfAdjStr(v)}</div>
+    </td>
+  );
+}
+
+// tfoot 셀
+function TfTd({
+  children, right = false, extra = {},
+}: {
+  children: React.ReactNode;
+  right?: boolean;
+  extra?: CSSProperties;
+}) {
+  return (
+    <td style={pdfTd(right, { ...pdfFootBg, fontWeight: 700, ...extra })}>
+      <div style={pdfInner(right)}>{children}</div>
+    </td>
+  );
+}
+
+// tfoot 증감액 셀
+function TfAdjTd({ v }: { v: number }) {
+  return (
+    <td style={pdfTd(true, { ...pdfFootBg, fontWeight: 700 })}>
+      <div style={pdfInner(true, { color: adjColor(v) })}>{pdfAdjStr(v)}</div>
+    </td>
+  );
+}
 
 export function BudgetPdfDownload({
   detailSnapshot,
@@ -182,20 +252,24 @@ export function BudgetPdfDownload({
                   const bg = pdfBg(i, row.adjustment !== 0);
                   return (
                     <tr key={`p1-${row.rowOffset}`}>
-                      <td style={{ ...PDF_TD, ...bg, fontWeight: 600, color: '#1F5C99' }}>
-                        {i === 0 && category}
-                      </td>
-                      <td style={{ ...PDF_TD, ...bg, color: '#4b5563', paddingLeft: 40 }}>{row.subcategory || '-'}</td>
-                      <td style={{ ...PDF_TD, ...bg, color: '#6b7280' }}>{row.subDetail || '-'}</td>
-                      <td style={{ ...PDF_TDR, ...bg, color: '#374151' }}>{formatKRW(row.allocation)}</td>
-                      <td style={{ ...pdfAdjStyle(row.adjustment), ...bg }}>{pdfAdjStr(row.adjustment)}</td>
-                      <td style={{ ...PDF_TDR, ...bg, fontWeight: 600, color: '#111827' }}>{formatKRW(row.afterAllocation)}</td>
-                      <td style={{ ...PDF_TDR, ...bg }}>
+                      <Td tdExtra={{ ...bg, fontWeight: 600, color: '#374151' }}>
+                        {i === 0 ? category : ''}
+                      </Td>
+                      <Td tdExtra={{ ...bg, color: '#4b5563', paddingLeft: 40 }}>
+                        {row.subcategory || '-'}
+                      </Td>
+                      <Td tdExtra={{ ...bg, color: '#6b7280' }}>{row.subDetail || '-'}</Td>
+                      <Td right tdExtra={{ ...bg, color: '#374151' }}>{formatKRW(row.allocation)}</Td>
+                      <AdjTd v={row.adjustment} tdExtra={bg} />
+                      <Td right tdExtra={{ ...bg, fontWeight: 600, color: '#111827' }}>
+                        {formatKRW(row.afterAllocation)}
+                      </Td>
+                      <Td right tdExtra={{ ...bg, color: '#374151' }}>
                         {i === 0 && catRow ? formatKRW(catRow.executionComplete + catRow.executionPlanned) : ''}
-                      </td>
-                      <td style={{ ...PDF_TDR, ...bg, color: i === 0 && (catRow?.balance ?? 0) < 0 ? '#dc2626' : '#374151' }}>
+                      </Td>
+                      <Td right tdExtra={{ ...bg, color: '#374151' }}>
                         {i === 0 && catRow ? formatKRW(catRow.balance) : ''}
-                      </td>
+                      </Td>
                     </tr>
                   );
                 });
@@ -203,12 +277,14 @@ export function BudgetPdfDownload({
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={3} style={PDF_TFOOT_TD}>합계</td>
-                <td style={PDF_TFOOT_TDR}>{formatKRW(totalBefore)}</td>
-                <td style={{ ...pdfAdjStyle(totalAdj), background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700 }}>{pdfAdjStr(totalAdj)}</td>
-                <td style={PDF_TFOOT_TDR}>{formatKRW(totalAfter)}</td>
-                <td style={PDF_TFOOT_TDR}>{formatKRW(totalExec)}</td>
-                <td style={{ ...PDF_TFOOT_TDR, color: totalBal < 0 ? '#dc2626' : '#374151' }}>{formatKRW(totalBal)}</td>
+                <td colSpan={3} style={pdfTd(false, { ...pdfFootBg, fontWeight: 700 })}>
+                  <div style={pdfInner()}>합계</div>
+                </td>
+                <TfTd right>{formatKRW(totalBefore)}</TfTd>
+                <TfAdjTd v={totalAdj} />
+                <TfTd right>{formatKRW(totalAfter)}</TfTd>
+                <TfTd right>{formatKRW(totalExec)}</TfTd>
+                <TfTd right>{formatKRW(totalBal)}</TfTd>
               </tr>
             </tfoot>
           </table>
@@ -225,37 +301,47 @@ export function BudgetPdfDownload({
           <table style={PDF_TABLE}>
             <thead>
               <tr>
-                <th style={pdfTh('26%')}>비목</th>
-                <th style={pdfTh('16%', true)}>편성액</th>
-                <th style={pdfTh('13%', true)}>증감액</th>
-                <th style={pdfTh('16%', true)}>변경후 편성액</th>
-                <th style={pdfTh('15%', true)}>집행금액</th>
-                <th style={pdfTh('14%', true)}>잔액</th>
+                <th style={pdfTh('24%')}>비목</th>
+                <th style={pdfTh('14%', true)}>편성액</th>
+                <th style={pdfTh('11%', true)}>증감액</th>
+                <th style={pdfTh('14%', true)}>변경후 편성액</th>
+                <th style={pdfTh('8%', true)}>예산비율</th>
+                <th style={pdfTh('14%', true)}>집행금액</th>
+                <th style={pdfTh('15%', true)}>잔액</th>
               </tr>
             </thead>
             <tbody>
               {categorySnapshot.map((row, i) => {
                 const bg = pdfBg(i, row.adjustment !== 0);
+                const budgetRatio = totalAfter > 0
+                  ? Math.round((row.afterAllocation / totalAfter) * 1000) / 10
+                  : 0;
                 return (
                   <tr key={`p2-cat-${row.category}`}>
-                    <td style={{ ...PDF_TD, ...bg, fontWeight: 500, color: '#1F5C99' }}>{row.category}</td>
-                    <td style={{ ...PDF_TDR, ...bg, color: '#374151' }}>{formatKRW(row.allocation)}</td>
-                    <td style={{ ...pdfAdjStyle(row.adjustment), ...bg }}>{pdfAdjStr(row.adjustment)}</td>
-                    <td style={{ ...PDF_TDR, ...bg, fontWeight: 600, color: '#111827' }}>{formatKRW(row.afterAllocation)}</td>
-                    <td style={{ ...PDF_TDR, ...bg, color: '#374151' }}>{formatKRW(row.executionComplete + row.executionPlanned)}</td>
-                    <td style={{ ...PDF_TDR, ...bg, color: row.balance < 0 ? '#dc2626' : '#374151' }}>{formatKRW(row.balance)}</td>
+                    <Td tdExtra={{ ...bg, fontWeight: 500, color: '#374151' }}>{row.category}</Td>
+                    <Td right tdExtra={{ ...bg, color: '#374151' }}>{formatKRW(row.allocation)}</Td>
+                    <AdjTd v={row.adjustment} tdExtra={bg} />
+                    <Td right tdExtra={{ ...bg, fontWeight: 600, color: '#111827' }}>
+                      {formatKRW(row.afterAllocation)}
+                    </Td>
+                    <Td right tdExtra={{ ...bg, color: '#6b7280' }}>{budgetRatio.toFixed(1)}%</Td>
+                    <Td right tdExtra={{ ...bg, color: '#374151' }}>
+                      {formatKRW(row.executionComplete + row.executionPlanned)}
+                    </Td>
+                    <Td right tdExtra={{ ...bg, color: '#374151' }}>{formatKRW(row.balance)}</Td>
                   </tr>
                 );
               })}
             </tbody>
             <tfoot>
               <tr>
-                <td style={PDF_TFOOT_TD}>합계</td>
-                <td style={PDF_TFOOT_TDR}>{formatKRW(totalBefore)}</td>
-                <td style={{ ...pdfAdjStyle(totalAdj), background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700 }}>{pdfAdjStr(totalAdj)}</td>
-                <td style={PDF_TFOOT_TDR}>{formatKRW(totalAfter)}</td>
-                <td style={PDF_TFOOT_TDR}>{formatKRW(totalExec)}</td>
-                <td style={{ ...PDF_TFOOT_TDR, color: totalBal < 0 ? '#dc2626' : '#374151' }}>{formatKRW(totalBal)}</td>
+                <TfTd>합계</TfTd>
+                <TfTd right>{formatKRW(totalBefore)}</TfTd>
+                <TfAdjTd v={totalAdj} />
+                <TfTd right>{formatKRW(totalAfter)}</TfTd>
+                <TfTd right extra={{ color: '#6b7280' }}>100%</TfTd>
+                <TfTd right>{formatKRW(totalExec)}</TfTd>
+                <TfTd right>{formatKRW(totalBal)}</TfTd>
               </tr>
             </tfoot>
           </table>
@@ -278,27 +364,35 @@ export function BudgetPdfDownload({
                 const subAdj   = subRows.reduce((s, r) => s + r.adjustment, 0);
                 const subAfter = subRows.reduce((s, r) => s + r.afterAllocation, 0);
                 const sortedDetails = Array.from(detailMap.entries()).sort(([a], [b]) => a.localeCompare(b, 'ko'));
-                const subHdrBg: CSSProperties = { background: '#eef2f8', borderTop: '1px solid #c7d2e4', borderBottom: '1px solid #c7d2e4' };
+                const subHdrBg: CSSProperties = {
+                  background: '#f3f4f6', borderTop: '1px solid #d1d5db', borderBottom: '1px solid #d1d5db',
+                };
                 return [
                   <tr key={`p2-sub-${subcategory}`}>
-                    <td style={{ ...PDF_TD, ...subHdrBg, fontWeight: 700, color: '#1F5C99' }}>{subcategory}</td>
-                    <td style={{ ...PDF_TD, ...subHdrBg }} />
-                    <td style={{ ...PDF_TDR, ...subHdrBg, fontWeight: 600, color: '#374151' }}>{formatKRW(subAlloc)}</td>
-                    <td style={{ ...pdfAdjStyle(subAdj), ...subHdrBg, fontWeight: 600 }}>{pdfAdjStr(subAdj)}</td>
-                    <td style={{ ...PDF_TDR, ...subHdrBg, fontWeight: 600, color: '#111827' }}>{formatKRW(subAfter)}</td>
+                    <Td tdExtra={{ ...subHdrBg, fontWeight: 700, color: '#374151' }}>{subcategory}</Td>
+                    <Td tdExtra={subHdrBg}>{''}</Td>
+                    <Td right tdExtra={{ ...subHdrBg, fontWeight: 600, color: '#374151' }}>
+                      {formatKRW(subAlloc)}
+                    </Td>
+                    <AdjTd v={subAdj} tdExtra={{ ...subHdrBg, fontWeight: 600 }} />
+                    <Td right tdExtra={{ ...subHdrBg, fontWeight: 600, color: '#111827' }}>
+                      {formatKRW(subAfter)}
+                    </Td>
                   </tr>,
                   ...sortedDetails.map(([subDetail, detailRows]) => {
                     const dAlloc = detailRows.reduce((s, r) => s + r.allocation, 0);
                     const dAdj   = detailRows.reduce((s, r) => s + r.adjustment, 0);
                     const dAfter = detailRows.reduce((s, r) => s + r.afterAllocation, 0);
-                    const detBg: CSSProperties = { background: dAdj !== 0 ? '#eff6ff' : '#ffffff', borderBottom: '1px solid #f0f0f0' };
+                    const detBg: CSSProperties = {
+                      background: dAdj !== 0 ? '#f3f4f6' : '#ffffff', borderBottom: '1px solid #e5e7eb',
+                    };
                     return (
                       <tr key={`p2-d-${subcategory}-${subDetail}`}>
-                        <td style={{ ...PDF_TD, ...detBg }} />
-                        <td style={{ ...PDF_TD, ...detBg, color: '#6b7280' }}>{subDetail}</td>
-                        <td style={{ ...PDF_TDR, ...detBg, color: '#374151' }}>{formatKRW(dAlloc)}</td>
-                        <td style={{ ...pdfAdjStyle(dAdj), ...detBg }}>{pdfAdjStr(dAdj)}</td>
-                        <td style={{ ...PDF_TDR, ...detBg, color: '#1f2937' }}>{formatKRW(dAfter)}</td>
+                        <Td tdExtra={detBg}>{''}</Td>
+                        <Td tdExtra={{ ...detBg, color: '#6b7280' }}>{subDetail}</Td>
+                        <Td right tdExtra={{ ...detBg, color: '#374151' }}>{formatKRW(dAlloc)}</Td>
+                        <AdjTd v={dAdj} tdExtra={detBg} />
+                        <Td right tdExtra={{ ...detBg, color: '#1f2937' }}>{formatKRW(dAfter)}</Td>
                       </tr>
                     );
                   }),
@@ -307,10 +401,12 @@ export function BudgetPdfDownload({
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={2} style={PDF_TFOOT_TD}>합계</td>
-                <td style={PDF_TFOOT_TDR}>{formatKRW(totalBefore)}</td>
-                <td style={{ ...pdfAdjStyle(totalAdj), background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700 }}>{pdfAdjStr(totalAdj)}</td>
-                <td style={PDF_TFOOT_TDR}>{formatKRW(totalAfter)}</td>
+                <td colSpan={2} style={pdfTd(false, { ...pdfFootBg, fontWeight: 700 })}>
+                  <div style={pdfInner()}>합계</div>
+                </td>
+                <TfTd right>{formatKRW(totalBefore)}</TfTd>
+                <TfAdjTd v={totalAdj} />
+                <TfTd right>{formatKRW(totalAfter)}</TfTd>
               </tr>
             </tfoot>
           </table>

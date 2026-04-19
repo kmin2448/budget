@@ -1,12 +1,20 @@
 import type { Metadata } from "next";
-import { Noto_Sans_KR } from "next/font/google";
+import { Inter, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/shared/Providers";
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 const notoSansKr = Noto_Sans_KR({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-noto-sans-kr',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
@@ -20,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={notoSansKr.variable}>
+    <html lang="ko" className={`${inter.variable} ${notoSansKr.variable}`}>
       <body className="font-sans antialiased bg-background">
         <Providers>{children}</Providers>
       </body>

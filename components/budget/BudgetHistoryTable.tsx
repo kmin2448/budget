@@ -37,7 +37,7 @@ function parseSnapshot(snap: Record<string, unknown> | null): {
 }
 
 function adjColor(v: number) {
-  return v > 0 ? 'text-blue-600' : v < 0 ? 'text-red-600' : 'text-gray-400';
+  return v > 0 ? 'text-primary' : v < 0 ? 'text-red-500' : 'text-text-secondary';
 }
 function adjStr(v: number) {
   return v !== 0 ? (v > 0 ? '+' : '') + formatKRW(v) : '-';
@@ -136,7 +136,7 @@ function CategoryView({ rows }: { rows: BudgetCategoryRow[] }) {
   return (
     <table className="w-full text-xs">
       <thead>
-        <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
+        <tr className="border-b border-[#E3E3E0] bg-[#F3F3EE] text-text-secondary">
           <th className="px-3 py-2 text-left font-medium">비목</th>
           <th className="px-3 py-2 text-right font-medium">변경전 편성액</th>
           <th className="px-3 py-2 text-right font-medium">증감액</th>
@@ -146,14 +146,14 @@ function CategoryView({ rows }: { rows: BudgetCategoryRow[] }) {
       </thead>
       <tbody>
         {changed.map((r) => (
-          <tr key={r.category} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-            <td className="px-3 py-2 font-medium text-gray-800">{r.category}</td>
-            <td className="px-3 py-2 text-right tabular-nums text-gray-700">{formatKRW(r.allocation)}</td>
+          <tr key={r.category} className="border-b border-[#F0F0EE] last:border-0 hover:bg-[#FAFAF8]">
+            <td className="px-3 py-2 font-medium text-[#131310]">{r.category}</td>
+            <td className="px-3 py-2 text-right tabular-nums text-[#131310]">{formatKRW(r.allocation)}</td>
             <td className={`px-3 py-2 text-right tabular-nums font-semibold ${adjColor(r.adjustment)}`}>
               {adjStr(r.adjustment)}
             </td>
-            <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{formatKRW(r.afterAllocation)}</td>
-            <td className={`px-3 py-2 text-right tabular-nums ${r.balance < 0 ? 'text-red-600' : 'text-gray-700'}`}>
+            <td className="px-3 py-2 text-right tabular-nums font-semibold text-[#131310]">{formatKRW(r.afterAllocation)}</td>
+            <td className={`px-3 py-2 text-right tabular-nums ${r.balance < 0 ? 'text-red-500' : 'text-[#131310]'}`}>
               {formatKRW(r.balance)}
             </td>
           </tr>
@@ -181,7 +181,7 @@ function DetailView({ rows }: { rows: BudgetDetailRow[] }) {
   return (
     <table className="w-full text-xs">
       <thead>
-        <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
+        <tr className="border-b border-[#E3E3E0] bg-[#F3F3EE] text-text-secondary">
           <th className="px-3 py-2 text-left font-medium">세목</th>
           <th className="px-3 py-2 text-left font-medium">보조세목</th>
           <th className="px-3 py-2 text-right font-medium">변경전 편성액</th>
@@ -191,14 +191,14 @@ function DetailView({ rows }: { rows: BudgetDetailRow[] }) {
       </thead>
       <tbody>
         {changed.map((r) => (
-          <tr key={`${r.subcategory}||${r.subDetail}`} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+          <tr key={`${r.subcategory}||${r.subDetail}`} className="border-b border-[#F0F0EE] last:border-0 hover:bg-[#FAFAF8]">
             <td className="px-3 py-2 font-medium text-primary">{r.subcategory || '-'}</td>
-            <td className="px-3 py-2 text-gray-600">{r.subDetail || '-'}</td>
-            <td className="px-3 py-2 text-right tabular-nums text-gray-700">{formatKRW(r.allocation)}</td>
+            <td className="px-3 py-2 text-text-secondary">{r.subDetail || '-'}</td>
+            <td className="px-3 py-2 text-right tabular-nums text-[#131310]">{formatKRW(r.allocation)}</td>
             <td className={`px-3 py-2 text-right tabular-nums font-semibold ${adjColor(r.adjustment)}`}>
               {adjStr(r.adjustment)}
             </td>
-            <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{formatKRW(r.afterAllocation)}</td>
+            <td className="px-3 py-2 text-right tabular-nums font-semibold text-[#131310]">{formatKRW(r.afterAllocation)}</td>
           </tr>
         ))}
       </tbody>
@@ -215,7 +215,7 @@ function IntegratedView({ rows, categoryRows }: { rows: BudgetDetailRow[]; categ
     return (
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
+          <tr className="border-b border-[#E3E3E0] bg-[#F3F3EE] text-text-secondary">
             <th className="px-3 py-2 text-left font-medium">비목</th>
             <th className="px-3 py-2 text-right font-medium">변경전 편성액</th>
             <th className="px-3 py-2 text-right font-medium">증감액</th>
@@ -224,11 +224,11 @@ function IntegratedView({ rows, categoryRows }: { rows: BudgetDetailRow[]; categ
         </thead>
         <tbody>
           {changedCats.map((r) => (
-            <tr key={r.category} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+            <tr key={r.category} className="border-b border-[#F0F0EE] last:border-0 hover:bg-[#FAFAF8]">
               <td className="px-3 py-2 font-semibold text-primary">{r.category}</td>
-              <td className="px-3 py-2 text-right tabular-nums text-gray-700">{formatKRW(r.allocation)}</td>
+              <td className="px-3 py-2 text-right tabular-nums text-[#131310]">{formatKRW(r.allocation)}</td>
               <td className={`px-3 py-2 text-right tabular-nums font-semibold ${adjColor(r.adjustment)}`}>{adjStr(r.adjustment)}</td>
-              <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{formatKRW(r.afterAllocation)}</td>
+              <td className="px-3 py-2 text-right tabular-nums font-semibold text-[#131310]">{formatKRW(r.afterAllocation)}</td>
             </tr>
           ))}
         </tbody>
@@ -246,7 +246,7 @@ function IntegratedView({ rows, categoryRows }: { rows: BudgetDetailRow[]; categ
   return (
     <table className="w-full text-xs">
       <thead>
-        <tr className="border-b border-gray-200 bg-gray-50 text-gray-600">
+        <tr className="border-b border-[#E3E3E0] bg-[#F3F3EE] text-text-secondary">
           <th className="px-3 py-2 text-left font-medium">비목</th>
           <th className="px-3 py-2 text-left font-medium">세목</th>
           <th className="px-3 py-2 text-left font-medium">보조세목</th>
@@ -263,13 +263,13 @@ function IntegratedView({ rows, categoryRows }: { rows: BudgetDetailRow[]; categ
             return (
               <tr key={r.rowOffset} className={`border-b border-gray-100 last:border-0 hover:bg-primary-bg/20 ${bg} ${isFirst && idx > 1 ? 'border-t border-t-gray-200' : ''}`}>
                 <td className="px-3 py-2 font-semibold text-primary">{isFirst ? category : ''}</td>
-                <td className="px-3 py-2 text-gray-700">{r.subcategory || '-'}</td>
-                <td className="px-3 py-2 text-gray-600">{r.subDetail || '-'}</td>
-                <td className="px-3 py-2 text-right tabular-nums text-gray-700">{formatKRW(r.allocation)}</td>
+                <td className="px-3 py-2 text-[#131310]">{r.subcategory || '-'}</td>
+                <td className="px-3 py-2 text-text-secondary">{r.subDetail || '-'}</td>
+                <td className="px-3 py-2 text-right tabular-nums text-[#131310]">{formatKRW(r.allocation)}</td>
                 <td className={`px-3 py-2 text-right tabular-nums font-semibold ${adjColor(r.adjustment)}`}>
                   {adjStr(r.adjustment)}
                 </td>
-                <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-900">{formatKRW(r.afterAllocation)}</td>
+                <td className="px-3 py-2 text-right tabular-nums font-semibold text-[#131310]">{formatKRW(r.afterAllocation)}</td>
               </tr>
             );
           }),
@@ -347,9 +347,9 @@ function SessionView({
 
   return (
     <>
-      <div className="rounded-lg border border-gray-200 overflow-hidden">
+      <div className="rounded-lg border border-[#E3E3E0] overflow-hidden shadow-soft">
         {/* 헤더 */}
-        <div className="flex items-center justify-between bg-primary-bg px-4 py-2.5">
+        <div className="flex items-center justify-between bg-[#F3F3EE] border-b border-divider px-4 py-2.5">
           <span className="font-semibold text-primary text-sm">{label}</span>
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">{changeLabel}</span>
@@ -386,7 +386,7 @@ function SessionView({
                 size="sm"
                 onClick={() => void handleExcel()}
                 disabled={xlsxLoading}
-                className="h-7 gap-1 px-2 text-xs text-gray-600"
+                className="h-7 gap-1 px-2 text-xs text-text-secondary"
               >
                 <FileSpreadsheet className="h-3 w-3" />
                 {xlsxLoading ? '...' : 'Excel'}
@@ -407,7 +407,7 @@ function SessionView({
         </div>
 
         {/* 서브 탭 */}
-        <div className="flex gap-0 border-b border-gray-200 bg-white px-4 pt-2">
+        <div className="flex gap-0 border-b border-[#E3E3E0] bg-white px-4 pt-2">
           {tabs.map(({ key, label: tabLabel }) => (
             <button
               key={key}
@@ -415,7 +415,7 @@ function SessionView({
               className={`px-3 py-1.5 text-xs font-medium transition-colors relative ${
                 subTab === key
                   ? 'text-primary after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-primary'
-                  : 'text-gray-500 hover:text-gray-700'
+                  : 'text-gray-500 hover:text-[#131310]'
               }`}
             >
               {tabLabel}
@@ -460,7 +460,7 @@ function DateGroup({
   return (
     <div className="space-y-2">
       {multiSession && (
-        <div className="px-1 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+        <div className="px-1 text-xs font-semibold text-text-secondary uppercase tracking-wide">
           {date} — {sessions.length}회 변경
         </div>
       )}
@@ -761,7 +761,7 @@ export function BudgetHistoryTable({ records, canDelete, onDelete }: Props) {
             size="sm"
             onClick={() => void handleDownloadAllPdf()}
             disabled={pdfAllLoading}
-            className="gap-1.5 text-gray-600"
+            className="gap-1.5 text-text-secondary"
           >
             <FileDown className="h-3.5 w-3.5" />
             {pdfAllLoading ? 'PDF 생성 중...' : '전체 PDF 다운로드'}
@@ -771,7 +771,7 @@ export function BudgetHistoryTable({ records, canDelete, onDelete }: Props) {
             size="sm"
             onClick={() => void handleDownloadAllExcel()}
             disabled={xlsxAllLoading}
-            className="gap-1.5 text-gray-600"
+            className="gap-1.5 text-text-secondary"
           >
             <FileSpreadsheet className="h-3.5 w-3.5" />
             {xlsxAllLoading ? '...' : '전체 Excel 내보내기'}
@@ -799,10 +799,10 @@ export function BudgetHistoryTable({ records, canDelete, onDelete }: Props) {
           >
             <div className="flex items-center gap-2">
               <History className="h-4 w-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-[#131310]">
                 이전 변경사항 보기
               </span>
-              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-600">
+              <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-text-secondary">
                 {olderRecords.length}건
               </span>
             </div>
@@ -823,7 +823,7 @@ export function BudgetHistoryTable({ records, canDelete, onDelete }: Props) {
                     className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                       selectedMonth === 'all'
                         ? 'bg-primary text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
                     }`}
                   >
                     전체보기
@@ -835,7 +835,7 @@ export function BudgetHistoryTable({ records, canDelete, onDelete }: Props) {
                       className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                         selectedMonth === ym
                           ? 'bg-primary text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
                       }`}
                     >
                       {formatMonth(ym)}

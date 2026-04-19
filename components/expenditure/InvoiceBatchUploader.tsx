@@ -420,6 +420,19 @@ export function InvoiceBatchUploader({
               className="hidden" onChange={handleFileChange} value=""
             />
           </div>
+          <div className="flex justify-end">
+            <a
+              href="https://drive.google.com/file/d/1I3H3_N_kt2vBIPXu_YVkaQkQ-OKXXawh/view?usp=drive_link"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-primary transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              청구서정리프로그램 다운받기
+            </a>
+          </div>
 
           {/* 파일 목록 */}
           {fileItems.length > 0 && (

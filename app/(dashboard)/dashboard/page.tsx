@@ -170,8 +170,8 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* 헤더 */}
       <div className="flex items-baseline gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
-        <span className="text-sm text-gray-500">KNU SDU COSS 2026년 본예산 집행 현황</span>
+        <h1 className="text-2xl font-semibold text-[#131310] tracking-tight">대시보드</h1>
+        <span className="text-sm text-text-secondary">KNU SDU COSS 2026년 본예산 집행 현황</span>
       </div>
 
       {/* 편집 모드 안내 배너 */}
@@ -193,7 +193,7 @@ export default function DashboardPage() {
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-32 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-32 animate-pulse rounded-lg bg-[#F3F3EE]" />
           ))}
         </div>
       ) : data ? (
@@ -204,7 +204,7 @@ export default function DashboardPage() {
       <div>
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-gray-800">프로그램별 집행 현황</h2>
+            <h2 className="text-lg font-semibold text-[#131310]">프로그램별 집행 현황</h2>
             <button
               onClick={() => toggleAll(!allOpen)}
               className="text-xs text-primary hover:underline"
@@ -218,7 +218,7 @@ export default function DashboardPage() {
               size="sm"
               onClick={() => refetch()}
               disabled={isLoading || editMode}
-              className="gap-1.5 text-gray-600"
+              className="gap-1.5 text-text-secondary border-[#E3E3E0] hover:bg-sidebar"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               새로고침
@@ -232,7 +232,7 @@ export default function DashboardPage() {
                     size="sm"
                     onClick={handleCancelEdit}
                     disabled={isSaving}
-                    className="text-gray-600"
+                    className="text-text-secondary border-[#E3E3E0] hover:bg-sidebar"
                   >
                     취소
                   </Button>
@@ -255,7 +255,7 @@ export default function DashboardPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setEditMode(true)}
-                    className="gap-1.5 text-gray-600"
+                    className="gap-1.5 text-text-secondary border-[#E3E3E0] hover:bg-sidebar"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                     편집 모드
@@ -274,7 +274,7 @@ export default function DashboardPage() {
           </div>
         </div>
         {isLoading ? (
-          <div className="h-64 animate-pulse rounded-lg bg-gray-100" />
+          <div className="h-64 animate-pulse rounded-lg bg-[#F3F3EE]" />
         ) : data ? (
           <ProgramTable
             rows={data.programRows}

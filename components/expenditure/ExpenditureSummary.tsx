@@ -4,11 +4,11 @@ import { cn } from '@/lib/utils';
 import type { ExpenditureBudgetInfo } from '@/types';
 import { CATEGORY_SHEETS } from '@/constants/sheets';
 
-// primary #1F5C99 at 15% opacity
-const SUMMARY_BG = 'rgba(31, 92, 153, 0.15)';
-const DIVIDER_COLOR = 'rgba(255, 255, 255, 0.35)';
-const DOT_COLOR = 'rgba(255, 255, 255, 0.55)';
-const LABEL_COLOR = 'rgba(20, 30, 50, 0.72)';
+// primary #20808D (teal) at 12% opacity
+const SUMMARY_BG = 'rgba(32, 128, 141, 0.10)';
+const DIVIDER_COLOR = 'rgba(32, 128, 141, 0.20)';
+const DOT_COLOR = 'rgba(32, 128, 141, 0.40)';
+const LABEL_COLOR = 'rgba(19, 19, 16, 0.65)';
 
 interface ExpenditureSummaryProps {
   budgetInfo: ExpenditureBudgetInfo;
@@ -20,11 +20,11 @@ export function ExpenditureSummary({ budgetInfo, activeCategory }: ExpenditureSu
   const executionRate = budgetInfo.executionRate ?? 0;
 
   const items = [
-    { label: '배정예산', value: formatKRW(allocation),          cls: 'text-gray-900' },
+    { label: '배정예산', value: formatKRW(allocation),          cls: 'text-[#131310]' },
     { label: '집행완료', value: formatKRW(executionComplete),   cls: 'text-complete' },
     { label: '집행예정', value: formatKRW(executionPlanned),    cls: 'text-planned'  },
-    { label: '잔액',     value: formatKRW(balance),             cls: balance < 0 ? 'text-red-400' : 'text-gray-900' },
-    { label: '집행률',   value: `${executionRate.toFixed(1)}%`, cls: executionRate > 100 ? 'text-red-400' : 'text-gray-900' },
+    { label: '잔액',     value: formatKRW(balance),             cls: balance < 0 ? 'text-red-500' : 'text-[#131310]' },
+    { label: '집행률',   value: `${executionRate.toFixed(1)}%`, cls: executionRate > 100 ? 'text-red-500' : 'text-primary' },
   ];
 
   // 역삼각형 위치: 선택된 탭의 중앙
