@@ -601,9 +601,12 @@ export function ExpenditureTable({
             groups!.flatMap(({ label, monthIdx, entries }, groupIndex) => {
               const isCollapsed = collapsedGroups.has(monthIdx);
 
-              // 접혀있는 상태에서 이후 그룹 중 펼쳐진 것이 있으면 숨김
-              // (펼쳐진 달은 전체 펼치기 등에서도 계속 보여야 하므로 제외)
-              const hiddenByLaterExpand = isCollapsed && groups!.slice(groupIndex + 1).some(
+              // 앞에 이미 펼쳐진 그룹이 있으면 → 헤더 바로 밑이 아니므로 숨김 안 함
+              // 앞에 펼쳐진 그룹이 없고(=헤더 바로 밑), 이후에 펼쳐진 그룹이 있을 때만 숨김
+              const hasExpandedBefore = groups!.slice(0, groupIndex).some(
+                (g) => !collapsedGroups.has(g.monthIdx),
+              );
+              const hiddenByLaterExpand = isCollapsed && !hasExpandedBefore && groups!.slice(groupIndex + 1).some(
                 (g) => !collapsedGroups.has(g.monthIdx),
               );
               if (hiddenByLaterExpand) return [];
