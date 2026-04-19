@@ -391,8 +391,8 @@ export function InvoiceBatchUploader({
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-baseline gap-2">
-          <h2 className="text-base font-semibold text-gray-900 flex items-center gap-1.5">
-            <UploadCloud className="h-4 w-4 text-primary shrink-0" />
+          <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+            <span className="text-primary shrink-0">■</span>
             다중 청구서 매칭 및 업로드
           </h2>
           <span className="text-xs text-gray-400 whitespace-nowrap">PDF를 올리면 집행금액 기준으로 시트 행에 자동 연결합니다. 금액 불일치 시 후보군에서 직접 선택합니다.</span>
