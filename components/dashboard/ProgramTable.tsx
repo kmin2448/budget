@@ -21,7 +21,19 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type CollisionDetection,
 } from '@dnd-kit/core';
+
+const sameTypeCollision: CollisionDetection = (args) => {
+  const activeId = String(args.active.id);
+  const prefix = activeId.startsWith('cat:') ? 'cat:' : 'row:';
+  return closestCenter({
+    ...args,
+    droppableContainers: args.droppableContainers.filter(
+      (c) => String(c.id).startsWith(prefix),
+    ),
+  });
+};
 import {
   SortableContext,
   arrayMove,
@@ -168,18 +180,19 @@ export function ProgramTable({
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
 
-  // ── 카테고리 정렬 순서 상태 ──
+  // ── 카테고리 / 행 정렬 순서 상태 ──
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
+  const [rowOrders, setRowOrders] = useState<Record<string, number[]>>({});
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    const saved = localStorage.getItem('dashboard-category-order');
-    if (saved) {
-      try {
-        setCategoryOrder(JSON.parse(saved));
-      } catch { /* ignore parse error */ }
-    }
+    try {
+      const savedCat = localStorage.getItem('dashboard-category-order');
+      if (savedCat) setCategoryOrder(JSON.parse(savedCat));
+      const savedRows = localStorage.getItem('dashboard-row-order');
+      if (savedRows) setRowOrders(JSON.parse(savedRows));
+    } catch { /* ignore parse error */ }
   }, []);
 
   const orderedGrouped = useMemo(() => {
@@ -194,6 +207,19 @@ export function ProgramTable({
     });
   }, [grouped, categoryOrder, isClient]);
 
+  function getOrderedRows(key: string, rows: ProgramRow[]): ProgramRow[] {
+    const order = rowOrders[key];
+    if (!order) return rows;
+    return [...rows].sort((a, b) => {
+      const ai = order.indexOf(a.rowIndex);
+      const bi = order.indexOf(b.rowIndex);
+      if (ai === -1 && bi === -1) return 0;
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -201,16 +227,40 @@ export function ProgramTable({
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const currentKeys = orderedGrouped.map((g) => g.key);
-      const oldIndex = currentKeys.indexOf(String(active.id));
-      const newIndex = currentKeys.indexOf(String(over.id));
+    if (!over || active.id === over.id) return;
+    const activeStr = String(active.id);
+    const overStr = String(over.id);
 
+    if (activeStr.startsWith('cat:') && overStr.startsWith('cat:')) {
+      // 카테고리 순서 변경
+      const activeKey = activeStr.slice(4);
+      const overKey = overStr.slice(4);
+      const currentKeys = orderedGrouped.map((g) => g.key);
+      const oldIndex = currentKeys.indexOf(activeKey);
+      const newIndex = currentKeys.indexOf(overKey);
       if (oldIndex !== -1 && newIndex !== -1) {
         const next = arrayMove(currentKeys, oldIndex, newIndex);
         setCategoryOrder(next);
         localStorage.setItem('dashboard-category-order', JSON.stringify(next));
       }
+    } else if (activeStr.startsWith('row:') && overStr.startsWith('row:')) {
+      // 행 순서 변경
+      const activeRowIndex = Number(activeStr.slice(4));
+      const overRowIndex = Number(overStr.slice(4));
+      const categoryKey = orderedGrouped.find((g) => g.rows.some((r) => r.rowIndex === activeRowIndex))?.key;
+      if (!categoryKey) return;
+      const group = orderedGrouped.find((g) => g.key === categoryKey);
+      if (!group || !group.rows.some((r) => r.rowIndex === overRowIndex)) return;
+      const orderedRows = getOrderedRows(categoryKey, group.rows);
+      const oldIndex = orderedRows.findIndex((r) => r.rowIndex === activeRowIndex);
+      const newIndex = orderedRows.findIndex((r) => r.rowIndex === overRowIndex);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const newOrder = arrayMove(orderedRows.map((r) => r.rowIndex), oldIndex, newIndex);
+      setRowOrders((prev) => {
+        const next = { ...prev, [categoryKey]: newOrder };
+        localStorage.setItem('dashboard-row-order', JSON.stringify(next));
+        return next;
+      });
     }
   }
 
@@ -246,7 +296,7 @@ export function ProgramTable({
         'overflow-x-auto rounded-[2px] border bg-white shadow-soft transition-colors',
         editMode ? 'border-amber-300' : 'border-[#E3E3E0]',
       )}>
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={sameTypeCollision} onDragEnd={handleDragEnd}>
           <Table className="table-fixed">
             <TableHeader>
               <TableRow className="bg-sidebar hover:bg-sidebar">
@@ -264,7 +314,7 @@ export function ProgramTable({
                 {canWrite && <TableHead className="w-16 text-center text-text-secondary font-medium">관리</TableHead>}
               </TableRow>
             </TableHeader>
-            <SortableContext items={orderedGrouped.map((g) => g.key)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={orderedGrouped.map((g) => `cat:${g.key}`)} strategy={verticalListSortingStrategy}>
               {orderedGrouped.map(({ key, rows: groupRows }) => {
                 const isGroupOpen = openGroups[key] ?? true;
 
@@ -284,7 +334,7 @@ export function ProgramTable({
                   : 0;
 
               return (
-                <SortableTbody key={`cat-${key}`} id={key}>
+                <SortableTbody key={`cat-${key}`} id={`cat:${key}`}>
                   {({ attributes, listeners }) => (
                     <>
                       {/* ── 구분 헤더 행 ── */}
@@ -333,8 +383,14 @@ export function ProgramTable({
                 </TableRow>
 
                 {/* ── 개별 프로그램 행들 ── */}
-                {isGroupOpen &&
-                  groupRows.map((row) => {
+                {isGroupOpen && (() => {
+                  const orderedRows = getOrderedRows(key, groupRows);
+                  return (
+                    <SortableContext
+                      items={orderedRows.map((r) => `row:${r.rowIndex}`)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                        {orderedRows.map((row) => {
                     const isRowOpen = openRows[row.rowIndex] ?? false;
                     const hasDetail =
                       getVal(row, 'note') ||
@@ -346,20 +402,38 @@ export function ProgramTable({
                     const isIncomplete = !getVal(row, 'budget') || !getVal(row, 'subCategory') || !getVal(row, 'subDetail');
 
                     return (
-                      <React.Fragment key={`row-group-${row.rowIndex}`}>
+                      <SortableRow key={`row-group-${row.rowIndex}`} id={`row:${row.rowIndex}`}>
+                        {({ dragHandleListeners, dragHandleAttributes, setNodeRef, isDragging, transform, transition }) => (
+                        <>
                         {/* 프로그램 행 */}
                         <TableRow
+                          ref={setNodeRef}
+                          style={{ transform: CSS.Translate.toString(transform), transition, opacity: isDragging ? 0.5 : 1, position: isDragging ? 'relative' : undefined, zIndex: isDragging ? 10 : undefined }}
                           className="transition-colors bg-white hover:bg-[#FAFAF8]"
                         >
                           <TableCell
-                            className="py-2 pl-7 pr-1 cursor-pointer"
-                            onClick={() => hasDetail && toggleRow(row.rowIndex)}
+                            className="py-2 pl-2 pr-1"
                           >
+                            <div className="flex items-center gap-0.5">
+                              <div
+                                {...dragHandleAttributes}
+                                {...dragHandleListeners}
+                                className="cursor-grab active:cursor-grabbing rounded p-0.5 text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <GripVertical className="h-3.5 w-3.5" />
+                              </div>
+                              <div
+                                className="cursor-pointer"
+                                onClick={() => hasDetail && toggleRow(row.rowIndex)}
+                              >
                             {hasDetail && (
                               isRowOpen
                                 ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
                                 : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
                             )}
+                              </div>
+                            </div>
                           </TableCell>
                           <TableCell
                             className={cn("py-2 pl-5 text-sm overflow-hidden", isIncomplete ? "text-primary" : "text-gray-800", !editMode && hasDetail && "cursor-pointer")}
@@ -615,9 +689,14 @@ export function ProgramTable({
                             </TableCell>
                           </TableRow>
                         )}
-                      </React.Fragment>
+                        </>
+                        )}
+                      </SortableRow>
                     );
                   })}
+                    </SortableContext>
+                  );
+                })()}
                     </>
                   )}
                 </SortableTbody>
@@ -674,4 +753,22 @@ function SortableTbody({
       {children({ attributes, listeners })}
     </tbody>
   );
+}
+
+function SortableRow({
+  id,
+  children,
+}: {
+  id: string;
+  children: (props: {
+    dragHandleListeners: ReturnType<typeof useSortable>['listeners'];
+    dragHandleAttributes: ReturnType<typeof useSortable>['attributes'];
+    setNodeRef: ReturnType<typeof useSortable>['setNodeRef'];
+    isDragging: boolean;
+    transform: ReturnType<typeof useSortable>['transform'];
+    transition: ReturnType<typeof useSortable>['transition'];
+  }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return <>{children({ dragHandleListeners: listeners, dragHandleAttributes: attributes, setNodeRef, isDragging, transform, transition })}</>;
 }
