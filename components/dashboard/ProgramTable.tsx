@@ -41,6 +41,8 @@ interface ProgramTableProps {
   changes?: Record<number, Partial<ProgramRow>>;
   onCellChange?: (rowIndex: number, field: keyof ProgramRow, value: string | number) => void;
   onAutoSave?: (rowIndex: number, field: keyof ProgramRow, value: string | number) => void;
+  openGroups?: Record<string, boolean>;
+  onToggleGroup?: (key: string) => void;
 }
 
 type EditingCell = { rowIndex: number; field: string } | null;
@@ -141,6 +143,7 @@ function InlineEditCell({
 export function ProgramTable({
   rows, onEdit, onDelete, canWrite, isLoggedIn = false,
   editMode = false, changes = {}, onCellChange, onAutoSave,
+  openGroups: externalOpenGroups, onToggleGroup: externalToggleGroup,
 }: ProgramTableProps) {
   const { collapsed } = useSidebar();
   const grouped = rows.reduce<{ key: string; rows: ProgramRow[] }[]>((acc, row) => {
@@ -151,9 +154,10 @@ export function ProgramTable({
     return acc;
   }, []);
 
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
+  const [internalOpenGroups, setInternalOpenGroups] = useState<Record<string, boolean>>(
     () => Object.fromEntries(grouped.map((g) => [g.key, true])),
   );
+  const openGroups = externalOpenGroups ?? internalOpenGroups;
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
 
@@ -204,15 +208,12 @@ export function ProgramTable({
   }
 
   function toggleGroup(key: string) {
-    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+    if (externalToggleGroup) externalToggleGroup(key);
+    else setInternalOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   function toggleRow(rowIndex: number) {
     setOpenRows((prev) => ({ ...prev, [rowIndex]: !prev[rowIndex] }));
-  }
-
-  function toggleAll(open: boolean) {
-    setOpenGroups(Object.fromEntries(grouped.map((g) => [g.key, open])));
   }
 
   function getVal<K extends keyof ProgramRow>(row: ProgramRow, field: K): ProgramRow[K] {
@@ -222,8 +223,6 @@ export function ProgramTable({
   function isCellChanged(rowIndex: number, field: keyof ProgramRow) {
     return changes[rowIndex]?.[field] !== undefined;
   }
-
-  const allOpen = grouped.every((g) => openGroups[g.key]);
 
   if (rows.length === 0) {
     return (
@@ -236,17 +235,7 @@ export function ProgramTable({
   const colSpan = canWrite ? 10 : 9;
 
   return (
-    <div className="space-y-1">
-      <div className="flex justify-end">
-        <button
-          onClick={() => toggleAll(!allOpen)}
-          className="text-xs text-primary hover:underline"
-        >
-          {allOpen ? '전체 접기' : '전체 펼치기'}
-        </button>
-      </div>
-
-      <div className={cn(
+    <div className={cn(
         'overflow-x-auto rounded-lg border bg-white shadow-sm transition-colors',
         editMode ? 'border-amber-300' : 'border-gray-200',
       )}>
@@ -567,7 +556,6 @@ export function ProgramTable({
           </Table>
         </DndContext>
       </div>
-    </div>
   );
 }
 

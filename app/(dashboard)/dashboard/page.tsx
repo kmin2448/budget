@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDashboard, type ProgramRow } from '@/hooks/useDashboard';
 import { SummaryCards } from '@/components/dashboard/SummaryCards';
@@ -23,6 +23,34 @@ export default function DashboardPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ProgramRow | undefined>(undefined);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // 프로그램 그룹 접기/펼치기
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  const groupKeys = useMemo(
+    () => Array.from(new Set((data?.programRows ?? []).map((r) => r.category || '기타'))),
+    [data?.programRows],
+  );
+
+  useEffect(() => {
+    if (groupKeys.length > 0) {
+      setOpenGroups((prev) => {
+        const next = { ...prev };
+        groupKeys.forEach((k) => { if (!(k in next)) next[k] = true; });
+        return next;
+      });
+    }
+  }, [groupKeys.join(',')]);
+
+  const allOpen = groupKeys.length > 0 && groupKeys.every((k) => openGroups[k] !== false);
+
+  function toggleGroup(key: string) {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function toggleAll(open: boolean) {
+    setOpenGroups(Object.fromEntries(groupKeys.map((k) => [k, open])));
+  }
 
   // 인라인 편집 모드
   const [editMode, setEditMode] = useState(false);
@@ -175,7 +203,15 @@ export default function DashboardPage() {
       {/* 프로그램별 테이블 */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">프로그램별 집행 현황</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-800">프로그램별 집행 현황</h2>
+            <button
+              onClick={() => toggleAll(!allOpen)}
+              className="text-xs text-primary hover:underline"
+            >
+              {allOpen ? '전체 접기' : '전체 펼치기'}
+            </button>
+          </div>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -250,6 +286,8 @@ export default function DashboardPage() {
             changes={changes}
             onCellChange={handleCellChange}
             onAutoSave={handleAutoSave}
+            openGroups={openGroups}
+            onToggleGroup={toggleGroup}
           />
         ) : null}
       </div>
