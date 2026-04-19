@@ -177,9 +177,6 @@ export function ProgramModal({
     const missing: string[] = [];
     if (!form.category.trim()) missing.push('구분');
     if (!form.programName.trim()) missing.push('프로그램명');
-    if (!form.budget) missing.push('비목');
-    if (!form.subCategory.trim()) missing.push('세목');
-    if (!form.subDetail.trim()) missing.push('보조세목');
     if (missing.length > 0) {
       setError(`필수 항목을 입력해주세요: ${missing.join(', ')}`);
       return;
@@ -262,7 +259,7 @@ export function ProgramModal({
           </Field>
 
           {/* 비목 — native select */}
-          <Field label="비목" required>
+          <Field label="비목">
             <select
               value={form.budget}
               onChange={(e) => handleBudgetChange(e.target.value)}
@@ -277,7 +274,7 @@ export function ProgramModal({
 
           {/* 세목 / 보조세목 — datalist (비목 연동) */}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="세목" required>
+            <Field label="세목">
               <input
                 list="subcategory-options"
                 value={form.subCategory}
@@ -293,14 +290,13 @@ export function ProgramModal({
                 ))}
               </datalist>
             </Field>
-            <Field label="보조세목" required>
+            <Field label="보조세목">
               <input
                 list="subdetail-options"
                 value={form.subDetail}
                 onChange={(e) => set('subDetail', e.target.value)}
                 onClick={() => set('subDetail', '')}
-                placeholder={form.subCategory ? '보조세목 선택 또는 직접 입력' : '세목을 먼저 선택하세요'}
-                disabled={!form.subCategory}
+                placeholder="보조세목 선택 또는 직접 입력"
                 className={inputCls}
                 autoComplete="off"
               />

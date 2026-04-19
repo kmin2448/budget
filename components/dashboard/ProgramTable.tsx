@@ -336,6 +336,8 @@ export function ProgramTable({
                       getVal(row, 'subDetail') ||
                       true; // 항상 디테일 창을 열어 추가 반영사항을 입력할 수 있게 함
 
+                    const isIncomplete = !getVal(row, 'budget') || !getVal(row, 'subCategory') || !getVal(row, 'subDetail');
+
                     return (
                       <React.Fragment key={`row-group-${row.rowIndex}`}>
                         {/* 프로그램 행 */}
@@ -353,7 +355,7 @@ export function ProgramTable({
                                 : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
                             )}
                           </TableCell>
-                          <TableCell className="py-2 pl-5 text-sm text-gray-800 overflow-hidden">
+                          <TableCell className={cn("py-2 pl-5 text-sm overflow-hidden", isIncomplete ? "text-primary" : "text-gray-800")}>
                             <InlineEditCell
                               rowIndex={row.rowIndex} field="programName"
                               value={getVal(row, 'programName')}
