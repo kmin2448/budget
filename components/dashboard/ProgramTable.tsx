@@ -528,7 +528,7 @@ export function ProgramTable({
                               const isCompleted = localStatus[row.rowIndex]?.isCompleted ?? row.isCompleted ?? false;
                               const isOnHold = localStatus[row.rowIndex]?.isOnHold ?? row.isOnHold ?? false;
                               return (
-                                <div className="flex items-center justify-center gap-0.5">
+                                <div className="flex items-center justify-center" style={{ gap: '0.3px' }}>
                                   <button
                                     disabled={!isLoggedIn}
                                     title={isLoggedIn ? (isCompleted ? '완료 해제' : '완료 처리') : '로그인 필요'}
@@ -582,6 +582,16 @@ export function ProgramTable({
                                     추가 반영사항
                                     {row.additionalReflectionDate && (
                                       <span className="font-normal text-gray-400">({row.additionalReflectionDate})</span>
+                                    )}
+                                    {canWrite && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); onDelete?.(row); }}
+                                        title="삭제"
+                                        className="ml-auto flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        삭제
+                                      </button>
                                     )}
                                   </div>
                                   <textarea
@@ -727,18 +737,6 @@ export function ProgramTable({
                                       </span>
                                     </div>
                                   </div>
-                                  {canWrite && (
-                                    <div className="flex justify-end pt-1">
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); onDelete?.(row); }}
-                                        title="삭제"
-                                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                        삭제
-                                      </button>
-                                    </div>
-                                  )}
                                 </div>
                               </div>
                             </TableCell>
