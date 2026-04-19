@@ -30,11 +30,9 @@ export default function AdvanceFundsPage() {
     <div className="space-y-6">
       {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex items-baseline gap-3">
           <h1 className="text-2xl font-bold text-gray-900">선지원금 현황</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            선지원금 수입·지출 내역을 관리합니다. 총수입, 총지출, 잔액은 Sheets에서 자동 계산됩니다.
-          </p>
+          <span className="text-sm text-gray-500">선지원금 수입·지출 내역을 관리합니다. 총수입, 총지출, 잔액은 Sheets에서 자동 계산됩니다.</span>
         </div>
         <Button
           variant="outline"

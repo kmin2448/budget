@@ -141,9 +141,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* 헤더 */}
-      <div>
+      <div className="flex items-baseline gap-3">
         <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
-        <p className="mt-1 text-sm text-gray-500">KNU SDU COSS 2026년 본예산 집행 현황</p>
+        <span className="text-sm text-gray-500">KNU SDU COSS 2026년 본예산 집행 현황</span>
       </div>
 
       {/* 편집 모드 안내 배너 */}

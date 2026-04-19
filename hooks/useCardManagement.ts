@@ -119,5 +119,28 @@ export function useDeleteCardEntry() {
   });
 }
 
+export interface CardConfigCard {
+  name: string;
+  holders: string[];
+}
+
+export function useUpdateCardConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (cards: CardConfigCard[]) => {
+      const res = await fetch('/api/sheets/card-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cards }),
+      });
+      if (!res.ok) {
+        const body = (await res.json()) as { error: string };
+        throw new Error(body.error ?? '저장 실패');
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['card-management'] }),
+  });
+}
+
 // re-export MONTH_COLUMNS for convenience
 export { MONTH_COLUMNS };

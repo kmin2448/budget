@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { Trash2, UserPlus, X } from 'lucide-react';
+import { Trash2, UserPlus, X, Download, Upload, CheckCircle, AlertCircle } from 'lucide-react';
 import type { UserRole } from '@/types';
 import { PERMISSIONS } from '@/types';
 import type { AdminUser } from '@/hooks/useAdmin';
@@ -54,6 +55,11 @@ export function UserTable({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [roleLoading, setRoleLoading] = useState<string | null>(null);
   const [permLoading, setPermLoading] = useState<string | null>(null);
+
+  // 엑셀 업로드 상태
+  const excelInputRef = useRef<HTMLInputElement>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<{ added: number; skipped: number; errors: string[] } | null>(null);
 
   // 사용자 추가 폼 상태
   const [showAddForm, setShowAddForm] = useState(false);
@@ -115,11 +121,128 @@ export function UserTable({
     finally { setDeleteLoading(false); setDeleteTarget(null); }
   }
 
+  // ── 엑셀 다운로드 ────────────────────────────────────────────────
+  function handleDownloadTemplate() {
+    const header = ['이메일 *필수', '이름 (선택)', '역할 (뷰어/어드민/슈퍼어드민)'];
+    const rows = users.map((u) => [u.email, u.name ?? '', ROLE_LABELS[u.role]]);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    ws['!cols'] = [{ wch: 32 }, { wch: 16 }, { wch: 20 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '사용자목록');
+    XLSX.writeFile(wb, 'COSS_사용자목록.xlsx');
+  }
+
+  // ── 엑셀 업로드 ─────────────────────────────────────────────────
+  const ROLE_MAP: Record<string, UserRole> = {
+    '뷰어': 'viewer', '어드민': 'admin', '슈퍼어드민': 'super_admin',
+    viewer: 'viewer', admin: 'admin', super_admin: 'super_admin',
+  };
+
+  async function handleExcelUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (e.target) e.target.value = '';
+
+    setImportLoading(true);
+    setImportResult(null);
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
+
+      const existingEmails = new Set(users.map((u) => u.email.toLowerCase()));
+      let added = 0, skipped = 0;
+      const errors: string[] = [];
+
+      for (const row of rawRows) {
+        const email = String(row['이메일 *필수'] ?? '').trim();
+        if (!email) continue;
+        if (existingEmails.has(email.toLowerCase())) { skipped++; continue; }
+
+        const name = String(row['이름 (선택)'] ?? '').trim() || undefined;
+        const roleStr = String(row['역할 (뷰어/어드민/슈퍼어드민)'] ?? '').trim();
+        const role: UserRole = ROLE_MAP[roleStr] ?? 'viewer';
+
+        try {
+          await onAddUser({ email, name, role });
+          existingEmails.add(email.toLowerCase());
+          added++;
+        } catch (err) {
+          errors.push(`${email}: ${err instanceof Error ? err.message : '추가 실패'}`);
+        }
+      }
+
+      setImportResult({ added, skipped, errors });
+    } catch {
+      setImportResult({ added: 0, skipped: 0, errors: ['파일을 읽을 수 없습니다. 올바른 Excel 파일인지 확인하세요.'] });
+    } finally {
+      setImportLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {/* 숨김 파일 input */}
+      <input
+        ref={excelInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        className="hidden"
+        onChange={handleExcelUpload}
+      />
+
+      {/* 엑셀 가져오기 결과 */}
+      {importResult && (
+        <div className={`rounded-lg border p-3 text-sm ${importResult.errors.length > 0 ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50'}`}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              {importResult.errors.length === 0
+                ? <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
+                : <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />}
+              <span className="font-medium text-gray-800">
+                추가 {importResult.added}명 완료
+                {importResult.skipped > 0 && ` · 중복 스킵 ${importResult.skipped}명`}
+                {importResult.errors.length > 0 && ` · 오류 ${importResult.errors.length}건`}
+              </span>
+            </div>
+            <button onClick={() => setImportResult(null)} className="text-gray-400 hover:text-gray-600">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          {importResult.errors.length > 0 && (
+            <ul className="mt-2 space-y-0.5 pl-6 text-xs text-amber-700">
+              {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* 사용자 추가 버튼 / 폼 */}
       {!showAddForm ? (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDownloadTemplate}
+              className="gap-1.5 text-gray-600"
+            >
+              <Download className="h-3.5 w-3.5" />
+              양식 다운로드
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={importLoading}
+              onClick={() => excelInputRef.current?.click()}
+              className="gap-1.5 text-gray-600"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              {importLoading ? '처리 중...' : '엑셀로 일괄 추가'}
+            </Button>
+          </div>
           <Button
             size="sm"
             onClick={() => setShowAddForm(true)}

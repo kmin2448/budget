@@ -126,11 +126,9 @@ export default function BudgetPage() {
     <div className="space-y-5">
       {/* 페이지 헤더 */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex items-baseline gap-3">
           <h1 className="text-2xl font-bold text-gray-900">예산관리</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            비목별 편성액 현황을 확인하고 증감액을 입력하여 예산을 변경합니다.
-          </p>
+          <span className="text-sm text-gray-500">비목별 편성액 현황을 확인하고 증감액을 입력하여 예산을 변경합니다.</span>
         </div>
         <Button
           variant="outline"
