@@ -1,13 +1,28 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { Trash2, UserPlus, X, Download, Upload, CheckCircle, AlertCircle } from 'lucide-react';
+import { Trash2, UserPlus, X, Download, Upload, CheckCircle, AlertCircle, GripVertical } from 'lucide-react';
 import type { UserRole } from '@/types';
 import { PERMISSIONS } from '@/types';
 import type { AdminUser } from '@/hooks/useAdmin';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: '슈퍼어드민',
@@ -22,11 +37,11 @@ const ROLE_COLORS: Record<UserRole, string> = {
 };
 
 const PERM_LABELS: Record<string, string> = {
-  [PERMISSIONS.DASHBOARD_WRITE]:   '대시보드 편집',
-  [PERMISSIONS.EXPENDITURE_WRITE]: '집행내역 편집',
-  [PERMISSIONS.BUDGET_WRITE]:      '예산관리 편집',
-  [PERMISSIONS.ADVANCE_WRITE]:     '선지원금 편집',
-  [PERMISSIONS.CARD_WRITE]:        '산단카드 편집',
+  [PERMISSIONS.DASHBOARD_WRITE]:   '대시보드',
+  [PERMISSIONS.EXPENDITURE_WRITE]: '집행내역',
+  [PERMISSIONS.BUDGET_WRITE]:      '예산관리',
+  [PERMISSIONS.ADVANCE_WRITE]:     '선지원금',
+  [PERMISSIONS.CARD_WRITE]:        '산단카드',
 };
 
 const inputCls =
@@ -42,6 +57,33 @@ interface UserTableProps {
   onDeleteUser: (id: string) => Promise<void>;
 }
 
+function SortableRow({
+  user,
+  children,
+}: {
+  user: AdminUser;
+  children: (props: {
+    attributes: ReturnType<typeof useSortable>['attributes'];
+    listeners: ReturnType<typeof useSortable>['listeners'];
+    isDragging: boolean;
+  }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: user.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    position: isDragging ? ('relative' as const) : undefined,
+    boxShadow: isDragging ? '0 4px 12px rgba(0,0,0,0.15)' : undefined,
+    backgroundColor: isDragging ? 'white' : undefined,
+  };
+  return (
+    <tr ref={setNodeRef} style={style}>
+      {children({ attributes, listeners, isDragging })}
+    </tr>
+  );
+}
+
 export function UserTable({
   users,
   currentUserEmail,
@@ -51,10 +93,25 @@ export function UserTable({
   onRevokePermission,
   onDeleteUser,
 }: UserTableProps) {
+  const [orderedUsers, setOrderedUsers] = useState<AdminUser[]>(users);
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [roleLoading, setRoleLoading] = useState<string | null>(null);
   const [permLoading, setPermLoading] = useState<string | null>(null);
+
+  useEffect(() => { setOrderedUsers(users); }, [users]);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setOrderedUsers((prev) => {
+      const oldIndex = prev.findIndex((u) => u.id === active.id);
+      const newIndex = prev.findIndex((u) => u.id === over.id);
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  }
 
   // 엑셀 업로드 상태
   const excelInputRef = useRef<HTMLInputElement>(null);
@@ -323,7 +380,7 @@ export function UserTable({
       )}
 
       {/* 사용자 테이블 */}
-      {users.length === 0 ? (
+      {orderedUsers.length === 0 ? (
         <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
           등록된 사용자가 없습니다.
         </div>
@@ -332,108 +389,126 @@ export function UserTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500">
-                <th className="px-4 py-2.5">이름</th>
-                <th className="px-4 py-2.5">이메일</th>
-                <th className="px-4 py-2.5">역할</th>
-                <th className="px-4 py-2.5">세부 권한 (어드민 전용)</th>
-                <th className="px-4 py-2.5">가입일</th>
-                <th className="px-4 py-2.5 w-10" />
+                <th className="w-6 px-1 py-2" />
+                <th className="w-48 px-3 py-2 whitespace-nowrap">이름</th>
+                <th className="px-3 py-2">이메일</th>
+                <th className="w-28 px-3 py-2">역할</th>
+                <th className="px-3 py-2">세부 편집 권한 (어드민 전용)</th>
+                <th className="w-20 px-3 py-2 whitespace-nowrap">가입일</th>
+                <th className="w-8 px-1 py-2" />
               </tr>
             </thead>
-            <tbody>
-              {users.map((user, i) => {
-                const isSelf = user.email === currentUserEmail;
-                const isAdmin = user.role === 'admin';
-                return (
-                  <tr
-                    key={user.id}
-                    className={`border-b border-gray-100 transition-colors hover:bg-gray-50 ${
-                      i % 2 === 0 ? 'bg-white' : 'bg-row-even'
-                    }`}
-                  >
-                    {/* 이름 */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {isSelf && (
-                          <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">나</span>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={orderedUsers.map((u) => u.id)} strategy={verticalListSortingStrategy}>
+                <tbody>
+                  {orderedUsers.map((user, i) => {
+                    const isSelf = user.email === currentUserEmail;
+                    const isAdmin = user.role === 'admin';
+                    return (
+                      <SortableRow key={user.id} user={user}>
+                        {({ attributes, listeners, isDragging }) => (
+                          <>
+                            {/* 드래그 핸들 */}
+                            <td className="px-1 py-2.5">
+                              <button
+                                {...attributes}
+                                {...listeners}
+                                className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 touch-none"
+                                tabIndex={-1}
+                              >
+                                <GripVertical className="h-4 w-4" />
+                              </button>
+                            </td>
+
+                            {/* 이름 */}
+                            <td className={`px-3 py-2.5 ${isDragging ? '' : i % 2 === 0 ? 'bg-white' : 'bg-row-even'}`}>
+                              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                {isSelf && (
+                                  <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">나</span>
+                                )}
+                                <span className="font-medium text-gray-900">{user.name ?? '-'}</span>
+                              </div>
+                            </td>
+
+                            {/* 이메일 */}
+                            <td className={`px-3 py-2.5 text-gray-600 text-xs ${isDragging ? '' : i % 2 === 0 ? 'bg-white' : 'bg-row-even'}`}>
+                              {user.email}
+                            </td>
+
+                            {/* 역할 선택 */}
+                            <td className={`px-3 py-2.5 ${isDragging ? '' : i % 2 === 0 ? 'bg-white' : 'bg-row-even'}`}>
+                              {isSelf ? (
+                                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[user.role]}`}>
+                                  {ROLE_LABELS[user.role]}
+                                </span>
+                              ) : (
+                                <select
+                                  value={user.role}
+                                  onChange={(e) => handleRoleChange(user, e.target.value as UserRole)}
+                                  disabled={roleLoading === user.id}
+                                  className={`${inputCls} h-7 py-0.5 text-xs`}
+                                >
+                                  {(Object.entries(ROLE_LABELS) as [UserRole, string][]).map(([role, label]) => (
+                                    <option key={role} value={role}>{label}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </td>
+
+                            {/* 세부 권한 체크박스 */}
+                            <td className={`px-3 py-2.5 ${isDragging ? '' : i % 2 === 0 ? 'bg-white' : 'bg-row-even'}`}>
+                              <div className="flex flex-wrap gap-2">
+                                {Object.entries(PERM_LABELS).map(([perm, label]) => {
+                                  const key = `${user.id}-${perm}`;
+                                  const checked = user.permissions.includes(perm);
+                                  const loading = permLoading === key;
+                                  return (
+                                    <label
+                                      key={perm}
+                                      className={`flex cursor-pointer items-center gap-1 ${
+                                        !isAdmin ? 'opacity-40 cursor-not-allowed' : ''
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={() => handlePermToggle(user, perm)}
+                                        disabled={!isAdmin || loading || isSelf}
+                                        className="h-3.5 w-3.5 rounded border-gray-300 accent-primary"
+                                      />
+                                      <span className="text-xs text-gray-600 whitespace-nowrap">{label}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </td>
+
+                            {/* 가입일 */}
+                            <td className={`px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap ${isDragging ? '' : i % 2 === 0 ? 'bg-white' : 'bg-row-even'}`}>
+                              {new Date(user.created_at).toLocaleDateString('ko-KR')}
+                            </td>
+
+                            {/* 삭제 */}
+                            <td className={`px-1 py-2.5 ${isDragging ? '' : i % 2 === 0 ? 'bg-white' : 'bg-row-even'}`}>
+                              {!isSelf && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setDeleteTarget(user)}
+                                  className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </td>
+                          </>
                         )}
-                        <span className="font-medium text-gray-900">{user.name ?? '-'}</span>
-                      </div>
-                    </td>
-
-                    {/* 이메일 */}
-                    <td className="px-4 py-3 text-gray-600">{user.email}</td>
-
-                    {/* 역할 선택 */}
-                    <td className="px-4 py-3">
-                      {isSelf ? (
-                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[user.role]}`}>
-                          {ROLE_LABELS[user.role]}
-                        </span>
-                      ) : (
-                        <select
-                          value={user.role}
-                          onChange={(e) => handleRoleChange(user, e.target.value as UserRole)}
-                          disabled={roleLoading === user.id}
-                          className={`${inputCls} h-7 py-0.5 text-xs`}
-                        >
-                          {(Object.entries(ROLE_LABELS) as [UserRole, string][]).map(([role, label]) => (
-                            <option key={role} value={role}>{label}</option>
-                          ))}
-                        </select>
-                      )}
-                    </td>
-
-                    {/* 세부 권한 체크박스 */}
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-3">
-                        {Object.entries(PERM_LABELS).map(([perm, label]) => {
-                          const key = `${user.id}-${perm}`;
-                          const checked = user.permissions.includes(perm);
-                          const loading = permLoading === key;
-                          return (
-                            <label
-                              key={perm}
-                              className={`flex cursor-pointer items-center gap-1.5 ${
-                                !isAdmin ? 'opacity-40 cursor-not-allowed' : ''
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={() => handlePermToggle(user, perm)}
-                                disabled={!isAdmin || loading || isSelf}
-                                className="h-3.5 w-3.5 rounded border-gray-300 accent-primary"
-                              />
-                              <span className="text-xs text-gray-600">{label}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </td>
-
-                    {/* 가입일 */}
-                    <td className="px-4 py-3 text-xs text-gray-400">
-                      {new Date(user.created_at).toLocaleDateString('ko-KR')}
-                    </td>
-
-                    {/* 삭제 */}
-                    <td className="px-4 py-3">
-                      {!isSelf && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteTarget(user)}
-                          className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
+                      </SortableRow>
+                    );
+                  })}
+                </tbody>
+              </SortableContext>
+            </DndContext>
           </table>
         </div>
       )}
