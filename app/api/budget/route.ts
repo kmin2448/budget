@@ -12,7 +12,6 @@ import type { BudgetDetailRow, BudgetCategoryRow, BudgetData, BudgetType } from 
 export const dynamic = 'force-dynamic';
 
 const EXEC_SHEET = "'집행내역 정리'";
-const SUMMARY_SHEET = "'★취합'";
 const SENTINEL = '새로운 집행 내역 작성시 이 행 위로 작성';
 
 function buildExecMaps(allExecRows: (string | number | null)[][]) {

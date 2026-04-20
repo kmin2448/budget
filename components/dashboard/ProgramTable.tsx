@@ -119,7 +119,10 @@ function InlineEditCell({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
-          onKeyDown={(e) => { if (e.key === 'Escape') cancel(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') { cancel(); }
+            else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit(); }
+          }}
           rows={3}
           className="w-full resize-none rounded border border-primary bg-white px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
           onClick={(e) => e.stopPropagation()}
@@ -154,7 +157,9 @@ function InlineEditCell({
       onDoubleClick={!editMode ? start : undefined}
       title={editMode ? `클릭하여 수정${showTitle && strValue ? ` | ${strValue}` : ''}` : `더블클릭하여 수정${showTitle && strValue ? ` | ${strValue}` : ''}`}
     >
-      {displayValue ?? (value !== '' && value !== 0 ? strValue : (editMode ? <span className="text-gray-300 text-xs">—</span> : '-'))}
+      {displayValue ?? (value !== '' && value !== 0
+        ? (multiline ? <span className="whitespace-pre-wrap">{strValue}</span> : strValue)
+        : (editMode ? <span className="text-gray-300 text-xs">—</span> : '-'))}
     </div>
   );
 }
@@ -618,8 +623,8 @@ export function ProgramTable({
                                 <div className="pt-2 border-t border-divider mt-1 space-y-1.5 text-xs">
                                   {/* 비고 */}
                                   {(getVal(row, 'note') || editMode) && (
-                                    <div className="flex h-5 items-center gap-1 text-gray-400">
-                                      <span className="shrink-0">비고</span>
+                                    <div className="flex h-5 items-center gap-1 text-sm text-[#131310]">
+                                      <span className="shrink-0">[비고]</span>
                                       <InlineEditCell
                                         rowIndex={row.rowIndex} field="note"
                                         value={getVal(row, 'note')}
@@ -628,7 +633,8 @@ export function ProgramTable({
                                         editingCell={editingCell} setEditingCell={setEditingCell}
                                         onCellChange={onCellChange}
                                         onAutoSave={onAutoSave}
-                                        className="flex items-center text-gray-400"
+                                        multiline
+                                        className="flex items-start text-sm text-[#131310]"
                                       />
                                     </div>
                                   )}
