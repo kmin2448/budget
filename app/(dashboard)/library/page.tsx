@@ -464,10 +464,21 @@ export default function LibraryPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState<LibraryFile | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LibraryFile | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const userPermissions = (session?.user as { permissions?: string[] } | undefined)?.permissions ?? [];
   const canWrite = userRole === 'super_admin' || userPermissions.includes('library:write');
+
+  const filteredFiles = files?.filter((f) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+    return (
+      f.title.toLowerCase().includes(q) ||
+      (f.description ?? '').toLowerCase().includes(q) ||
+      (f.uploader_name ?? '').toLowerCase().includes(q)
+    );
+  });
 
   async function handleDelete() {
     if (!deleteTarget) return;
@@ -507,6 +518,27 @@ export default function LibraryPage() {
         </div>
       </div>
 
+      {/* 검색 */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="제목, 설명, 등록자 검색"
+          className="w-full rounded-lg border border-[#E3E3E0] bg-white py-2 pl-9 pr-8 text-sm text-[#131310] outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-[#131310]"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
       {/* 에러 */}
       {isError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -535,15 +567,15 @@ export default function LibraryPage() {
               </tr>
             </thead>
             <tbody>
-              {!files || files.length === 0 ? (
+              {!filteredFiles || filteredFiles.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-16 text-center text-text-secondary">
                     <FileText className="mx-auto mb-2 h-8 w-8 text-[#E3E3E0]" />
-                    등록된 자료가 없습니다.
+                    {searchQuery.trim() ? `"${searchQuery.trim()}"에 해당하는 자료가 없습니다.` : '등록된 자료가 없습니다.'}
                   </td>
                 </tr>
               ) : (
-                files.map((file, i) => (
+                filteredFiles.map((file, i) => (
                   <tr
                     key={file.id}
                     className={cn(
@@ -552,7 +584,7 @@ export default function LibraryPage() {
                     )}
                   >
                     <td className="px-4 py-3 text-center text-text-secondary tabular-nums whitespace-nowrap">
-                      {files.length - i}
+                      {(files?.length ?? 0) - (files?.indexOf(file) ?? i)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -567,7 +599,6 @@ export default function LibraryPage() {
                           {file.description && (
                             <p className="mt-0.5 text-xs text-text-secondary">{file.description}</p>
                           )}
-                          <p className="mt-0.5 text-xs text-text-secondary">{file.file_name}</p>
                         </div>
                       </div>
                     </td>
@@ -619,7 +650,11 @@ export default function LibraryPage() {
 
       {/* 파일 개수 */}
       {files && files.length > 0 && (
-        <p className="text-xs text-text-secondary">총 {files.length}개의 자료</p>
+        <p className="text-xs text-text-secondary">
+          {searchQuery.trim()
+            ? `${filteredFiles?.length ?? 0}개 검색됨 (전체 ${files.length}개)`
+            : `총 ${files.length}개의 자료`}
+        </p>
       )}
 
       {/* 모달 */}
