@@ -10,6 +10,7 @@ export const PERMISSIONS = {
   BUDGET_WRITE:      'budget:write',      // 예산관리 (증감액 입력, PDF)
   ADVANCE_WRITE:     'advance:write',     // 선지원금 편집
   CARD_WRITE:        'card:write',        // 산단카드 편집
+  LIBRARY_WRITE:     'library:write',     // 자료실 업로드/삭제
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -163,6 +164,21 @@ export interface BudgetCategoryRow {
 export interface BudgetData {
   detailRows: BudgetDetailRow[];
   categoryRows: BudgetCategoryRow[];
+}
+
+// 자료실 파일
+export interface LibraryFile {
+  id: string;
+  title: string;
+  description: string | null;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  drive_file_id: string;
+  drive_url: string;
+  uploaded_by: string | null;
+  uploader_name: string | null;
+  uploaded_at: string;
 }
 
 // 예산변경 확정 요청 payload

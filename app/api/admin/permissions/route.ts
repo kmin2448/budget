@@ -55,7 +55,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ permission: data }, { status: 201 });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '부여 실패';
+    const msg =
+      err instanceof Error ? err.message
+      : (typeof err === 'object' && err !== null && 'message' in err)
+        ? String((err as Record<string, unknown>).message)
+        : '부여 실패';
     return NextResponse.json({ error: msg }, { status: msg === '권한 없음' ? 403 : 500 });
   }
 }
@@ -82,7 +86,11 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : '회수 실패';
+    const msg =
+      err instanceof Error ? err.message
+      : (typeof err === 'object' && err !== null && 'message' in err)
+        ? String((err as Record<string, unknown>).message)
+        : '회수 실패';
     return NextResponse.json({ error: msg }, { status: msg === '권한 없음' ? 403 : 500 });
   }
 }

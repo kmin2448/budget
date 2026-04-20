@@ -21,6 +21,7 @@ import {
   Wallet,
   CreditCard,
   Settings,
+  FolderOpen,
   ChevronLeft,
   ChevronRight,
   X,
@@ -36,6 +37,7 @@ const navItems = [
   { label: '예산관리',       href: '/budget',              icon: BarChart2 },
   { label: '선지원금',       href: '/advance-funds',       icon: Wallet },
   { label: '카드관리',       href: '/card',                icon: CreditCard },
+  { label: '자료실',         href: '/library',             icon: FolderOpen },
   { label: '권한관리',       href: '/admin',               icon: Settings },
 ];
 

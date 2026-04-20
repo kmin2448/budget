@@ -42,6 +42,7 @@ const PERM_LABELS: Record<string, string> = {
   [PERMISSIONS.BUDGET_WRITE]:      '예산관리',
   [PERMISSIONS.ADVANCE_WRITE]:     '선지원금',
   [PERMISSIONS.CARD_WRITE]:        '산단카드',
+  [PERMISSIONS.LIBRARY_WRITE]:     '자료실',
 };
 
 const inputCls =

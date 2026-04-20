@@ -19,6 +19,7 @@ interface ProgramModalProps {
   open: boolean;
   mode: 'add' | 'edit';
   initialData?: ProgramRow;
+  defaultCategory?: string;
   onClose: () => void;
   existingCategories?: string[];
   rows?: ProgramRow[];
@@ -66,7 +67,7 @@ function Field({ label, required, children }: {
 }
 
 export function ProgramModal({
-  open, mode, initialData, onClose,
+  open, mode, initialData, defaultCategory, onClose,
   existingCategories = [], rows = [],
 }: ProgramModalProps) {
   const [form, setForm] = useState<FormData>(emptyForm);
@@ -142,10 +143,10 @@ export function ProgramModal({
         budgetPlan: initialData.budgetPlan ? formatKRW(initialData.budgetPlan) : '',
       });
     } else {
-      setForm(emptyForm);
+      setForm(defaultCategory ? { ...emptyForm, category: defaultCategory } : emptyForm);
     }
     setError(null);
-  }, [open, initialData, mode]);
+  }, [open, initialData, mode, defaultCategory]);
 
   function set(field: keyof FormData, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -222,7 +223,7 @@ export function ProgramModal({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl">
         <DialogHeader>
           <DialogTitle className="text-primary">
             {mode === 'add' ? '프로그램 추가' : '프로그램 수정'}

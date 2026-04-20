@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editTarget, setEditTarget] = useState<ProgramRow | undefined>(undefined);
+  const [addCategory, setAddCategory] = useState<string | undefined>(undefined);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ProgramRow | undefined>(undefined);
@@ -140,6 +141,14 @@ export default function DashboardPage() {
   function handleAdd() {
     setModalMode('add');
     setEditTarget(undefined);
+    setAddCategory(undefined);
+    setModalOpen(true);
+  }
+
+  function handleAddInCategory(category: string) {
+    setModalMode('add');
+    setEditTarget(undefined);
+    setAddCategory(category);
     setModalOpen(true);
   }
 
@@ -389,6 +398,7 @@ export default function DashboardPage() {
             onToggleGroup={toggleGroup}
             forcedOpenRows={forcedOpenRows}
             emptyMessage={searchQuery.trim() ? `'${searchQuery.trim()}' 검색 결과가 없습니다.` : '데이터가 없습니다.'}
+            onAddInCategory={canWrite ? handleAddInCategory : undefined}
           />
         ) : null}
       </div>
@@ -398,7 +408,8 @@ export default function DashboardPage() {
         open={modalOpen}
         mode={modalMode}
         initialData={editTarget}
-        onClose={() => setModalOpen(false)}
+        defaultCategory={addCategory}
+        onClose={() => { setModalOpen(false); setAddCategory(undefined); }}
         existingCategories={data?.programRows.map((r) => r.category).filter(Boolean) ?? []}
         rows={data?.programRows ?? []}
       />

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 import { formatKRW, cn } from '@/lib/utils';
 import type { ProgramRow } from '@/hooks/useDashboard';
-import { ChevronDown, ChevronRight, GripVertical, Trash2, CheckSquare, Square } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Trash2, CheckSquare, Square, Plus } from 'lucide-react';
 import { useSidebar } from '@/components/layout/SidebarContext';
 import {
   DndContext,
@@ -56,6 +56,7 @@ interface ProgramTableProps {
   onToggleGroup?: (key: string) => void;
   forcedOpenRows?: number[];
   emptyMessage?: string;
+  onAddInCategory?: (category: string) => void;
 }
 
 type EditingCell = { rowIndex: number; field: string } | null;
@@ -170,6 +171,7 @@ export function ProgramTable({
   editMode = false, changes = {}, onCellChange, onAutoSave,
   openGroups: externalOpenGroups, onToggleGroup: externalToggleGroup,
   forcedOpenRows, emptyMessage = '데이터가 없습니다.',
+  onAddInCategory,
 }: ProgramTableProps) {
   const { collapsed } = useSidebar();
   const grouped = rows.reduce<{ key: string; rows: ProgramRow[] }[]>((acc, row) => {
@@ -758,6 +760,21 @@ export function ProgramTable({
                     </SortableContext>
                   );
                 })()}
+
+                {/* ── 행 추가 버튼 ── */}
+                {isGroupOpen && canWrite && onAddInCategory && (
+                  <TableRow className="border-t border-dashed border-[#E3E3E0] bg-white hover:bg-[#F8FBFF]">
+                    <TableCell colSpan={colSpan} className="py-1.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onAddInCategory(key); }}
+                        className="flex w-full items-center justify-end gap-1.5 rounded px-3 py-1 text-xs text-text-secondary hover:text-primary transition-colors"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>{key} 행 추가</span>
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                )}
                     </>
                   )}
                 </SortableTbody>

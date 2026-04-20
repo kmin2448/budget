@@ -83,6 +83,39 @@ export async function uploadToUserDrive(params: {
   };
 }
 
+/** 자료실 파일 업로드 (COSS_지출부/지침/ 폴더) */
+export async function uploadToLibraryDrive(params: {
+  accessToken: string;
+  fileName: string;
+  buffer: Buffer;
+  mimeType: string;
+}): Promise<{ fileId: string; webViewLink: string }> {
+  const drive = getDriveClient(params.accessToken);
+  const rootFolderId = await getOrCreateFolder(drive, ROOT_FOLDER_NAME);
+  const libraryFolderId = await getOrCreateFolder(drive, '지침', rootFolderId);
+
+  const stream = Readable.from(params.buffer);
+  const uploadRes = await drive.files.create({
+    requestBody: { name: params.fileName, parents: [libraryFolderId], mimeType: params.mimeType },
+    media: { mimeType: params.mimeType, body: stream },
+    fields: 'id, webViewLink',
+  });
+
+  if (!uploadRes.data.id) throw new Error('파일 업로드 실패');
+
+  await drive.permissions.create({
+    fileId: uploadRes.data.id,
+    requestBody: { role: 'reader', type: 'anyone' },
+  });
+
+  return {
+    fileId: uploadRes.data.id,
+    webViewLink:
+      uploadRes.data.webViewLink ??
+      `https://drive.google.com/file/d/${uploadRes.data.id}/view`,
+  };
+}
+
 /** Drive 파일 삭제 */
 export async function deleteFromUserDrive(params: {
   accessToken: string;
