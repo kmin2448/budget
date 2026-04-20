@@ -28,9 +28,6 @@ function getFileIcon(mimeType: string) {
   return '📎';
 }
 
-function isPdf(mimeType: string) {
-  return mimeType === 'application/pdf';
-}
 
 // ── 업로드 모달 ──────────────────────────────────────────────────────
 interface UploadModalProps {
