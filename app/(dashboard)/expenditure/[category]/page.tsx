@@ -3,6 +3,7 @@
 
 import { useState, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { useBudgetType } from '@/contexts/BudgetTypeContext';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { CategoryTabs } from '@/components/expenditure/CategoryTabs';
@@ -30,6 +31,8 @@ export default function ExpenditurePage({
   const category = decodeURIComponent(params.category);
   const { data: session } = useSession();
   const { data, isLoading, isError, error, refetch } = useExpenditure(category);
+  const { budgetType } = useBudgetType();
+  const isCarryover = budgetType === 'carryover';
 
   const addMutation    = useAddExpenditureRow(category);
   const updateMutation = useUpdateExpenditureRow(category);
@@ -176,6 +179,11 @@ export default function ExpenditurePage({
         <div>
           <div className="flex items-baseline gap-2">
             <h1 className="text-2xl font-semibold text-[#131310] tracking-tight">비목별 집행내역</h1>
+            {isCarryover && (
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                이월예산
+              </span>
+            )}
             <span className="text-sm text-gray-400">비목을 선택하여 집행내역을 조회하고 입력합니다.</span>
           </div>
         </div>

@@ -3,12 +3,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDashboard, type ProgramRow } from '@/hooks/useDashboard';
+import { useBudgetType } from '@/contexts/BudgetTypeContext';
 import { SummaryCards } from '@/components/dashboard/SummaryCards';
 import { ProgramTable } from '@/components/dashboard/ProgramTable';
 import { ProgramModal } from '@/components/dashboard/ProgramModal';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { Plus, RefreshCw, Pencil } from 'lucide-react';
+import { Plus, RefreshCw, Pencil, Search, X } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +17,8 @@ export default function DashboardPage() {
   const { data, isLoading, isError, error, refetch } = useDashboard();
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const { budgetType } = useBudgetType();
+  const isCarryover = budgetType === 'carryover';
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
@@ -53,6 +56,9 @@ export default function DashboardPage() {
     setOpenGroups(Object.fromEntries(groupKeys.map((k) => [k, open])));
   }
 
+  // 검색
+  const [searchQuery, setSearchQuery] = useState('');
+
   // 필터
   const [filterRecent, setFilterRecent] = useState(false);
   const [filterExcludeCompleted, setFilterExcludeCompleted] = useState(false);
@@ -78,13 +84,13 @@ export default function DashboardPage() {
 
   async function handleAutoSave(rowIndex: number, field: keyof ProgramRow, value: string | number) {
     try {
-      const res = await fetch('/api/sheets/program', {
+      const res = await fetch(`/api/sheets/program?sheetType=${budgetType}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates: [{ rowIndex, field, value }] }),
       });
       if (!res.ok) throw new Error('자동 저장 실패');
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
     } catch (err) {
       console.error(err);
       // Fail silently without disrupting user flow
@@ -112,7 +118,7 @@ export default function DashboardPage() {
 
     setIsSaving(true);
     try {
-      const res = await fetch('/api/sheets/program', {
+      const res = await fetch(`/api/sheets/program?sheetType=${budgetType}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates }),
@@ -121,7 +127,7 @@ export default function DashboardPage() {
         const body = await res.json() as { error?: string };
         throw new Error(body.error ?? '저장 실패');
       }
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
       setChanges({});
       setEditMode(false);
     } catch (err) {
@@ -152,7 +158,7 @@ export default function DashboardPage() {
     if (!deleteTarget) return;
     setDeleteLoading(true);
     try {
-      const res = await fetch('/api/sheets/program', {
+      const res = await fetch(`/api/sheets/program?sheetType=${budgetType}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rowIndex: deleteTarget.rowIndex }),
@@ -161,7 +167,7 @@ export default function DashboardPage() {
         const body = await res.json() as { error?: string };
         throw new Error(body.error ?? '삭제 실패');
       }
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
       setDeleteOpen(false);
     } catch (err) {
       alert(err instanceof Error ? err.message : '삭제 중 오류가 발생했습니다.');
@@ -183,20 +189,35 @@ export default function DashboardPage() {
     if (filterRecent) rows = rows.filter((r) => !!r.additionalReflectionDate && r.additionalReflectionDate >= oneMonthAgo);
     if (filterExcludeCompleted) rows = rows.filter((r) => !r.isCompleted);
     if (filterExcludeOnHold) rows = rows.filter((r) => !r.isOnHold);
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      rows = rows.filter((r) =>
+        [r.programName, r.category, r.budget, r.subCategory, r.subDetail,
+         r.professor, r.teacher, r.staff, r.divisionCode, r.note]
+          .some((v) => v?.toLowerCase().includes(q)),
+      );
+    }
     return rows;
-  }, [data?.programRows, filterRecent, filterExcludeCompleted, filterExcludeOnHold, oneMonthAgo]);
+  }, [data?.programRows, filterRecent, filterExcludeCompleted, filterExcludeOnHold, oneMonthAgo, searchQuery]);
 
   const forcedOpenRows = useMemo(() => {
-    if (!filterRecent) return undefined;
+    if (!filterRecent && !searchQuery.trim()) return undefined;
     return filteredRows.map((r) => r.rowIndex);
-  }, [filterRecent, filteredRows]);
+  }, [filterRecent, searchQuery, filteredRows]);
 
   return (
     <div className="space-y-6">
       {/* 헤더 */}
       <div className="flex items-baseline gap-3">
         <h1 className="text-2xl font-semibold text-[#131310] tracking-tight">대시보드</h1>
-        <span className="text-sm text-text-secondary">KNU SDU COSS 2026년 본예산 집행 현황</span>
+        {isCarryover ? (
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+            이월예산
+          </span>
+        ) : null}
+        <span className="text-sm text-text-secondary">
+          KNU SDU COSS 2026년 {isCarryover ? '이월예산' : '본예산'} 집행 현황
+        </span>
       </div>
 
       {/* 편집 모드 안내 배너 */}
@@ -230,6 +251,25 @@ export default function DashboardPage() {
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-lg font-semibold text-[#131310]">프로그램별 집행 현황</h2>
+            {/* 검색 입력창 */}
+            <div className="relative flex items-center">
+              <Search className="absolute left-2.5 h-3.5 w-3.5 text-text-secondary pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="프로그램명, 담당자 등 검색"
+                className="h-7 rounded border border-[#E3E3E0] bg-white pl-7 pr-7 text-xs text-[#131310] placeholder:text-text-secondary outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 w-52"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 text-text-secondary hover:text-[#131310]"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
             <button
               onClick={() => toggleAll(!allOpen)}
               className="text-xs text-primary hover:underline"
@@ -348,6 +388,7 @@ export default function DashboardPage() {
             openGroups={openGroups}
             onToggleGroup={toggleGroup}
             forcedOpenRows={forcedOpenRows}
+            emptyMessage={searchQuery.trim() ? `'${searchQuery.trim()}' 검색 결과가 없습니다.` : '데이터가 없습니다.'}
           />
         ) : null}
       </div>

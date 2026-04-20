@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useBudgetType } from '@/contexts/BudgetTypeContext';
 import { useSession } from 'next-auth/react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,8 @@ type StatusSubTab = 'category' | 'detail' | 'integrated';
 export default function BudgetPage() {
   const { data: session } = useSession();
   const { data, isLoading, isError, error, refetch } = useBudget();
+  const { budgetType } = useBudgetType();
+  const isCarryover = budgetType === 'carryover';
   const { data: historyData, isLoading: historyLoading } = useBudgetHistory();
 
   const saveAdjustments = useSaveAdjustments();
@@ -128,6 +131,11 @@ export default function BudgetPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-3">
           <h1 className="text-2xl font-semibold text-[#131310] tracking-tight">예산관리</h1>
+          {isCarryover && (
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+              이월예산
+            </span>
+          )}
           <span className="text-sm text-text-secondary">비목별 편성액 현황을 확인하고 증감액을 입력하여 예산을 변경합니다.</span>
         </div>
         <Button
@@ -175,27 +183,43 @@ export default function BudgetPage() {
       {/* ── 예산현황 탭 ── */}
       {mainTab === 'status' && (
         <div className="space-y-4">
-          {/* 서브 탭 */}
-          <div className="flex gap-2">
-            {(
-              [
-                { key: 'integrated', label: '통합' },
-                { key: 'category',   label: '비목별' },
-                { key: 'detail',     label: '세목별' },
-              ] as { key: StatusSubTab; label: string }[]
-            ).map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setSubTab(key)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                  subTab === key
-                    ? 'bg-primary text-white'
-                    : 'bg-[#F3F3EE] text-text-secondary hover:bg-[#E8F4F5] hover:text-primary'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          {/* 서브 탭 + 잔액 합계 */}
+          <div className="flex items-center justify-between">
+            <div className="flex gap-2">
+              {(
+                [
+                  { key: 'integrated', label: '통합' },
+                  { key: 'category',   label: '비목별' },
+                  { key: 'detail',     label: '세목별' },
+                ] as { key: StatusSubTab; label: string }[]
+              ).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setSubTab(key)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                    subTab === key
+                      ? 'bg-primary text-white'
+                      : 'bg-[#F3F3EE] text-text-secondary hover:bg-[#E8F4F5] hover:text-primary'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {data && (() => {
+              const balanceTotal =
+                subTab === 'detail'
+                  ? previewDetailRows.reduce((s, r) => s + r.balance, 0)
+                  : previewCategoryRows.reduce((s, r) => s + r.balance, 0);
+              return (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-text-secondary">잔액 합계</span>
+                  <span className={`font-semibold tabular-nums ${balanceTotal < 0 ? 'text-red-500' : 'text-[#131310]'}`}>
+                    {balanceTotal.toLocaleString('ko-KR')}원
+                  </span>
+                </div>
+              );
+            })()}
           </div>
 
           {isLoading ? (

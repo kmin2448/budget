@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getSheetsClient } from '@/lib/google/sheets';
+import { getSpreadsheetId } from '@/lib/google/getSheetId';
 import { calcExecutionRate } from '@/lib/utils';
+import type { BudgetType } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,16 +17,17 @@ function sheetsSerialToDateStr(raw: unknown): string {
   return String(raw ?? '').trim();
 }
 
-const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID!;
 const SHEET = "'집행내역 정리'";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session) {
       return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
     }
 
+    const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
+    const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
     const sheets = getSheetsClient();
 
     // 요약 행 읽기
@@ -61,7 +64,6 @@ export async function GET() {
     const executionPlanned  = Number(valueRanges[6]?.values?.[0]?.[0] ?? 0); // P5: 집행예정 합계
     const balance           = Number(valueRanges[7]?.values?.[0]?.[0] ?? 0); // N5: 잔액(예산계획 기준)
 
-    // 총예산(H2) 기준 잔액: 집행완료 + 집행예정 + 간접비를 집행금액으로 간주
     const totalExecution = executionComplete + executionPlanned + indirectCost;
     const mainBudgetBalance = totalBudget - totalExecution;
     const mainBudgetExecutionRate = totalBudget > 0

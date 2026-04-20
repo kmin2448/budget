@@ -1,3 +1,6 @@
+// 예산 유형 (본예산 / 이월예산)
+export type BudgetType = 'main' | 'carryover';
+
 // 사용자 권한 체계
 export type UserRole = 'super_admin' | 'admin' | 'viewer';
 

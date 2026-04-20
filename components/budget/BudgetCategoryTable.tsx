@@ -1,7 +1,7 @@
 // components/budget/BudgetCategoryTable.tsx
 'use client';
 
-import { formatKRW } from '@/lib/utils';
+import { formatKRW, cn } from '@/lib/utils';
 import type { BudgetCategoryRow } from '@/types';
 
 interface Props {
@@ -11,15 +11,16 @@ interface Props {
 export function BudgetCategoryTable({ rows }: Props) {
   const totals = rows.reduce(
     (acc, r) => ({
-      allocation: acc.allocation + r.allocation,
-      adjustment: acc.adjustment + r.adjustment,
-      afterAllocation: acc.afterAllocation + r.afterAllocation,
+      allocation:        acc.allocation + r.allocation,
+      adjustment:        acc.adjustment + r.adjustment,
+      afterAllocation:   acc.afterAllocation + r.afterAllocation,
       executionComplete: acc.executionComplete + r.executionComplete,
-      executionPlanned: acc.executionPlanned + r.executionPlanned,
-      balance: acc.balance + r.balance,
+      executionPlanned:  acc.executionPlanned + r.executionPlanned,
+      balance:           acc.balance + r.balance,
     }),
     { allocation: 0, adjustment: 0, afterAllocation: 0, executionComplete: 0, executionPlanned: 0, balance: 0 },
   );
+
   const totalRate =
     totals.afterAllocation > 0
       ? Math.round(((totals.executionComplete + totals.executionPlanned) / totals.afterAllocation) * 1000) / 10
@@ -35,7 +36,9 @@ export function BudgetCategoryTable({ rows }: Props) {
             <th className="px-4 py-3 text-right font-medium text-text-secondary">증감액</th>
             <th className="px-4 py-3 text-right font-medium text-text-secondary">변경후 편성액</th>
             <th className="px-4 py-3 text-right font-medium text-text-secondary">예산비율</th>
-            <th className="px-4 py-3 text-right font-medium text-text-secondary leading-tight">집행금액<br />(완료+예정)</th>
+            <th className="px-4 py-3 text-right font-medium text-text-secondary leading-tight">
+              집행금액<br />(완료+예정)
+            </th>
             <th className="px-4 py-3 text-right font-medium text-text-secondary">잔액</th>
             <th className="px-4 py-3 text-right font-medium text-text-secondary">집행률</th>
           </tr>
@@ -50,26 +53,20 @@ export function BudgetCategoryTable({ rows }: Props) {
             return (
               <tr
                 key={row.category}
-                className={`border-b border-[#F0F0EE] hover:bg-primary-bg/20 transition-colors ${
-                  i % 2 === 0 ? 'bg-white' : 'bg-[#FAFAF8]'
-                }`}
+                className={cn(
+                  'border-b border-[#F0F0EE] transition-colors hover:bg-primary-bg/10',
+                  i % 2 === 0 ? 'bg-white' : 'bg-[#FAFAF8]',
+                )}
               >
                 <td className="px-4 py-2.5 font-medium text-[#131310]">{row.category}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-[#131310]">
                   {formatKRW(row.allocation)}
                 </td>
-                <td
-                  className={`px-4 py-2.5 text-right tabular-nums font-medium ${
-                    row.adjustment > 0
-                      ? 'text-primary'
-                      : row.adjustment < 0
-                      ? 'text-red-500'
-                      : 'text-text-secondary'
-                  }`}
-                >
-                  {row.adjustment !== 0
-                    ? (row.adjustment > 0 ? '+' : '') + formatKRW(row.adjustment)
-                    : '-'}
+                <td className={cn(
+                  'px-4 py-2.5 text-right tabular-nums font-medium',
+                  row.adjustment > 0 ? 'text-primary' : row.adjustment < 0 ? 'text-red-500' : 'text-text-secondary',
+                )}>
+                  {row.adjustment !== 0 ? (row.adjustment > 0 ? '+' : '') + formatKRW(row.adjustment) : '-'}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums font-semibold text-[#131310]">
                   {formatKRW(row.afterAllocation)}
@@ -79,7 +76,7 @@ export function BudgetCategoryTable({ rows }: Props) {
                     <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[#E3E3E0]">
                       <div
                         className="h-full rounded-full bg-primary/60"
-                        style={{ width: `${budgetRatio}%` }}
+                        style={{ width: `${Math.min(budgetRatio, 100)}%` }}
                       />
                     </div>
                     <span className="w-10 text-right text-xs text-text-secondary tabular-nums">
@@ -99,23 +96,19 @@ export function BudgetCategoryTable({ rows }: Props) {
                     </span>
                   </div>
                 </td>
-                <td
-                  className={`px-4 py-2.5 text-right tabular-nums font-medium ${
-                    row.balance < 0 ? 'text-red-500' : 'text-[#131310]'
-                  }`}
-                >
+                <td className={cn(
+                  'px-4 py-2.5 text-right tabular-nums font-medium',
+                  row.balance < 0 ? 'text-red-500' : 'text-[#131310]',
+                )}>
                   {formatKRW(row.balance)}
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums">
-                  <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                      row.executionRate >= 90
-                        ? 'bg-green-50 text-complete'
-                        : row.executionRate >= 50
-                        ? 'bg-amber-50 text-planned'
-                        : 'bg-[#F3F3EE] text-text-secondary'
-                    }`}
-                  >
+                  <span className={cn(
+                    'inline-block rounded-full px-2 py-0.5 text-xs font-medium',
+                    row.executionRate >= 90 ? 'bg-green-50 text-complete'
+                    : row.executionRate >= 50 ? 'bg-amber-50 text-planned'
+                    : 'bg-[#F3F3EE] text-text-secondary',
+                  )}>
                     {row.executionRate}%
                   </span>
                 </td>
@@ -127,21 +120,14 @@ export function BudgetCategoryTable({ rows }: Props) {
           <tr className="border-t border-[#E3E3E0] bg-[#F3F3EE] font-semibold">
             <td className="px-4 py-2.5 text-[#131310]">합계</td>
             <td className="px-4 py-2.5 text-right tabular-nums text-[#131310]">{formatKRW(totals.allocation)}</td>
-            <td
-              className={`px-4 py-2.5 text-right tabular-nums ${
-                totals.adjustment > 0 ? 'text-primary' : totals.adjustment < 0 ? 'text-red-500' : 'text-text-secondary'
-              }`}
-            >
-              {totals.adjustment !== 0
-                ? (totals.adjustment > 0 ? '+' : '') + formatKRW(totals.adjustment)
-                : '-'}
+            <td className={cn(
+              'px-4 py-2.5 text-right tabular-nums',
+              totals.adjustment > 0 ? 'text-primary' : totals.adjustment < 0 ? 'text-red-500' : 'text-text-secondary',
+            )}>
+              {totals.adjustment !== 0 ? (totals.adjustment > 0 ? '+' : '') + formatKRW(totals.adjustment) : '-'}
             </td>
-            <td className="px-4 py-2.5 text-right tabular-nums text-[#131310]">
-              {formatKRW(totals.afterAllocation)}
-            </td>
-            <td className="px-4 py-2.5 text-right tabular-nums text-text-secondary text-xs">
-              100%
-            </td>
+            <td className="px-4 py-2.5 text-right tabular-nums text-[#131310]">{formatKRW(totals.afterAllocation)}</td>
+            <td className="px-4 py-2.5 text-right tabular-nums text-text-secondary text-xs">100%</td>
             <td className="px-4 py-2.5 text-right tabular-nums">
               <div className="flex flex-col items-end gap-0.5">
                 <span className="text-[#131310]">{formatKRW(totals.executionComplete + totals.executionPlanned)}</span>

@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File | null;
     const category = formData.get('category') as string | null;
     const rowIndexStr = formData.get('rowIndex') as string | null;
+    const sheetType = (formData.get('sheetType') as string | null) ?? 'main';
 
     if (!file || !category || !rowIndexStr) {
       return NextResponse.json(
@@ -137,11 +138,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 사용자 Google Drive에 업로드
+    // 이월예산: COSS_지출부/이월금/{비목명}/, 본예산: COSS_지출부/{비목명}/
     const { fileId, webViewLink } = await uploadToUserDrive({
       accessToken: session.accessToken,
       categoryName: category,
       fileName: safeName,
       buffer,
+      subFolderName: sheetType === 'carryover' ? '이월금' : undefined,
     });
 
     // Supabase에 메타데이터 저장

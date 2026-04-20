@@ -14,77 +14,83 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { serialToDateString, calcBudgetInfo } from '@/lib/expenditure-utils';
 import { checkPermission } from '@/lib/permissions';
 import { PERMISSIONS } from '@/types';
-import type { ExpenditureDetailRow, ExpenditurePageData } from '@/types';
-
-const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID!;
+import { getSpreadsheetId } from '@/lib/google/getSheetId';
+import type { ExpenditureDetailRow, ExpenditurePageData, BudgetType } from '@/types';
 
 function isCategorySheet(val: string): val is typeof CATEGORY_SHEETS[number] {
   return (CATEGORY_SHEETS as readonly string[]).includes(val);
 }
 
+// 본예산: 12개월(3월~2월), 이월예산: 4개월(3월~6월)
+function getMonthCount(sheetType: BudgetType) {
+  return sheetType === 'carryover' ? 4 : 12;
+}
+
+// 인건비 끝 열: 본예산=M(A+12), 이월예산=E(A+4)
+function getPersonnelEndCol(monthCount: number) {
+  return String.fromCharCode('A'.charCodeAt(0) + monthCount); // 12→M, 4→E
+}
+
+// 일반 비목 끝 열: 본예산=T(I+11), 이월예산=L(I+3)
+function getGeneralEndCol(monthCount: number) {
+  return String.fromCharCode('A'.charCodeAt(0) + 8 + monthCount - 1); // 12→T, 4→L
+}
+
 // ── 인건비 전용 파싱/쓰기 ────────────────────────────────────────
-// 인건비: A=내용, B~M=3월~2월 (12개월)
-function buildPersonnelWriteValues(body: {
-  programName: string; // 내용 (A열)
-  monthlyAmounts: number[];
-}): (string | number)[] {
+function buildPersonnelWriteValues(
+  body: { programName: string; monthlyAmounts: number[] },
+  monthCount: number,
+): (string | number)[] {
   return [
-    body.programName,                                                        // A: 내용
-    ...Array.from({ length: 12 }, (_, i) => body.monthlyAmounts[i] ?? 0),   // B~M: 3월~2월
+    body.programName,
+    ...Array.from({ length: monthCount }, (_, i) => body.monthlyAmounts[i] ?? 0),
   ];
 }
 
-function buildPersonnelRowValues(raw: (string | number | null)[]): {
-  programName: string;
-  expenseDate: string;
-  description: string;
-  monthlyAmounts: number[];
-  totalAmount: number;
-} {
+function buildPersonnelRowValues(
+  raw: (string | number | null)[],
+  monthCount: number,
+): { programName: string; expenseDate: string; description: string; monthlyAmounts: number[]; totalAmount: number } {
   const programName = String(raw[0] ?? '').trim();
+  // monthlyAmounts는 항상 length 12로 반환 (UI 호환성 유지, 이월예산은 0-3만 채워짐)
   const monthlyAmounts: number[] = Array.from({ length: 12 }, (_, i) =>
-    Number(raw[1 + i] ?? 0),
+    i < monthCount ? Number(raw[1 + i] ?? 0) : 0,
   );
   const totalAmount = monthlyAmounts.reduce((s, v) => s + v, 0);
   return { programName, expenseDate: '', description: '', monthlyAmounts, totalAmount };
 }
 
 // ── 일반 비목 파싱/쓰기 ──────────────────────────────────────────
-// A=구분, B=지출일자, C~H=지출건명(병합), I~T=3월~2월
-function buildWriteValues(body: {
-  programName: string;
-  expenseDate: string;
-  description: string;
-  monthlyAmounts: number[];
-}): (string | number)[] {
+function buildWriteValues(
+  body: { programName: string; expenseDate: string; description: string; monthlyAmounts: number[] },
+  monthCount: number,
+): (string | number)[] {
   return [
-    body.programName,                                    // A: 구분
-    body.expenseDate || '',                             // B: 지출일자
-    body.description,                                   // C: 지출건명 (병합셀 C:H)
-    '', '', '', '', '',                                 // D~H: 병합셀 빈칸
-    ...Array.from({ length: 12 }, (_, i) => body.monthlyAmounts[i] ?? 0), // I~T: 월별금액
+    body.programName,
+    body.expenseDate || '',
+    body.description,
+    '', '', '', '', '',                                                    // D~H: 병합셀 빈칸
+    ...Array.from({ length: monthCount }, (_, i) => body.monthlyAmounts[i] ?? 0),
   ];
 }
 
-function buildRowValues(raw: (string | number | null)[]): {
-  programName: string;
-  expenseDate: string;
-  description: string;
-  monthlyAmounts: number[];
-  totalAmount: number;
-} {
+function buildRowValues(
+  raw: (string | number | null)[],
+  monthCount: number,
+): { programName: string; expenseDate: string; description: string; monthlyAmounts: number[]; totalAmount: number } {
   const programName = String(raw[0] ?? '').trim();
   const expenseDate = serialToDateString(raw[1]);
   const description = String(raw[2] ?? '').trim();
+  // monthlyAmounts는 항상 length 12로 반환 (이월예산은 0-3만 채워짐)
   const monthlyAmounts: number[] = Array.from({ length: 12 }, (_, i) =>
-    Number(raw[8 + i] ?? 0),
+    i < monthCount ? Number(raw[8 + i] ?? 0) : 0,
   );
   const totalAmount = monthlyAmounts.reduce((s, v) => s + v, 0);
   return { programName, expenseDate, description, monthlyAmounts, totalAmount };
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { category: string } },
 ) {
   try {
@@ -98,14 +104,17 @@ export async function GET(
       return NextResponse.json({ error: '유효하지 않은 비목입니다.' }, { status: 400 });
     }
 
+    const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
+    const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
     const sheets = getSheetsClient();
     const supabase = createServerSupabaseClient();
 
     const isPersonnel = category === PERSONNEL_CATEGORY;
-    // 인건비: A~M열(13열), 일반: A~T열(20열)
-    const readRange = isPersonnel
-      ? `'${category}'!A${CATEGORY_DATA_START_ROW}:M${CATEGORY_DATA_END_ROW_MAP[category]}`
-      : `'${category}'!A${CATEGORY_DATA_START_ROW}:T${CATEGORY_DATA_END_ROW_MAP[category]}`;
+    const monthCount = getMonthCount(sheetType);
+    const endCol = isPersonnel
+      ? getPersonnelEndCol(monthCount)
+      : getGeneralEndCol(monthCount);
+    const readRange = `'${category}'!A${CATEGORY_DATA_START_ROW}:${endCol}${CATEGORY_DATA_END_ROW_MAP[category]}`;
 
     const [rowsRes, allocationRes, dropOptions, fileRecordsRes] = await Promise.all([
       sheets.spreadsheets.values.get({
@@ -113,8 +122,11 @@ export async function GET(
         range: readRange,
         valueRenderOption: 'UNFORMATTED_VALUE',
       }),
-      readNamedRange(CATEGORY_ALLOCATION_MAP[category]),
-      isPersonnel ? Promise.resolve([]) : getCategoryDropdown(CATEGORY_DROP_MAP[category]),
+      // Named Range가 없는 시트(이월예산 등)에서도 빈 배열로 폴백
+      readNamedRange(CATEGORY_ALLOCATION_MAP[category], SPREADSHEET_ID).catch(() => [] as (string | number | null)[][]),
+      isPersonnel
+        ? Promise.resolve([])
+        : getCategoryDropdown(CATEGORY_DROP_MAP[category], SPREADSHEET_ID).catch(() => [] as string[]),
       isPersonnel
         ? Promise.resolve({ data: [] })
         : supabase
@@ -137,8 +149,8 @@ export async function GET(
       .map((raw, idx) => {
         const rowIndex = CATEGORY_DATA_START_ROW + idx;
         const { programName, expenseDate, description, monthlyAmounts, totalAmount } = isPersonnel
-          ? buildPersonnelRowValues(raw)
-          : buildRowValues(raw);
+          ? buildPersonnelRowValues(raw, monthCount)
+          : buildRowValues(raw, monthCount);
         const fileInfo = fileMap.get(rowIndex);
         return {
           rowIndex,
@@ -187,6 +199,9 @@ export async function POST(
       return NextResponse.json({ error: '유효하지 않은 비목입니다.' }, { status: 400 });
     }
 
+    const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
+    const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
+
     const body = await req.json() as {
       programName: string;
       expenseDate: string;
@@ -210,9 +225,11 @@ export async function POST(
     const newRowIndex = CATEGORY_DATA_START_ROW + lastDataIdx + 1;
 
     const isPersonnel = category === PERSONNEL_CATEGORY;
-    const rowValues = isPersonnel ? buildPersonnelWriteValues(body) : buildWriteValues(body);
-    // 인건비: A~M(13열), 일반: A~T(20열)
-    const endCol = isPersonnel ? 'M' : 'T';
+    const monthCount = getMonthCount(sheetType);
+    const rowValues = isPersonnel
+      ? buildPersonnelWriteValues(body, monthCount)
+      : buildWriteValues(body, monthCount);
+    const endCol = isPersonnel ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${category}'!A${newRowIndex}:${endCol}${newRowIndex}`,
@@ -247,6 +264,9 @@ export async function PUT(
       return NextResponse.json({ error: '유효하지 않은 비목입니다.' }, { status: 400 });
     }
 
+    const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
+    const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
+
     const body = await req.json() as {
       rowIndex: number;
       programName: string;
@@ -257,8 +277,11 @@ export async function PUT(
 
     const sheets = getSheetsClient();
     const isPersonnel = category === PERSONNEL_CATEGORY;
-    const rowValues = isPersonnel ? buildPersonnelWriteValues(body) : buildWriteValues(body);
-    const endCol = isPersonnel ? 'M' : 'T';
+    const monthCount = getMonthCount(sheetType);
+    const rowValues = isPersonnel
+      ? buildPersonnelWriteValues(body, monthCount)
+      : buildWriteValues(body, monthCount);
+    const endCol = isPersonnel ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${category}'!A${body.rowIndex}:${endCol}${body.rowIndex}`,
@@ -293,9 +316,14 @@ export async function DELETE(
       return NextResponse.json({ error: '유효하지 않은 비목입니다.' }, { status: 400 });
     }
 
+    const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
+    const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
+
     const { rowIndex } = await req.json() as { rowIndex: number };
     const sheets = getSheetsClient();
-    const endCol = category === PERSONNEL_CATEGORY ? 'M' : 'T';
+    const monthCount = getMonthCount(sheetType);
+    const isPersonnel = category === PERSONNEL_CATEGORY;
+    const endCol = isPersonnel ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
     await sheets.spreadsheets.values.clear({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${category}'!A${rowIndex}:${endCol}${rowIndex}`,

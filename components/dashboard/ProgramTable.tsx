@@ -55,6 +55,7 @@ interface ProgramTableProps {
   openGroups?: Record<string, boolean>;
   onToggleGroup?: (key: string) => void;
   forcedOpenRows?: number[];
+  emptyMessage?: string;
 }
 
 type EditingCell = { rowIndex: number; field: string } | null;
@@ -163,7 +164,7 @@ export function ProgramTable({
   rows, onDelete, canWrite, isLoggedIn = false,
   editMode = false, changes = {}, onCellChange, onAutoSave,
   openGroups: externalOpenGroups, onToggleGroup: externalToggleGroup,
-  forcedOpenRows,
+  forcedOpenRows, emptyMessage = '데이터가 없습니다.',
 }: ProgramTableProps) {
   const { collapsed } = useSidebar();
   const grouped = rows.reduce<{ key: string; rows: ProgramRow[] }[]>((acc, row) => {
@@ -293,7 +294,7 @@ export function ProgramTable({
   if (rows.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center rounded-[2px] border border-dashed border-[#E3E3E0] text-sm text-text-secondary">
-        데이터가 없습니다.
+        {emptyMessage}
       </div>
     );
   }
@@ -310,15 +311,15 @@ export function ProgramTable({
             <TableHeader>
               <TableRow className="bg-sidebar hover:bg-sidebar">
                 <TableHead className="w-12 text-text-secondary px-2" />
-                <TableHead className={cn("text-text-secondary font-medium transition-all", collapsed ? "w-[562px]" : "w-[402px]")}>
+                <TableHead className={cn("text-text-secondary font-medium transition-all", collapsed ? "w-[490px]" : "w-[330px]")}>
                   구분 / 프로그램명
                 </TableHead>
                 <TableHead className="w-16 text-text-secondary font-medium">소관</TableHead>
                 <TableHead className="w-32 text-text-secondary font-medium">담당교원</TableHead>
                 <TableHead className="text-text-secondary font-medium">담당직원</TableHead>
-                <TableHead className="w-24 text-right text-text-secondary font-medium">예산계획</TableHead>
-                <TableHead className="w-24 text-right text-text-secondary font-medium">집행완료</TableHead>
-                <TableHead className="w-24 text-right text-text-secondary font-medium">집행예정</TableHead>
+                <TableHead className="w-32 text-right text-text-secondary font-medium">예산계획</TableHead>
+                <TableHead className="w-32 text-right text-text-secondary font-medium">집행완료</TableHead>
+                <TableHead className="w-32 text-right text-text-secondary font-medium">집행예정</TableHead>
                 <TableHead className="w-16 text-right text-text-secondary font-medium">집행률</TableHead>
                 <TableHead className="w-24 text-center text-text-secondary font-medium">완료/보류</TableHead>
               </TableRow>
@@ -455,6 +456,8 @@ export function ProgramTable({
                               isChanged={isCellChanged(row.rowIndex, 'programName')}
                               editingCell={editingCell} setEditingCell={setEditingCell}
                               onCellChange={onCellChange}
+                              onAutoSave={onAutoSave}
+                              editKey={`${row.rowIndex}_col_programName`}
                               className="truncate"
                             />
                           </TableCell>

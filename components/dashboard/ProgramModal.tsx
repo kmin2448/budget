@@ -13,6 +13,7 @@ import { formatKRW, parseKRW } from '@/lib/utils';
 import { CATEGORY_SHEETS } from '@/constants/sheets';
 import type { ProgramRow } from '@/hooks/useDashboard';
 import { useQueryClient } from '@tanstack/react-query';
+import { useBudgetType } from '@/contexts/BudgetTypeContext';
 
 interface ProgramModalProps {
   open: boolean;
@@ -72,6 +73,7 @@ export function ProgramModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const { budgetType } = useBudgetType();
 
   // 구분 → 가장 많이 쓰인 비목
   const categoryDefaultBudget = useMemo(() => {
@@ -199,7 +201,7 @@ export function ProgramModal({
         budgetPlan: form.budgetPlan ? parseKRW(form.budgetPlan) : 0,
       };
 
-      const res = await fetch('/api/sheets/program', {
+      const res = await fetch(`/api/sheets/program?sheetType=${budgetType}`, {
         method: mode === 'add' ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -209,7 +211,7 @@ export function ProgramModal({
         const body = await res.json() as { error?: string };
         throw new Error(body.error ?? '저장 실패');
       }
-      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장 중 오류가 발생했습니다.');

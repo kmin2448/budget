@@ -28,6 +28,7 @@ import {
   User,
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
+import { useBudgetType } from '@/contexts/BudgetTypeContext';
 
 const navItems = [
   { label: '대시보드',       href: '/dashboard',          icon: LayoutDashboard },
@@ -105,6 +106,59 @@ function UserSection({ collapsed, onClose }: { collapsed?: boolean; onClose?: ()
   );
 }
 
+function BudgetTypeToggle({ collapsed }: { collapsed?: boolean }) {
+  const { budgetType, setBudgetType } = useBudgetType();
+  const isCarryover = budgetType === 'carryover';
+
+  if (collapsed) {
+    return (
+      <div className="border-b border-divider px-2 py-2 flex justify-center">
+        <button
+          onClick={() => setBudgetType(isCarryover ? 'main' : 'carryover')}
+          title={isCarryover ? '이월예산 (클릭 시 본예산 전환)' : '본예산 (클릭 시 이월예산 전환)'}
+          className={cn(
+            'flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-bold transition-colors',
+            isCarryover
+              ? 'bg-amber-100 text-amber-700'
+              : 'bg-primary-bg text-primary',
+          )}
+        >
+          {isCarryover ? '이' : '본'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-b border-divider px-3 py-2">
+      <div className="flex rounded-lg bg-divider p-0.5">
+        <button
+          onClick={() => setBudgetType('main')}
+          className={cn(
+            'flex-1 rounded-md py-1 text-center text-xs font-medium transition-all',
+            !isCarryover
+              ? 'bg-white text-primary shadow-sm'
+              : 'text-text-secondary hover:text-[#131310]',
+          )}
+        >
+          본예산
+        </button>
+        <button
+          onClick={() => setBudgetType('carryover')}
+          className={cn(
+            'flex-1 rounded-md py-1 text-center text-xs font-medium transition-all',
+            isCarryover
+              ? 'bg-white text-amber-600 shadow-sm'
+              : 'text-text-secondary hover:text-[#131310]',
+          )}
+        >
+          이월예산
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
 
@@ -135,6 +189,9 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
           </>
         )}
       </div>
+
+      {/* 예산 유형 토글 */}
+      <BudgetTypeToggle collapsed={collapsed && !onClose} />
 
       {/* 네비게이션 */}
       <nav className="flex-1 overflow-y-auto px-2 py-3">

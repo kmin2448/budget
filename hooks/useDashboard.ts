@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { useBudgetType } from '@/contexts/BudgetTypeContext';
+import type { BudgetType } from '@/types';
 
 export interface ProgramRow {
   rowIndex: number;
@@ -43,8 +45,8 @@ export interface DashboardData {
   programRows: ProgramRow[];
 }
 
-async function fetchDashboard(): Promise<DashboardData> {
-  const res = await fetch('/api/sheets/dashboard');
+async function fetchDashboard(budgetType: BudgetType): Promise<DashboardData> {
+  const res = await fetch(`/api/sheets/dashboard?sheetType=${budgetType}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? '데이터 로드 실패');
@@ -53,9 +55,10 @@ async function fetchDashboard(): Promise<DashboardData> {
 }
 
 export function useDashboard() {
+  const { budgetType } = useBudgetType();
   return useQuery({
-    queryKey: ['dashboard'],
-    queryFn: fetchDashboard,
+    queryKey: ['dashboard', budgetType],
+    queryFn: () => fetchDashboard(budgetType),
     staleTime: 5 * 60 * 1000, // 5분
   });
 }

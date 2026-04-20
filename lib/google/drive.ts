@@ -44,12 +44,16 @@ export async function uploadToUserDrive(params: {
   categoryName: string;
   fileName: string;
   buffer: Buffer;
+  subFolderName?: string; // 지정 시: COSS_지출부/{subFolderName}/{비목명}/
 }): Promise<{ fileId: string; webViewLink: string }> {
   const drive = getDriveClient(params.accessToken);
 
-  // 루트 폴더(COSS_지출부) → 비목 폴더 순서로 생성
+  // 루트 폴더(COSS_지출부) → (서브폴더) → 비목 폴더 순서로 생성
   const rootFolderId = await getOrCreateFolder(drive, ROOT_FOLDER_NAME);
-  const categoryFolderId = await getOrCreateFolder(drive, params.categoryName, rootFolderId);
+  const parentFolderId = params.subFolderName
+    ? await getOrCreateFolder(drive, params.subFolderName, rootFolderId)
+    : rootFolderId;
+  const categoryFolderId = await getOrCreateFolder(drive, params.categoryName, parentFolderId);
 
   // 파일 업로드
   const stream = Readable.from(params.buffer);

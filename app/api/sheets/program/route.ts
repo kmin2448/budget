@@ -3,8 +3,9 @@ import { auth } from '@/lib/auth';
 import { getSheetsClient } from '@/lib/google/sheets';
 import { PERMISSIONS } from '@/types';
 import { checkPermission } from '@/lib/permissions';
+import { getSpreadsheetId } from '@/lib/google/getSheetId';
+import type { BudgetType } from '@/types';
 
-const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID!;
 const SHEET = "'집행내역 정리'";
 
 // 프로그램 행 추가 (빈 행 찾아서 삽입)
@@ -22,6 +23,9 @@ export async function POST(req: NextRequest) {
     if (!hasPermission) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
+
+    const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
+    const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
 
     const body = await req.json() as {
       category: string;
@@ -182,6 +186,9 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
+    const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
+    const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
+
     const body = await req.json() as {
       rowIndex: number;
       category: string;
@@ -252,6 +259,9 @@ export async function PATCH(req: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
     }
+
+    const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
+    const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
 
     const body = await req.json() as {
       updates: { rowIndex: number; field: string; value: string | number }[];
@@ -324,6 +334,9 @@ export async function DELETE(req: NextRequest) {
     if (!hasPermission) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
+
+    const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
+    const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
 
     const { rowIndex } = await req.json() as { rowIndex: number };
 

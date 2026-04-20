@@ -1,11 +1,14 @@
 // hooks/useExpenditure.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { ExpenditurePageData, ExpenditureDetailRow } from '@/types';
+import { useBudgetType } from '@/contexts/BudgetTypeContext';
+import type { ExpenditurePageData, ExpenditureDetailRow, BudgetType } from '@/types';
 
 // ── 조회 ──────────────────────────────────────────────────────────
 
-async function fetchExpenditure(category: string): Promise<ExpenditurePageData> {
-  const res = await fetch(`/api/sheets/expenditure/${encodeURIComponent(category)}`);
+async function fetchExpenditure(category: string, budgetType: BudgetType): Promise<ExpenditurePageData> {
+  const res = await fetch(
+    `/api/sheets/expenditure/${encodeURIComponent(category)}?sheetType=${budgetType}`,
+  );
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error((body as { error?: string }).error ?? '데이터 로드 실패');
@@ -14,9 +17,10 @@ async function fetchExpenditure(category: string): Promise<ExpenditurePageData> 
 }
 
 export function useExpenditure(category: string) {
+  const { budgetType } = useBudgetType();
   return useQuery({
-    queryKey: ['expenditure', category],
-    queryFn: () => fetchExpenditure(category),
+    queryKey: ['expenditure', category, budgetType],
+    queryFn: () => fetchExpenditure(category, budgetType),
     staleTime: 3 * 60 * 1000,
     enabled: !!category,
   });
@@ -32,69 +36,82 @@ export interface RowPayload {
 }
 
 export function useAddExpenditureRow(category: string) {
+  const { budgetType } = useBudgetType();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: RowPayload) => {
-      const res = await fetch(`/api/sheets/expenditure/${encodeURIComponent(category)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `/api/sheets/expenditure/${encodeURIComponent(category)}?sheetType=${budgetType}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
       if (!res.ok) {
         const body = await res.json() as { error?: string };
         throw new Error(body.error ?? '추가 실패');
       }
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] }),
   });
 }
 
 // ── 수정 ──────────────────────────────────────────────────────────
 
 export function useUpdateExpenditureRow(category: string) {
+  const { budgetType } = useBudgetType();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: RowPayload & { rowIndex: number }) => {
-      const res = await fetch(`/api/sheets/expenditure/${encodeURIComponent(category)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `/api/sheets/expenditure/${encodeURIComponent(category)}?sheetType=${budgetType}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        },
+      );
       if (!res.ok) {
         const body = await res.json() as { error?: string };
         throw new Error(body.error ?? '수정 실패');
       }
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] }),
   });
 }
 
 // ── 삭제 ──────────────────────────────────────────────────────────
 
 export function useDeleteExpenditureRow(category: string) {
+  const { budgetType } = useBudgetType();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (rowIndex: number) => {
-      const res = await fetch(`/api/sheets/expenditure/${encodeURIComponent(category)}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rowIndex }),
-      });
+      const res = await fetch(
+        `/api/sheets/expenditure/${encodeURIComponent(category)}?sheetType=${budgetType}`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rowIndex }),
+        },
+      );
       if (!res.ok) {
         const body = await res.json() as { error?: string };
         throw new Error(body.error ?? '삭제 실패');
       }
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] }),
   });
 }
 
 // ── PDF 삭제 ──────────────────────────────────────────────────────
 
 export function useDeleteFile(category: string) {
+  const { budgetType } = useBudgetType();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (rowIndex: number) => {
@@ -109,13 +126,14 @@ export function useDeleteFile(category: string) {
       }
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] }),
   });
 }
 
 // ── PDF 업로드 ────────────────────────────────────────────────────
 
 export function useUploadPdf(category: string) {
+  const { budgetType } = useBudgetType();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ file, row }: { file: File; row: ExpenditureDetailRow }) => {
@@ -137,6 +155,7 @@ export function useUploadPdf(category: string) {
       formData.append('file', renamedFile);
       formData.append('category', category);
       formData.append('rowIndex', String(row.rowIndex));
+      formData.append('sheetType', budgetType);
       const res = await fetch('/api/drive/expenditure-upload', {
         method: 'POST',
         body: formData,
@@ -152,6 +171,6 @@ export function useUploadPdf(category: string) {
         storageWarning: boolean;
       }>;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] }),
   });
 }

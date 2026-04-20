@@ -19,10 +19,13 @@ export function getSheetsClient() {
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID!;
 
 // Named Range 값 읽기
-export async function readNamedRange(rangeName: string): Promise<(string | number | null)[][]> {
+export async function readNamedRange(
+  rangeName: string,
+  spreadsheetId?: string,
+): Promise<(string | number | null)[][]> {
   const sheets = getSheetsClient();
   const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: spreadsheetId ?? SPREADSHEET_ID,
     range: rangeName,
     valueRenderOption: 'UNFORMATTED_VALUE',
   });
@@ -33,10 +36,11 @@ export async function readNamedRange(rangeName: string): Promise<(string | numbe
 export async function writeNamedRange(
   rangeName: string,
   values: (string | number | null)[][],
+  spreadsheetId?: string,
 ): Promise<void> {
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.update({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: spreadsheetId ?? SPREADSHEET_ID,
     range: rangeName,
     valueInputOption: 'RAW',
     requestBody: { values },
@@ -111,8 +115,11 @@ export async function getCategoryAllocations(): Promise<CategoryBudget[]> {
 }
 
 // 특정 비목의 드롭다운 목록 읽기
-export async function getCategoryDropdown(dropRangeName: string): Promise<string[]> {
-  const values = await readNamedRange(dropRangeName);
+export async function getCategoryDropdown(
+  dropRangeName: string,
+  spreadsheetId?: string,
+): Promise<string[]> {
+  const values = await readNamedRange(dropRangeName, spreadsheetId);
   return values
     .map((row) => String(row[0] ?? ''))
     .filter((v) => v.trim() !== '');
