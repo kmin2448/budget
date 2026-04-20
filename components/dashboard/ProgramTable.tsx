@@ -623,8 +623,7 @@ export function ProgramTable({
                                 <div className="pt-2 border-t border-divider mt-1 space-y-1.5 text-xs">
                                   {/* 비고 */}
                                   {(getVal(row, 'note') || editMode) && (
-                                    <div className="flex h-5 items-center gap-1 text-sm text-[#131310]">
-                                      <span className="shrink-0">[비고]</span>
+                                    <div className="flex items-start gap-2 pl-1 border-l-[3px] border-[#1F5C99]/40 text-sm text-[#131310]">
                                       <InlineEditCell
                                         rowIndex={row.rowIndex} field="note"
                                         value={getVal(row, 'note')}
