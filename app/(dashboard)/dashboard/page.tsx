@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useDashboard, type ProgramRow } from '@/hooks/useDashboard';
+import { useDashboard, type ProgramRow, type DashboardData } from '@/hooks/useDashboard';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
 import { SummaryCards } from '@/components/dashboard/SummaryCards';
 import { ProgramTable } from '@/components/dashboard/ProgramTable';
@@ -84,6 +84,16 @@ export default function DashboardPage() {
   }
 
   async function handleAutoSave(rowIndex: number, field: keyof ProgramRow, value: string | number) {
+    // 즉시 UI 반영 (optimistic update)
+    queryClient.setQueryData<DashboardData>(['dashboard', budgetType], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        programRows: old.programRows.map((row) =>
+          row.rowIndex === rowIndex ? { ...row, [field]: value } : row,
+        ),
+      };
+    });
     try {
       const res = await fetch(`/api/sheets/program?sheetType=${budgetType}`, {
         method: 'PATCH',
@@ -94,7 +104,8 @@ export default function DashboardPage() {
       queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
     } catch (err) {
       console.error(err);
-      // Fail silently without disrupting user flow
+      // 실패 시 서버 데이터로 롤백
+      queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
     }
   }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Table,
   TableCell,
@@ -88,14 +88,18 @@ function InlineEditCell({
   const isEditing =
     editingCell?.rowIndex === rowIndex && editingCell?.field === cellKey;
   const [draft, setDraft] = useState('');
+  const committedRef = useRef(false);
 
   function start(e: React.MouseEvent) {
     e.stopPropagation();
+    committedRef.current = false;
     setDraft(String(value ?? ''));
     setEditingCell({ rowIndex, field: cellKey });
   }
 
   function commit() {
+    if (committedRef.current) return;
+    committedRef.current = true;
     const isNum = typeof value === 'number';
     const final: string | number = isNum
       ? Number(draft.replace(/,/g, '')) || 0
@@ -109,6 +113,7 @@ function InlineEditCell({
   }
 
   function cancel() {
+    committedRef.current = true;
     setEditingCell(null);
   }
 

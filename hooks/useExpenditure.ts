@@ -54,7 +54,10 @@ export function useAddExpenditureRow(category: string) {
       }
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+    },
   });
 }
 
@@ -79,7 +82,10 @@ export function useUpdateExpenditureRow(category: string) {
       }
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+    },
   });
 }
 
@@ -104,7 +110,10 @@ export function useDeleteExpenditureRow(category: string) {
       }
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+    },
   });
 }
 
@@ -126,7 +135,10 @@ export function useDeleteFile(category: string) {
       }
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+    },
   });
 }
 
@@ -171,6 +183,9 @@ export function useUploadPdf(category: string) {
         storageWarning: boolean;
       }>;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+    },
   });
 }

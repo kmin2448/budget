@@ -116,7 +116,7 @@ export async function GET(
       : getGeneralEndCol(monthCount);
     const readRange = `'${category}'!A${CATEGORY_DATA_START_ROW}:${endCol}${CATEGORY_DATA_END_ROW_MAP[category]}`;
 
-    const [rowsRes, allocationRes, dropOptions, fileRecordsRes] = await Promise.all([
+    const [rowsRes, allocationRes, b1Res, dropOptions, fileRecordsRes] = await Promise.all([
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: readRange,
@@ -124,6 +124,12 @@ export async function GET(
       }),
       // Named Range가 없는 시트(이월예산 등)에서도 빈 배열로 폴백
       readNamedRange(CATEGORY_ALLOCATION_MAP[category], SPREADSHEET_ID).catch(() => [] as (string | number | null)[][]),
+      // 이월예산 등 Named Range 미설정 시 각 비목 시트 B1에서 배정예산 직접 읽기
+      sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'${category}'!B1`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      }).catch(() => ({ data: { values: undefined } })),
       isPersonnel
         ? Promise.resolve([])
         : getCategoryDropdown(CATEGORY_DROP_MAP[category], SPREADSHEET_ID).catch(() => [] as string[]),
@@ -135,7 +141,9 @@ export async function GET(
             .eq('sheet_name', category),
     ]);
 
-    const allocation = Number(allocationRes[0]?.[0] ?? 0);
+    const namedAllocation = Number(allocationRes[0]?.[0] ?? 0);
+    const b1Allocation = Number(b1Res.data.values?.[0]?.[0] ?? 0);
+    const allocation = namedAllocation || b1Allocation;
     const rawRows = (rowsRes.data.values ?? []) as (string | number | null)[][];
 
     const fileMap = new Map(
