@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -104,6 +105,47 @@ function UserSection({ collapsed, onClose }: { collapsed?: boolean; onClose?: ()
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+    </div>
+  );
+}
+
+function CatWidget() {
+  const [playing, setPlaying] = useState(false);
+  const [playKey, setPlayKey] = useState(0);
+
+  useEffect(() => {
+    if (!playing) return;
+    const t = setTimeout(() => setPlaying(false), 4000);
+    return () => clearTimeout(t);
+  }, [playing, playKey]);
+
+  return (
+    <div className="flex justify-center px-3 pb-1">
+      {playing ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={playKey}
+          src="/cat01.gif"
+          alt=""
+          className="h-[60px] w-auto"
+          style={{ mixBlendMode: 'multiply' }}
+        />
+      ) : (
+        <button
+          onClick={() => { setPlayKey((k) => k + 1); setPlaying(true); }}
+          title="클릭해보세요"
+          className="rounded-full p-1 text-text-secondary hover:text-primary transition-colors"
+        >
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="currentColor">
+            {/* 왼쪽 귀 */}
+            <polygon points="3,13 7,4 12,13" />
+            {/* 오른쪽 귀 */}
+            <polygon points="14,13 19,4 23,13" />
+            {/* 머리 */}
+            <circle cx="13" cy="16" r="9" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -233,18 +275,8 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
         </ul>
       </nav>
 
-      {/* 고양이 GIF */}
-      {(!collapsed || !!onClose) && (
-        <div className="flex justify-center px-3 pb-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/cat01.gif"
-            alt=""
-            className="h-[60px] w-auto"
-            style={{ mixBlendMode: 'multiply' }}
-          />
-        </div>
-      )}
+      {/* 고양이 위젯 */}
+      {(!collapsed || !!onClose) && <CatWidget />}
 
       {/* 하단 유저 섹션 */}
       <UserSection collapsed={collapsed} onClose={onClose} />
