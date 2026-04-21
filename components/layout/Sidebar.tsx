@@ -134,16 +134,10 @@ function CatWidget() {
         <button
           onClick={() => { setPlayKey((k) => k + 1); setPlaying(true); }}
           title="클릭해보세요"
-          className="rounded-full p-1 text-text-secondary hover:text-primary transition-colors"
+          className="rounded-full p-1 transition-opacity hover:opacity-70"
         >
-          <svg width="26" height="26" viewBox="0 0 26 26" fill="currentColor">
-            {/* 왼쪽 귀 */}
-            <polygon points="3,13 7,4 12,13" />
-            {/* 오른쪽 귀 */}
-            <polygon points="14,13 19,4 23,13" />
-            {/* 머리 */}
-            <circle cx="13" cy="16" r="9" />
-          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/caticon.png" alt="고양이" className="h-[13px] w-auto" />
         </button>
       )}
     </div>
