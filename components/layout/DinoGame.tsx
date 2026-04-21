@@ -207,7 +207,6 @@ export function DinoGame({ onClose }: { onClose: () => void }) {
         // 충돌 (gomduri 이미지 기준으로 톨러런스 적용)
         const dL = DINO_X + 8;
         const dR = DINO_X + DINO_W - 6;
-        const dT = dinoY + 10;
         const dB = dinoY + DINO_H - 2;
         for (const c of cacti) {
           if (dR > c.x + 4 && dL < c.x + 24 && dB > GROUND_Y - c.h + 5) {
