@@ -233,6 +233,19 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
         </ul>
       </nav>
 
+      {/* 고양이 GIF */}
+      {(!collapsed || !!onClose) && (
+        <div className="flex justify-center px-3 pb-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/cat01.gif"
+            alt=""
+            className="h-10 w-auto"
+            style={{ mixBlendMode: 'multiply' }}
+          />
+        </div>
+      )}
+
       {/* 하단 유저 섹션 */}
       <UserSection collapsed={collapsed} onClose={onClose} />
     </div>
