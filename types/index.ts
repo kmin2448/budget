@@ -184,12 +184,13 @@ export interface LibraryFile {
 // ── WE-Meet ──────────────────────────────────────────────────────────
 
 export interface WeMeetExecution {
-  rowIndex: number;       // 집행현황 시트 실제 행 번호 (2~200)
-  usageType: string;      // 사용구분 (멘토링/회의비/재료비/학생활동지원비)
-  teamName: string;       // 팀명
-  plannedAmount: number;  // 계획금액
-  confirmed: boolean;     // 확정여부
+  rowIndex: number;        // 집행현황 시트 실제 행 번호 (2~200)
+  usageType: string;       // 사용구분 (멘토링/회의비/재료비/학생활동지원비)
+  teamName: string;        // 팀명
+  plannedAmount: number;   // 계획금액
+  confirmed: boolean;      // 확정여부
   confirmedAmount: number; // 확정금액
+  description: string;     // G열: 지출건명
 }
 
 export interface WeMeetTeamSummary {

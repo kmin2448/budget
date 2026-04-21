@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, SendHorizonal } from 'lucide-react';
 import { formatKRW } from '@/lib/utils';
 import type { WeMeetExecution } from '@/types';
 import { WEMEET_USAGE_TYPES } from '@/constants/wemeet';
@@ -19,12 +19,13 @@ interface Props {
   onEdit: (row: WeMeetExecution) => void;
   onDelete: (row: WeMeetExecution) => void;
   onToggleConfirmed: (row: WeMeetExecution) => void;
+  onSendToExpenditure: (row: WeMeetExecution) => void;
   isToggling: boolean;
 }
 
 export function WeMeetTable({
   rows, teams, canWrite, selectedTeam, onSelectTeam,
-  onAdd, onEdit, onDelete, onToggleConfirmed, isToggling,
+  onAdd, onEdit, onDelete, onToggleConfirmed, onSendToExpenditure, isToggling,
 }: Props) {
   const [search, setSearch]           = useState('');
   const [filterTeam, setFilterTeam]   = useState<string>('');
@@ -33,28 +34,43 @@ export function WeMeetTable({
   const [deleteOpen, setDeleteOpen]     = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<WeMeetExecution | null>(null);
 
-  // 카드 클릭 시 필터 연동
+  // 상단 팀 테이블 선택 시 필터 연동 (선택된 팀이 없으면 로컬 필터 사용)
   const effectiveTeam = selectedTeam ?? filterTeam;
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       if (effectiveTeam && r.teamName !== effectiveTeam) return false;
       if (filterUsage && r.usageType !== filterUsage) return false;
-      if (search && !r.teamName.includes(search) && !r.usageType.includes(search)) return false;
+      if (search && !r.teamName.includes(search) && !r.usageType.includes(search) && !r.description?.includes(search)) return false;
       return true;
     });
   }, [rows, effectiveTeam, filterUsage, search]);
 
-  function handleDeleteClick(row: WeMeetExecution) {
-    setDeleteTarget(row);
-    setDeleteOpen(true);
-  }
-
   const totalPlanned   = filtered.reduce((s, r) => s + r.plannedAmount, 0);
   const totalConfirmed = filtered.reduce((s, r) => s + (r.confirmed ? r.confirmedAmount : 0), 0);
 
+  const colSpan = canWrite ? 7 : 6;
+
   return (
     <div className="space-y-3">
+      {/* 섹션 헤더 */}
+      <div className="flex items-center gap-2">
+        <h2 className="text-sm font-medium text-[#6F6F6B]">
+          집행현황
+          {selectedTeam && (
+            <span className="ml-1.5 font-semibold text-primary">— {selectedTeam}</span>
+          )}
+        </h2>
+        {selectedTeam && (
+          <button
+            onClick={() => onSelectTeam(null)}
+            className="text-xs text-gray-400 hover:text-gray-600"
+          >
+            (전체 보기)
+          </button>
+        )}
+      </div>
+
       {/* 필터 바 */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative">
@@ -62,22 +78,21 @@ export function WeMeetTable({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="팀명/사용구분 검색"
-            className="h-8 pl-8 text-sm w-44"
+            placeholder="팀명/구분/건명 검색"
+            className="h-8 pl-8 text-sm w-48"
           />
         </div>
 
-        <select
-          value={selectedTeam ?? filterTeam}
-          onChange={(e) => {
-            onSelectTeam(null);
-            setFilterTeam(e.target.value);
-          }}
-          className="h-8 rounded-md border border-[#E3E3E0] bg-white px-2 text-sm text-[#131310] focus:outline-none focus:ring-1 focus:ring-primary"
-        >
-          <option value="">전체 팀</option>
-          {teams.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+        {!selectedTeam && (
+          <select
+            value={filterTeam}
+            onChange={(e) => setFilterTeam(e.target.value)}
+            className="h-8 rounded-md border border-[#E3E3E0] bg-white px-2 text-sm text-[#131310] focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="">전체 팀</option>
+            {teams.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        )}
 
         <select
           value={filterUsage}
@@ -88,9 +103,9 @@ export function WeMeetTable({
           {WEMEET_USAGE_TYPES.map((u) => <option key={u} value={u}>{u}</option>)}
         </select>
 
-        {(selectedTeam || filterTeam || filterUsage || search) && (
+        {(filterTeam || filterUsage || search) && (
           <button
-            onClick={() => { onSelectTeam(null); setFilterTeam(''); setFilterUsage(''); setSearch(''); }}
+            onClick={() => { setFilterTeam(''); setFilterUsage(''); setSearch(''); }}
             className="text-xs text-gray-400 hover:text-gray-600"
           >
             초기화
@@ -112,6 +127,7 @@ export function WeMeetTable({
             <tr className="bg-[#F3F3EE]">
               <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">사용구분</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">팀명</th>
+              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">지출건명</th>
               <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B]">계획금액</th>
               <th className="px-3 py-2.5 text-center font-medium text-[#6F6F6B]">확정</th>
               <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B]">확정금액</th>
@@ -121,22 +137,22 @@ export function WeMeetTable({
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={canWrite ? 6 : 5} className="py-10 text-center text-sm text-gray-400">
+                <td colSpan={colSpan} className="py-10 text-center text-sm text-gray-400">
                   집행내역이 없습니다.
                 </td>
               </tr>
             ) : (
               filtered.map((row, idx) => (
-                <tr
-                  key={row.rowIndex}
-                  className={idx % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]'}
-                >
+                <tr key={row.rowIndex} className={idx % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]'}>
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary-bg text-primary">
                       {row.usageType}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-[#131310]">{row.teamName}</td>
+                  <td className="px-3 py-2 text-[#131310] max-w-[200px] truncate" title={row.description}>
+                    {row.description || <span className="text-gray-300">—</span>}
+                  </td>
                   <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(row.plannedAmount)}</td>
                   <td className="px-3 py-2 text-center">
                     <input
@@ -156,13 +172,20 @@ export function WeMeetTable({
                     <td className="px-3 py-2">
                       <div className="flex items-center justify-end gap-1">
                         <button
+                          onClick={() => onSendToExpenditure(row)}
+                          title="비목별 집행내역으로 전송"
+                          className="rounded p-1 text-gray-400 hover:bg-green-50 hover:text-green-600 transition-colors"
+                        >
+                          <SendHorizonal className="h-3.5 w-3.5" />
+                        </button>
+                        <button
                           onClick={() => onEdit(row)}
                           className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => handleDeleteClick(row)}
+                          onClick={() => { setDeleteTarget(row); setDeleteOpen(true); }}
                           className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -177,7 +200,7 @@ export function WeMeetTable({
           {filtered.length > 0 && (
             <tfoot>
               <tr className="border-t border-[#E3E3E0] bg-[#F3F3EE] font-medium">
-                <td colSpan={2} className="px-3 py-2 text-[#6F6F6B]">합계 ({filtered.length}건)</td>
+                <td colSpan={3} className="px-3 py-2 text-[#6F6F6B]">합계 ({filtered.length}건)</td>
                 <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(totalPlanned)}</td>
                 <td />
                 <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(totalConfirmed)}</td>

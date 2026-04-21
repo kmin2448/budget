@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Users } from 'lucide-react';
-import { WeMeetSummaryCards } from '@/components/we-meet/WeMeetSummaryCards';
+import { WeMeetSummaryTable } from '@/components/we-meet/WeMeetSummaryTable';
 import { WeMeetTable } from '@/components/we-meet/WeMeetTable';
 import { WeMeetRowForm } from '@/components/we-meet/WeMeetRowForm';
 import { WeMeetTeamManager } from '@/components/we-meet/WeMeetTeamManager';
 import { WeMeetAllPdfReport, WeMeetTeamPdfReport } from '@/components/we-meet/WeMeetPdfReport';
+import { WeMeetSendModal } from '@/components/we-meet/WeMeetSendModal';
 import {
   useWeMeetExecutions,
   useWeMeetSummary,
@@ -24,28 +25,32 @@ import type { WeMeetExecution } from '@/types';
 export default function WeMeetPage() {
   const { data: session } = useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
-  const canWrite = userRole === 'super_admin' || userRole === 'staff';
+  const canWrite = userRole === 'super_admin' || userRole === 'admin';
 
   const { data, isLoading, isError, error, refetch } = useWeMeetExecutions();
   const { data: summaries = [], isLoading: isSummaryLoading, refetch: refetchSummary } = useWeMeetSummary();
 
-  const addMutation    = useAddWeMeetExecution();
-  const updateMutation = useUpdateWeMeetExecution();
-  const deleteMutation = useDeleteWeMeetExecution();
+  const addMutation        = useAddWeMeetExecution();
+  const updateMutation     = useUpdateWeMeetExecution();
+  const deleteMutation     = useDeleteWeMeetExecution();
   const addTeamMutation    = useAddWeMeetTeam();
   const deleteTeamMutation = useDeleteWeMeetTeam();
 
-  const [selectedTeam, setSelectedTeam]   = useState<string | null>(null);
-  const [formOpen, setFormOpen]           = useState(false);
-  const [formMode, setFormMode]           = useState<'add' | 'edit'>('add');
-  const [editTarget, setEditTarget]       = useState<WeMeetExecution | undefined>();
+  const [selectedTeam, setSelectedTeam]       = useState<string | null>(null);
+  const [formOpen, setFormOpen]               = useState(false);
+  const [formMode, setFormMode]               = useState<'add' | 'edit'>('add');
+  const [editTarget, setEditTarget]           = useState<WeMeetExecution | undefined>();
   const [teamManagerOpen, setTeamManagerOpen] = useState(false);
+  const [sendTarget, setSendTarget]           = useState<WeMeetExecution | null>(null);
 
-  const executions  = data?.executions ?? [];
-  const teams       = data?.teams ?? [];
+  const executions = data?.executions ?? [];
+  const teams      = data?.teams ?? [];
 
-  // 팀별취합에서 팀 rowIndex 포함 목록 구성 (팀 관리용)
   const teamsWithIndex = teams.map((name, i) => ({ teamName: name, rowIndex: i + 3 }));
+
+  const selectedSummary = selectedTeam
+    ? summaries.find((s) => s.teamName === selectedTeam)
+    : undefined;
 
   function handleAdd() {
     setFormMode('add');
@@ -75,6 +80,7 @@ export default function WeMeetPage() {
       plannedAmount:   row.plannedAmount,
       confirmed:       !row.confirmed,
       confirmedAmount: row.confirmedAmount,
+      description:     row.description,
     });
   }
 
@@ -87,19 +93,13 @@ export default function WeMeetPage() {
     refetchSummary();
   }
 
-  const selectedSummary = selectedTeam
-    ? summaries.find((s) => s.teamName === selectedTeam)
-    : undefined;
-
   return (
     <div className="space-y-5">
       {/* 페이지 헤더 */}
       <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-baseline gap-2">
-            <h1 className="text-2xl font-semibold text-[#131310] tracking-tight">WE-Meet 지원</h1>
-            <span className="text-sm text-gray-400">프로젝트 수행팀 예산 지원관리</span>
-          </div>
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-2xl font-semibold text-[#131310] tracking-tight">WE-Meet 지원</h1>
+          <span className="text-sm text-gray-400">프로젝트 수행팀 예산 지원관리</span>
         </div>
         <div className="flex items-center gap-2">
           {canWrite && (
@@ -134,10 +134,13 @@ export default function WeMeetPage() {
         </div>
       )}
 
-      {/* 팀별 요약 카드 */}
+      {/* 팀별 예산 현황 테이블 */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-[#6F6F6B]">팀별 예산 현황</h2>
+          <h2 className="text-sm font-medium text-[#6F6F6B]">
+            팀별 예산 현황
+            <span className="ml-1.5 text-xs text-gray-400">팀 행 클릭 시 아래 집행현황 필터</span>
+          </h2>
           {selectedTeam && selectedSummary && (
             <WeMeetTeamPdfReport
               teamName={selectedTeam}
@@ -147,9 +150,9 @@ export default function WeMeetPage() {
           )}
         </div>
         {isSummaryLoading ? (
-          <div className="h-28 animate-pulse rounded-xl bg-[#F3F3EE]" />
+          <div className="h-40 animate-pulse rounded-lg bg-[#F3F3EE]" />
         ) : (
-          <WeMeetSummaryCards
+          <WeMeetSummaryTable
             summaries={summaries}
             selectedTeam={selectedTeam}
             onSelectTeam={setSelectedTeam}
@@ -171,6 +174,7 @@ export default function WeMeetPage() {
           onEdit={handleEdit}
           onDelete={handleDelete}
           onToggleConfirmed={handleToggleConfirmed}
+          onSendToExpenditure={(row) => setSendTarget(row)}
           isToggling={updateMutation.isPending}
         />
       )}
@@ -195,6 +199,13 @@ export default function WeMeetPage() {
         onDeleteTeam={deleteTeamMutation.mutateAsync}
         isAdding={addTeamMutation.isPending}
         isDeleting={deleteTeamMutation.isPending}
+      />
+
+      {/* 비목별 집행내역 전송 모달 */}
+      <WeMeetSendModal
+        open={sendTarget !== null}
+        row={sendTarget}
+        onClose={() => setSendTarget(null)}
       />
     </div>
   );

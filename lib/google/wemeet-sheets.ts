@@ -21,7 +21,7 @@ export async function getWeMeetExecutions(): Promise<WeMeetExecution[]> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEETS_ID(),
-    range: WEMEET_EXECUTION_RANGE,
+    range: '집행현황!A2:G200', // G열(지출건명)까지 읽기
     valueRenderOption: 'UNFORMATTED_VALUE',
   });
 
@@ -35,12 +35,13 @@ export async function getWeMeetExecutions(): Promise<WeMeetExecution[]> {
     if (!usageType && !teamName) continue;
 
     result.push({
-      rowIndex:        i + 2, // 시트는 2행부터 시작
+      rowIndex:        i + 2,
       usageType,
       teamName,
       plannedAmount:   Number(row?.[2] ?? 0),
       confirmed:       row?.[3] === true || row?.[3] === 'TRUE' || row?.[3] === 1,
       confirmedAmount: Number(row?.[4] ?? 0),
+      description:     String(row?.[6] ?? '').trim(), // G열: 지출건명 (F열 건너뜀)
     });
   }
 
@@ -72,7 +73,7 @@ export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowInde
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A${nextRowNum}:E${nextRowNum}`,
+    range: `집행현황!A${nextRowNum}:G${nextRowNum}`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
@@ -81,6 +82,8 @@ export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowInde
         data.plannedAmount,
         data.confirmed,
         data.confirmedAmount,
+        '',              // F열 (빈칸)
+        data.description ?? '',
       ]],
     },
   });
@@ -93,7 +96,7 @@ export async function updateWeMeetExecution(
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A${rowIndex}:E${rowIndex}`,
+    range: `집행현황!A${rowIndex}:G${rowIndex}`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
@@ -102,6 +105,8 @@ export async function updateWeMeetExecution(
         data.plannedAmount,
         data.confirmed,
         data.confirmedAmount,
+        '',
+        data.description ?? '',
       ]],
     },
   });

@@ -50,6 +50,7 @@ export async function POST(req: Request) {
       plannedAmount: number;
       confirmed: boolean;
       confirmedAmount: number;
+      description: string;
     };
     await appendWeMeetExecution(body);
     return NextResponse.json({ ok: true });

@@ -39,6 +39,7 @@ export async function PATCH(
       plannedAmount: number;
       confirmed: boolean;
       confirmedAmount: number;
+      description: string;
     };
     await updateWeMeetExecution(rowIndex, body);
     return NextResponse.json({ ok: true });

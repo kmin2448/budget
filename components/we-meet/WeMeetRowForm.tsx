@@ -35,6 +35,7 @@ const DEFAULT_FORM: ExecutionPayload = {
   plannedAmount: 0,
   confirmed: false,
   confirmedAmount: 0,
+  description: '',
 };
 
 export function WeMeetRowForm({ open, mode, teams, initialData, onClose, onSubmit, isPending }: Props) {
@@ -52,6 +53,7 @@ export function WeMeetRowForm({ open, mode, teams, initialData, onClose, onSubmi
           plannedAmount:   initialData.plannedAmount,
           confirmed:       initialData.confirmed,
           confirmedAmount: initialData.confirmedAmount,
+          description:     initialData.description,
         });
         setPlannedStr(formatKRW(initialData.plannedAmount));
         setConfirmedStr(formatKRW(initialData.confirmedAmount));
@@ -113,6 +115,18 @@ export function WeMeetRowForm({ open, mode, teams, initialData, onClose, onSubmi
               <option value="">선택</option>
               {teams.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
+          </div>
+
+          {/* 지출건명 */}
+          <div className="space-y-1.5">
+            <Label>지출건명</Label>
+            <input
+              type="text"
+              value={form.description}
+              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+              placeholder="지출건명 입력"
+              className="w-full rounded-md border border-[#E3E3E0] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            />
           </div>
 
           {/* 계획금액 */}
