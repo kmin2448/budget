@@ -181,6 +181,43 @@ export interface LibraryFile {
   uploaded_at: string;
 }
 
+// ── WE-Meet ──────────────────────────────────────────────────────────
+
+export interface WeMeetExecution {
+  rowIndex: number;       // 집행현황 시트 실제 행 번호 (2~200)
+  usageType: string;      // 사용구분 (멘토링/회의비/재료비/학생활동지원비)
+  teamName: string;       // 팀명
+  plannedAmount: number;  // 계획금액
+  confirmed: boolean;     // 확정여부
+  confirmedAmount: number; // 확정금액
+}
+
+export interface WeMeetTeamSummary {
+  teamName: string;
+  totalBudget: number;
+  confirmed: {
+    mentoring: number;
+    meeting: number;
+    material: number;
+    studentActivity: number;
+    total: number;
+  };
+  pending: {
+    mentoring: number;
+    meeting: number;
+    material: number;
+    studentActivity: number;
+    total: number;
+  };
+  confirmedBalance: number;  // totalBudget - confirmed.total
+  expectedBalance: number;   // totalBudget - (confirmed.total + pending.total)
+}
+
+export interface WeMeetPageData {
+  executions: WeMeetExecution[];
+  teams: string[];
+}
+
 // 예산변경 확정 요청 payload
 export interface BudgetChangePayload {
   changedAt: string;                       // YYYY-MM-DD
