@@ -1,8 +1,6 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { DinoGame } from './DinoGame';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { signOut, useSession } from 'next-auth/react';
@@ -107,26 +105,6 @@ function UserSection({ collapsed, onClose }: { collapsed?: boolean; onClose?: ()
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-  );
-}
-
-function CatWidget() {
-  const [showGame, setShowGame] = useState(false);
-
-  return (
-    <>
-      <div className="flex justify-center px-3 pb-1">
-        <button
-          onClick={() => setShowGame(true)}
-          title="클릭해보세요"
-          className="rounded-full p-1 transition-opacity hover:opacity-70"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/caticon.png" alt="고양이" className="h-[20px] w-auto opacity-40" />
-        </button>
-      </div>
-      {showGame && <DinoGame onClose={() => setShowGame(false)} />}
-    </>
   );
 }
 
@@ -254,9 +232,6 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
           })}
         </ul>
       </nav>
-
-      {/* 고양이 위젯 */}
-      {(!collapsed || !!onClose) && <CatWidget />}
 
       {/* 하단 유저 섹션 */}
       <UserSection collapsed={collapsed} onClose={onClose} />

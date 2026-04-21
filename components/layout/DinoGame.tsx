@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 
+// ── 내부 캔버스 해상도 (고정) ──────────────────────────────────────
 const W = 600;
 const H = 200;
+const ASPECT = W / H;
 const GROUND_Y = 155;
 const DINO_X = 55;
-const DINO_W = 32;
-const DINO_H = 42;
+const DINO_W = 48;
+const DINO_H = 52;
 const GRAVITY = 0.7;
 const JUMP_VEL = -15;
 const BASE_SPEED = 5;
@@ -20,10 +22,43 @@ export function DinoGame({ onClose }: { onClose: () => void }) {
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
+  // ── 창 크기 (CSS 표시 크기만 변경, 내부 해상도 불변) ──────────
+  const [dispW, setDispW] = useState(W);
+  const dispH = Math.round(dispW / ASPECT);
+
+  // ── 리사이즈 핸들 (오른쪽 하단 코너 드래그) ──────────────────
+  const resizeRef = useRef<{ startX: number; startW: number } | null>(null);
+
+  function onResizeDown(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = { startX: e.clientX, startW: dispW };
+
+    function onMove(ev: MouseEvent) {
+      if (!resizeRef.current) return;
+      const newW = Math.max(320, Math.min(1100, resizeRef.current.startW + (ev.clientX - resizeRef.current.startX)));
+      setDispW(Math.round(newW));
+    }
+    function onUp() {
+      resizeRef.current = null;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  // ── 게임 루프 ─────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
+
+    // gomduri 이미지 로드
+    const gom = new Image();
+    gom.src = '/gomduri.png';
+    let gomLoaded = false;
+    gom.onload = () => { gomLoaded = true; };
 
     let state: State = 'idle';
     let score = 0;
@@ -34,79 +69,42 @@ export function DinoGame({ onClose }: { onClose: () => void }) {
     let onGround = true;
     let cacti: { x: number; h: number }[] = [];
     let clouds: { x: number; y: number; w: number }[] = [
-      { x: 150, y: 30, w: 60 },
-      { x: 380, y: 45, w: 80 },
+      { x: 180, y: 32, w: 64 },
+      { x: 420, y: 48, w: 80 },
     ];
     let frame = 0;
     let nextCactus = 90;
     let animId = 0;
 
-    function drawDino() {
-      const x = DINO_X;
-      const y = dinoY;
-      const leg = onGround ? Math.floor(frame / 7) % 2 : 0;
-      ctx.fillStyle = '#535353';
-
-      // tail
-      ctx.beginPath();
-      ctx.moveTo(x, y + 14);
-      ctx.lineTo(x - 10, y + 22);
-      ctx.lineTo(x - 4, y + 22);
-      ctx.lineTo(x, y + 18);
-      ctx.fill();
-
-      // body
-      ctx.fillRect(x, y + 10, DINO_W - 4, DINO_H - 18);
-
-      // neck + head
-      ctx.fillRect(x + 10, y, DINO_W - 8, 18);
-      ctx.fillRect(x + DINO_W - 8, y - 4, 16, 20);
-
-      // eye
-      ctx.fillStyle = '#f9f9f4';
-      ctx.fillRect(x + DINO_W + 2, y - 1, 5, 5);
-      ctx.fillStyle = '#535353';
-      ctx.fillRect(x + DINO_W + 4, y, 3, 3);
-
-      // mouth
-      ctx.fillRect(x + DINO_W + 6, y + 10, 6, 3);
-
-      // arms
-      ctx.fillRect(x + DINO_W - 12, y + 18, 10, 5);
-
-      // legs
-      ctx.fillStyle = '#535353';
-      if (!onGround) {
-        ctx.fillRect(x + 4, y + DINO_H - 8, 9, 14);
-        ctx.fillRect(x + 16, y + DINO_H - 12, 9, 10);
-      } else if (leg === 0) {
-        ctx.fillRect(x + 4, y + DINO_H - 8, 9, 14);
-        ctx.fillRect(x + 16, y + DINO_H - 4, 9, 10);
+    function drawGomduri() {
+      const bounce = (state === 'running' && onGround) ? Math.sin(frame * 0.35) * 2.5 : 0;
+      const x = DINO_X - 4;
+      const y = dinoY + bounce - 4;
+      const iw = DINO_W + 8;
+      const ih = DINO_H + 8;
+      if (gomLoaded) {
+        ctx.drawImage(gom, x, y, iw, ih);
       } else {
-        ctx.fillRect(x + 4, y + DINO_H - 4, 9, 10);
-        ctx.fillRect(x + 16, y + DINO_H - 8, 9, 14);
+        ctx.fillStyle = '#888';
+        ctx.fillRect(DINO_X, dinoY, DINO_W, DINO_H);
       }
     }
 
     function drawCactus(cx: number, ch: number) {
       ctx.fillStyle = '#535353';
       const base = GROUND_Y;
-      const stemX = cx + 8;
-      // stem
-      ctx.fillRect(stemX, base - ch, 10, ch);
-      // left arm
-      ctx.fillRect(cx, base - ch * 0.65, stemX - cx, 7);
+      ctx.fillRect(cx + 8, base - ch, 10, ch);
+      ctx.fillRect(cx, base - ch * 0.65, 12, 7);
       ctx.fillRect(cx, base - ch * 0.65 - 18, 7, 20);
-      // right arm
-      ctx.fillRect(stemX + 10, base - ch * 0.55, 14, 7);
-      ctx.fillRect(stemX + 17, base - ch * 0.55 - 16, 7, 18);
+      ctx.fillRect(cx + 18, base - ch * 0.55, 14, 7);
+      ctx.fillRect(cx + 25, base - ch * 0.55 - 16, 7, 18);
     }
 
     function draw() {
       ctx.fillStyle = '#f9f9f4';
       ctx.fillRect(0, 0, W, H);
 
-      // clouds
+      // 구름
       ctx.fillStyle = '#e8e8e0';
       for (const c of clouds) {
         ctx.beginPath();
@@ -120,24 +118,22 @@ export function DinoGame({ onClose }: { onClose: () => void }) {
         ctx.fill();
       }
 
-      // ground
+      // 지면
       ctx.strokeStyle = '#535353';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(0, GROUND_Y);
       ctx.lineTo(W, GROUND_Y);
       ctx.stroke();
-
-      // ground dots
-      ctx.fillStyle = '#c0c0b8';
-      for (let i = 0; i < W; i += 30 + ((i * 7) % 25)) {
+      ctx.fillStyle = '#c8c8c0';
+      for (let i = 5; i < W; i += 28 + ((i * 7) % 22)) {
         ctx.fillRect(i, GROUND_Y + 3, 3, 2);
       }
 
       for (const c of cacti) drawCactus(c.x, c.h);
-      drawDino();
+      drawGomduri();
 
-      // score
+      // 점수
       ctx.fillStyle = '#535353';
       ctx.font = 'bold 14px monospace';
       ctx.textAlign = 'right';
@@ -150,9 +146,8 @@ export function DinoGame({ onClose }: { onClose: () => void }) {
         ctx.fillStyle = '#535353';
         ctx.font = 'bold 15px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText('스페이스 / 클릭으로 시작', W / 2, H / 2 + 20);
+        ctx.fillText('스페이스 / 클릭으로 시작', W / 2, H / 2 + 18);
       }
-
       if (state === 'over') {
         ctx.fillStyle = '#535353';
         ctx.font = 'bold 18px monospace';
@@ -190,7 +185,6 @@ export function DinoGame({ onClose }: { onClose: () => void }) {
         score += 0.12;
         speed = BASE_SPEED + Math.floor(score / 80) * 0.4;
 
-        // physics
         dinoVY += GRAVITY;
         dinoY += dinoVY;
         if (dinoY >= GROUND_Y - DINO_H) {
@@ -199,27 +193,24 @@ export function DinoGame({ onClose }: { onClose: () => void }) {
           onGround = true;
         }
 
-        // clouds
         clouds = clouds.map((c) => ({ ...c, x: c.x - speed * 0.2 }));
-        if (clouds[0].x + clouds[0].w / 2 < 0) clouds[0] = { x: W + 60, y: 20 + Math.random() * 40, w: 50 + Math.random() * 50 };
-        if (clouds[1].x + clouds[1].w / 2 < 0) clouds[1] = { x: W + 60, y: 20 + Math.random() * 40, w: 50 + Math.random() * 50 };
+        if (clouds[0].x < -80) clouds[0] = { x: W + 80, y: 20 + Math.random() * 40, w: 50 + Math.random() * 50 };
+        if (clouds[1].x < -80) clouds[1] = { x: W + 80, y: 20 + Math.random() * 40, w: 50 + Math.random() * 50 };
 
-        // spawn cactus
         nextCactus--;
         if (nextCactus <= 0) {
           cacti.push({ x: W + 10, h: 38 + Math.random() * 32 });
           nextCactus = 55 + Math.random() * 75 - Math.min(speed * 3, 25);
         }
+        cacti = cacti.map((c) => ({ ...c, x: c.x - speed })).filter((c) => c.x > -50);
 
-        cacti = cacti.map((c) => ({ ...c, x: c.x - speed })).filter((c) => c.x > -40);
-
-        // collision
-        const dL = DINO_X + 5;
-        const dR = DINO_X + DINO_W + 8;
-        const dT = dinoY + 5;
-        const dB = dinoY + DINO_H;
+        // 충돌 (gomduri 이미지 기준으로 톨러런스 적용)
+        const dL = DINO_X + 8;
+        const dR = DINO_X + DINO_W - 6;
+        const dT = dinoY + 10;
+        const dB = dinoY + DINO_H - 2;
         for (const c of cacti) {
-          if (dR > c.x + 3 && dL < c.x + 24 && dB > GROUND_Y - c.h + 5) {
+          if (dR > c.x + 4 && dL < c.x + 24 && dB > GROUND_Y - c.h + 5) {
             state = 'over';
             if (score > hiScore) hiScore = score;
             draw();
@@ -256,7 +247,7 @@ export function DinoGame({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="relative rounded-xl bg-white p-5 shadow-2xl">
+      <div className="relative rounded-xl bg-white p-5 shadow-2xl select-none">
         <button
           onClick={onClose}
           className="absolute right-3 top-3 rounded p-1 text-gray-400 hover:text-gray-600 transition-colors"
@@ -264,15 +255,28 @@ export function DinoGame({ onClose }: { onClose: () => void }) {
           <X className="h-4 w-4" />
         </button>
         <p className="mb-2 text-center text-[11px] text-gray-400">
-          스페이스바 또는 클릭으로 점프 &nbsp;|&nbsp; ESC / 바깥 클릭으로 닫기
+          스페이스바 / 클릭으로 점프 &nbsp;|&nbsp; ESC / 바깥 클릭으로 닫기 &nbsp;|&nbsp; 오른쪽 하단 드래그로 크기 조절
         </p>
-        <canvas
-          ref={canvasRef}
-          width={W}
-          height={H}
-          className="block rounded-lg border border-gray-200"
-          style={{ cursor: 'pointer', imageRendering: 'pixelated' }}
-        />
+
+        {/* 캔버스 + 리사이즈 핸들 컨테이너 */}
+        <div className="relative" style={{ width: dispW, height: dispH }}>
+          <canvas
+            ref={canvasRef}
+            width={W}
+            height={H}
+            className="block rounded-lg border border-gray-200"
+            style={{ width: dispW, height: dispH, cursor: 'pointer' }}
+          />
+
+          {/* 오른쪽 하단 리사이즈 핸들 */}
+          <div
+            onMouseDown={onResizeDown}
+            className="absolute bottom-0 right-0 h-5 w-5 cursor-se-resize rounded-br-lg"
+            style={{
+              background: 'linear-gradient(135deg, transparent 45%, #9ca3af 45%)',
+            }}
+          />
+        </div>
       </div>
     </div>
   );
