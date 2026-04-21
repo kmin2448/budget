@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
+import { DinoGame } from './DinoGame';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { signOut, useSession } from 'next-auth/react';
@@ -110,37 +111,22 @@ function UserSection({ collapsed, onClose }: { collapsed?: boolean; onClose?: ()
 }
 
 function CatWidget() {
-  const [playing, setPlaying] = useState(false);
-  const [playKey, setPlayKey] = useState(0);
-
-  useEffect(() => {
-    if (!playing) return;
-    const t = setTimeout(() => setPlaying(false), 117000);
-    return () => clearTimeout(t);
-  }, [playing, playKey]);
+  const [showGame, setShowGame] = useState(false);
 
   return (
-    <div className="flex justify-center px-3 pb-1">
-      {playing ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          key={playKey}
-          src="/cat01.gif"
-          alt=""
-          className="h-[90px] w-auto"
-          style={{ mixBlendMode: 'multiply' }}
-        />
-      ) : (
+    <>
+      <div className="flex justify-center px-3 pb-1">
         <button
-          onClick={() => { setPlayKey((k) => k + 1); setPlaying(true); }}
+          onClick={() => setShowGame(true)}
           title="클릭해보세요"
           className="rounded-full p-1 transition-opacity hover:opacity-70"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/caticon.png" alt="고양이" className="h-[20px] w-auto opacity-40" />
         </button>
-      )}
-    </div>
+      </div>
+      {showGame && <DinoGame onClose={() => setShowGame(false)} />}
+    </>
   );
 }
 
