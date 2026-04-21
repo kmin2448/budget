@@ -99,7 +99,7 @@ export function ExpenditureTable({
 
   const isPersonnel = category === PERSONNEL_CATEGORY;
   const showActions = canWrite && editMode; // 삭제/이동 등 파괴적 액션
-  const colCount = isPersonnel ? (showActions ? 4 : 3) : (showActions ? 7 : 6);
+  const colCount = isPersonnel ? (showActions ? 5 : 4) : (showActions ? 7 : 6);
   const groups = isPersonnel ? null : groupByMonthlyAmounts(rows);
 
   // ── 인라인 편집 ────────────────────────────────────────────────
@@ -297,6 +297,38 @@ export function ExpenditureTable({
             <TableCell className="py-2 text-right text-sm font-medium tabular-nums text-gray-800">
               {formatKRW(row.totalAmount)}
             </TableCell>
+            {/* 인건비 청구서 업로드/삭제 */}
+            <TableCell className="w-16 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+              {row.hasFile ? (
+                <div className="flex items-center justify-center gap-1">
+                  <a
+                    href={row.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="청구서 열기"
+                    className="inline-flex items-center"
+                  >
+                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
+                  </a>
+                  {showActions && (
+                    <button
+                      onClick={() => onDeleteFile(row)}
+                      className="rounded p-0.5 text-gray-300 hover:bg-red-50 hover:text-red-400"
+                      title="파일 삭제"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ) : canWrite ? (
+                <button
+                  onClick={() => onUpload(row)}
+                  className="inline-flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <Upload className="h-3 w-3" />
+                </button>
+              ) : null}
+            </TableCell>
           </>
         ) : (
           <>
@@ -444,7 +476,15 @@ export function ExpenditureTable({
             <div className="grid grid-cols-6 gap-2 text-xs">
               {MONTH_COLUMNS.map((month, i) => (
                 <div key={month} className="text-center">
-                  <div className="mb-0.5 text-gray-400">{month}</div>
+                  <div className="mb-0.5 flex items-center justify-center gap-0.5 text-gray-400">
+                    <span>{month}</span>
+                    {isPersonnel && row.hasFile && row.monthlyAmounts[i] > 0 && (
+                      <span
+                        className="inline-block h-1.5 w-1.5 rounded-full bg-green-500"
+                        title="청구서 업로드됨"
+                      />
+                    )}
+                  </div>
                   <div className={cn(
                     'tabular-nums font-medium',
                     row.monthlyAmounts[i] > 0 ? 'text-gray-800' : 'text-gray-300',
@@ -574,6 +614,7 @@ export function ExpenditureTable({
               <>
                 <TableHead className="text-xs font-medium text-gray-500">내용</TableHead>
                 <TableHead className="w-32 text-right text-xs font-medium text-gray-500">집행금액</TableHead>
+                <TableHead className="w-16 text-center text-xs font-medium text-gray-500">청구서</TableHead>
               </>
             ) : (
               <>
@@ -695,6 +736,14 @@ export function ExpenditureTable({
           )}
         </TableBody>
       </Table>
+
+      {/* 인건비 전용 범례 */}
+      {isPersonnel && (
+        <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
+          <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-green-500" />
+          <span>청구서가 업로드된 집행항목입니다. 동그라미를 클릭하면 파일을 열 수 있습니다.</span>
+        </div>
+      )}
     </div>
   );
 }
