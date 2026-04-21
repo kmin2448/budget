@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { KRWInput } from '@/components/ui/krw-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatKRW, parseKRW } from '@/lib/utils';
+import { parseKRW } from '@/lib/utils';
 import { CATEGORY_SHEETS } from '@/constants/sheets';
 
 interface CardRowFormProps {
@@ -102,11 +103,11 @@ export function CardRowForm({ onSubmit, onCancel, loading }: CardRowFormProps) {
         {/* 금액 */}
         <div className="space-y-1">
           <label className="text-xs font-medium text-gray-600">금액 *</label>
-          <Input
+          <KRWInput
             placeholder="0"
             value={amountStr}
-            onChange={(e) => setAmountStr(formatKRW(parseKRW(e.target.value)))}
-            className="h-8 text-right text-sm"
+            onChange={setAmountStr}
+            className="flex h-8 w-full rounded-md border border-gray-200 bg-white px-3 py-1 text-right text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
           />
         </div>
       </div>

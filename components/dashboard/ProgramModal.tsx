@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { KRWInput } from '@/components/ui/krw-input';
 import { formatKRW, parseKRW } from '@/lib/utils';
 import { CATEGORY_SHEETS } from '@/constants/sheets';
 import type { ProgramRow } from '@/hooks/useDashboard';
@@ -171,10 +172,6 @@ export function ProgramModal({
     setForm((prev) => ({ ...prev, subCategory: value, subDetail: '' }));
   }
 
-  function handleBudgetInput(value: string) {
-    const raw = value.replace(/[^0-9]/g, '');
-    set('budgetPlan', raw ? formatKRW(Number(raw)) : '');
-  }
 
   async function handleSubmit() {
     const missing: string[] = [];
@@ -332,12 +329,10 @@ export function ProgramModal({
 
           {/* 예산계획 */}
           <Field label="예산계획 (원)">
-            <input
-              type="text"
+            <KRWInput
               value={form.budgetPlan}
-              onChange={(e) => handleBudgetInput(e.target.value)}
+              onChange={(formatted) => set('budgetPlan', formatted)}
               placeholder="0"
-              inputMode="numeric"
               className={`${inputCls} text-right tabular-nums`}
             />
           </Field>

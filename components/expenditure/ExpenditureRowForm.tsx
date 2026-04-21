@@ -6,6 +6,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { KRWInput } from '@/components/ui/krw-input';
 import { formatKRW, parseKRW } from '@/lib/utils';
 import { MONTH_COLUMNS, PERSONNEL_CATEGORY } from '@/constants/sheets';
 import type { ExpenditureDetailRow } from '@/types';
@@ -63,9 +64,7 @@ export function ExpenditureRowForm({
     setError(null);
   }, [open, initialData, mode]);
 
-  function setMonthAmount(idx: number, raw: string) {
-    const digits = raw.replace(/[^0-9]/g, '');
-    const formatted = digits ? formatKRW(Number(digits)) : '';
+  function setMonthAmount(idx: number, formatted: string) {
     setForm((prev) => {
       const next = [...prev.monthlyAmounts];
       next[idx] = formatted;
@@ -211,11 +210,9 @@ export function ExpenditureRowForm({
               {MONTH_COLUMNS.map((month, idx) => (
                 <div key={month}>
                   <label className="mb-0.5 block text-xs text-gray-500">{month}</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
+                  <KRWInput
                     value={form.monthlyAmounts[idx]}
-                    onChange={(e) => setMonthAmount(idx, e.target.value)}
+                    onChange={(formatted) => setMonthAmount(idx, formatted)}
                     placeholder="0"
                     className={`${inputCls} text-right tabular-nums`}
                   />

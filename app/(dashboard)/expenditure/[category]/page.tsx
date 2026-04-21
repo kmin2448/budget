@@ -131,14 +131,14 @@ export default function ExpenditurePage({
 
   async function handleInlineUpdate(
     row: ExpenditureDetailRow,
-    changes: { programName?: string; description?: string; expenseDate?: string },
+    changes: { programName?: string; description?: string; expenseDate?: string; monthlyAmounts?: number[] },
   ) {
     await updateMutation.mutateAsync({
       rowIndex: row.rowIndex,
       programName: changes.programName ?? row.programName,
       description: changes.description ?? row.description,
       expenseDate: changes.expenseDate ?? row.expenseDate,
-      monthlyAmounts: row.monthlyAmounts,
+      monthlyAmounts: changes.monthlyAmounts ?? row.monthlyAmounts,
     });
   }
 

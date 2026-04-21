@@ -6,7 +6,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { formatKRW } from '@/lib/utils';
+import { KRWInput } from '@/components/ui/krw-input';
+import { formatKRW, parseKRW } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import {
   Pencil, Trash2, Upload, ExternalLink, Plus,
@@ -38,7 +39,7 @@ interface ExpenditureTableProps {
   ) => Promise<void>;
   onUpdate?: (
     row: ExpenditureDetailRow,
-    changes: { programName?: string; description?: string; expenseDate?: string },
+    changes: { programName?: string; description?: string; expenseDate?: string; monthlyAmounts?: number[] },
   ) => Promise<void>;
 }
 
@@ -95,6 +96,12 @@ export function ExpenditureTable({
   // 편집 모드 (내부 상태)
   const [editMode, setEditMode] = useState(false);
   const [inlineEdit, setInlineEdit] = useState<InlineEditState | null>(null);
+  const [monthEdit, setMonthEdit] = useState<{
+    rowIndex: number;
+    monthIdx: number;
+    value: string;
+    originalRow: ExpenditureDetailRow;
+  } | null>(null);
   const [savingInline, setSavingInline] = useState(false);
 
   const isPersonnel = category === PERSONNEL_CATEGORY;
@@ -133,6 +140,33 @@ export function ExpenditureTable({
     }
   }
 
+  function startMonthEdit(row: ExpenditureDetailRow, monthIdx: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!editMode || !onUpdate) return;
+    setMonthEdit({
+      rowIndex: row.rowIndex,
+      monthIdx,
+      value: row.monthlyAmounts[monthIdx] > 0 ? formatKRW(row.monthlyAmounts[monthIdx]) : '',
+      originalRow: row,
+    });
+  }
+
+  async function saveMonthEdit() {
+    if (!monthEdit || !onUpdate || savingInline) return;
+    const { originalRow, monthIdx, value } = monthEdit;
+    const newAmount = parseKRW(value);
+    setMonthEdit(null);
+    if (newAmount === originalRow.monthlyAmounts[monthIdx]) return;
+    const newMonthlyAmounts = [...originalRow.monthlyAmounts];
+    newMonthlyAmounts[monthIdx] = newAmount;
+    setSavingInline(true);
+    try {
+      await onUpdate(originalRow, { monthlyAmounts: newMonthlyAmounts });
+    } finally {
+      setSavingInline(false);
+    }
+  }
+
   function handleCompleteEditMode() {
     if (inlineEdit && onUpdate) {
       const { originalRow, field, value } = inlineEdit;
@@ -147,6 +181,7 @@ export function ExpenditureTable({
 
   function handleCancelEditMode() {
     setInlineEdit(null);
+    setMonthEdit(null);
     setEditMode(false);
   }
 
@@ -294,8 +329,12 @@ export function ExpenditureTable({
                 : <span className={cn('block truncate text-sm', editMode && onUpdate && 'cursor-text')} title={row.programName}>{row.programName || '-'}</span>
               }
             </TableCell>
-            <TableCell className="py-2 text-right text-sm font-medium tabular-nums text-gray-800">
-              {formatKRW(row.totalAmount)}
+            <TableCell
+              className="py-2 text-right text-sm font-medium tabular-nums text-gray-800"
+              onDoubleClick={editMode ? (e) => { e.stopPropagation(); onEdit(row); } : undefined}
+              title={editMode ? '더블클릭하여 편집' : undefined}
+            >
+              <span className={cn(editMode && 'cursor-pointer')}>{formatKRW(row.totalAmount)}</span>
             </TableCell>
             {/* 인건비 청구서 업로드/삭제 */}
             <TableCell className="w-16 py-2 text-center" onClick={(e) => e.stopPropagation()}>
@@ -474,25 +513,54 @@ export function ExpenditureTable({
         >
           <TableCell colSpan={colCount} className="px-6 py-3">
             <div className="grid grid-cols-6 gap-2 text-xs">
-              {MONTH_COLUMNS.map((month, i) => (
-                <div key={month} className="text-center">
-                  <div className="mb-0.5 flex items-center justify-center gap-0.5 text-gray-400">
-                    <span>{month}</span>
-                    {isPersonnel && row.hasFile && row.monthlyAmounts[i] > 0 && (
-                      <span
-                        className="inline-block h-1.5 w-1.5 rounded-full bg-green-500"
-                        title="청구서 업로드됨"
+              {MONTH_COLUMNS.map((month, i) => {
+                const isEditingThisMonth =
+                  editMode &&
+                  monthEdit?.rowIndex === row.rowIndex &&
+                  monthEdit?.monthIdx === i;
+                return (
+                  <div
+                    key={month}
+                    className="text-center"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="mb-0.5 flex items-center justify-center gap-0.5 text-gray-400">
+                      <span>{month}</span>
+                      {isPersonnel && row.hasFile && row.monthlyAmounts[i] > 0 && (
+                        <span
+                          className="inline-block h-1.5 w-1.5 rounded-full bg-green-500"
+                          title="청구서 업로드됨"
+                        />
+                      )}
+                    </div>
+                    {isEditingThisMonth ? (
+                      <KRWInput
+                        autoFocus
+                        value={monthEdit.value}
+                        onChange={(v) => setMonthEdit((p) => p ? { ...p, value: v } : null)}
+                        onBlur={() => void saveMonthEdit()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); void saveMonthEdit(); }
+                          if (e.key === 'Escape') { e.preventDefault(); setMonthEdit(null); }
+                        }}
+                        className="w-full rounded border border-primary/40 bg-white px-1 py-0.5 text-center tabular-nums outline-none focus:border-primary"
                       />
+                    ) : (
+                      <div
+                        className={cn(
+                          'tabular-nums font-medium',
+                          row.monthlyAmounts[i] > 0 ? 'text-gray-800' : 'text-gray-300',
+                          editMode && onUpdate && 'cursor-pointer rounded hover:bg-primary-bg/60',
+                        )}
+                        onDoubleClick={editMode ? (e) => startMonthEdit(row, i, e) : undefined}
+                        title={editMode ? '더블클릭하여 편집' : undefined}
+                      >
+                        {row.monthlyAmounts[i] > 0 ? formatKRW(row.monthlyAmounts[i]) : '0'}
+                      </div>
                     )}
                   </div>
-                  <div className={cn(
-                    'tabular-nums font-medium',
-                    row.monthlyAmounts[i] > 0 ? 'text-gray-800' : 'text-gray-300',
-                  )}>
-                    {formatKRW(row.monthlyAmounts[i])}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </TableCell>
         </TableRow>,
@@ -591,7 +659,7 @@ export function ExpenditureTable({
       {editMode && (
         <div className="mb-1 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
           <span className="font-semibold">편집 모드</span>
-          <span className="text-amber-600">건명·프로그램명·지출일자는 더블클릭으로 바로 수정, 금액은 더블클릭 시 전체 편집 창이 열립니다.</span>
+          <span className="text-amber-600">건명·프로그램명·지출일자는 더블클릭으로 바로 수정, 금액은 행을 펼친 뒤 월별 금액을 더블클릭하여 바로 수정합니다.</span>
           {savingInline && <span className="ml-auto text-amber-500">저장 중…</span>}
         </div>
       )}

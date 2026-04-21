@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
 import { formatKRW, parseKRW, cn } from '@/lib/utils';
+import { KRWInput } from '@/components/ui/krw-input';
 import { Trash2, Plus, Check, X, ChevronDown, ChevronRight, Download } from 'lucide-react';
 import { CATEGORY_SHEETS } from '@/constants/sheets';
 import type { CardEntry, CardHolders } from '@/hooks/useCardManagement';
@@ -166,14 +167,14 @@ export function CardManagementTable({ entries, cardHolders, cardTypes, canWrite,
       }
       if (field === 'amount') {
         return (
-          <input autoFocus type="text" value={draftValue}
-            onChange={(e) => {
-              const d = e.target.value.replace(/[^0-9]/g, '');
-              setDraftValue(d ? formatKRW(Number(d)) : '');
-            }}
+          <KRWInput
+            autoFocus
+            value={draftValue}
+            onChange={setDraftValue}
             onBlur={() => void commitEdit(entry)}
             onKeyDown={(e) => { if (e.key === 'Enter') void commitEdit(entry); if (e.key === 'Escape') cancelEdit(); }}
-            className={cn(inputCls, 'text-right')} />
+            className={cn(inputCls, 'text-right')}
+          />
         );
       }
       if (field === 'expenseDate') {
@@ -391,12 +392,12 @@ export function CardManagementTable({ entries, cardHolders, cardTypes, canWrite,
                   <input type="text" value={addDraft.merchant} onChange={(e) => setAddDraft((p) => ({ ...p, merchant: e.target.value }))} placeholder="거래처" className={inputCls} />
                 </td>
                 <td className="px-1 py-1.5">
-                  <input type="text" value={addDraft.amount > 0 ? formatKRW(addDraft.amount) : ''}
-                    onChange={(e) => {
-                      const d = e.target.value.replace(/[^0-9]/g, '');
-                      setAddDraft((p) => ({ ...p, amount: Number(d) }));
-                    }}
-                    placeholder="0" className={cn(inputCls, 'text-right')} />
+                  <KRWInput
+                    value={addDraft.amount > 0 ? formatKRW(addDraft.amount) : ''}
+                    onChange={(formatted) => setAddDraft((p) => ({ ...p, amount: parseKRW(formatted) }))}
+                    placeholder="0"
+                    className={cn(inputCls, 'text-right')}
+                  />
                 </td>
                 <td className="px-1 py-1.5">
                   <input type="text" value={addDraft.note} onChange={(e) => setAddDraft((p) => ({ ...p, note: e.target.value }))} placeholder="비고" className={inputCls} />

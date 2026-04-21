@@ -4,6 +4,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { KRWInput } from '@/components/ui/krw-input';
 import { formatKRW, parseKRW } from '@/lib/utils';
 import type { BudgetDetailRow, BudgetCategoryRow } from '@/types';
 
@@ -22,22 +23,20 @@ export function BudgetAdjustmentEditor({
   onSave,
   onConfirm,
 }: Props) {
-  // 증감액 편집 상태: rowOffset → 입력 문자열
+  // 증감액 편집 상태: rowOffset → 천단위 포맷 문자열 (음수 가능)
   const [edits, setEdits] = useState<Record<number, string>>(() =>
-    Object.fromEntries(detailRows.map((r) => [r.rowOffset, r.adjustment !== 0 ? String(r.adjustment) : ''])),
+    Object.fromEntries(detailRows.map((r) => [r.rowOffset, r.adjustment !== 0 ? formatKRW(r.adjustment) : ''])),
   );
 
   // 확정 후 refetch 완료 시 detailRows가 바뀌면 edits를 새 값으로 동기화
   useEffect(() => {
     setEdits(
-      Object.fromEntries(detailRows.map((r) => [r.rowOffset, r.adjustment !== 0 ? String(r.adjustment) : ''])),
+      Object.fromEntries(detailRows.map((r) => [r.rowOffset, r.adjustment !== 0 ? formatKRW(r.adjustment) : ''])),
     );
   }, [detailRows]);
 
-  const handleChange = useCallback((rowOffset: number, raw: string) => {
-    // 숫자, 마이너스 부호, 쉼표만 허용
-    const cleaned = raw.replace(/[^0-9,\-]/g, '');
-    setEdits((prev) => ({ ...prev, [rowOffset]: cleaned }));
+  const handleChange = useCallback((rowOffset: number, formatted: string) => {
+    setEdits((prev) => ({ ...prev, [rowOffset]: formatted }));
   }, []);
 
   // 편집된 증감액으로 detailRows 미리보기 계산
@@ -130,10 +129,10 @@ export function BudgetAdjustmentEditor({
                       {formatKRW(row.allocation)}
                     </td>
                     <td className="px-2 py-1.5">
-                      <input
-                        type="text"
+                      <KRWInput
+                        allowNegative
                         value={currentVal}
-                        onChange={(e) => handleChange(row.rowOffset, e.target.value)}
+                        onChange={(formatted) => handleChange(row.rowOffset, formatted)}
                         placeholder="0"
                         className={`w-full rounded border px-2 py-1 text-right tabular-nums text-sm outline-none focus:ring-2 focus:ring-primary/40 ${
                           isChanged ? 'border-blue-400 bg-white' : 'border-gray-200 bg-gray-50'

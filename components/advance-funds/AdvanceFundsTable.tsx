@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { formatKRW, parseKRW } from '@/lib/utils';
+import { KRWInput } from '@/components/ui/krw-input';
 import { Plus, Trash2, Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdvanceFundItem } from '@/hooks/useAdvanceFunds';
@@ -186,12 +187,9 @@ export function AdvanceFundsTable({
                           />
                         </td>
                         <td className="px-2 py-1.5">
-                          <input
+                          <KRWInput
                             value={editState.amount}
-                            onChange={(e) => {
-                              const digits = e.target.value.replace(/[^0-9]/g, '');
-                              setEditState((p) => p ? { ...p, amount: digits ? formatKRW(Number(digits)) : '' } : p);
-                            }}
+                            onChange={(formatted) => setEditState((p) => p ? { ...p, amount: formatted } : p)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') void commitEdit();
                               if (e.key === 'Escape') cancelEdit();
@@ -263,12 +261,9 @@ export function AdvanceFundsTable({
                     />
                   </td>
                   <td className="px-2 py-1.5">
-                    <input
+                    <KRWInput
                       value={addState.amount}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/[^0-9]/g, '');
-                        setAddState((p) => p ? { ...p, amount: digits ? formatKRW(Number(digits)) : '' } : p);
-                      }}
+                      onChange={(formatted) => setAddState((p) => p ? { ...p, amount: formatted } : p)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') void commitAdd();
                         if (e.key === 'Escape') cancelAdd();
