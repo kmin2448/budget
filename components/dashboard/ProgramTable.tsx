@@ -46,6 +46,7 @@ interface ProgramTableProps {
   rows: ProgramRow[];
   onEdit?: (row: ProgramRow) => void;
   onDelete?: (row: ProgramRow) => void;
+  onBulkDelete?: (rowIndices: number[]) => void;
   canWrite: boolean;
   isLoggedIn?: boolean;
   editMode?: boolean;
@@ -172,7 +173,7 @@ function InlineEditCell({
 
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
 export function ProgramTable({
-  rows, onDelete, canWrite, isLoggedIn = false,
+  rows, onDelete, onBulkDelete, canWrite, isLoggedIn = false,
   editMode = false, changes = {}, onCellChange, onAutoSave,
   openGroups: externalOpenGroups, onToggleGroup: externalToggleGroup,
   forcedOpenRows, emptyMessage = '데이터가 없습니다.',
@@ -194,6 +195,30 @@ export function ProgramTable({
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
   const [localStatus, setLocalStatus] = useState<Record<number, { isCompleted?: boolean; isOnHold?: boolean }>>({});
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!editMode) setSelectedRows(new Set());
+  }, [editMode]);
+
+  const allRowIndices = rows.map((r) => r.rowIndex);
+  const allSelected = allRowIndices.length > 0 && allRowIndices.every((idx) => selectedRows.has(idx));
+  const someSelected = allRowIndices.some((idx) => selectedRows.has(idx));
+
+  function toggleSelectAll() {
+    if (allSelected) setSelectedRows(new Set());
+    else setSelectedRows(new Set(allRowIndices));
+  }
+
+  function toggleSelectRow(rowIndex: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowIndex)) next.delete(rowIndex);
+      else next.add(rowIndex);
+      return next;
+    });
+  }
 
   // ── 카테고리 / 행 정렬 순서 상태 ──
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
@@ -318,11 +343,40 @@ export function ProgramTable({
         'overflow-x-auto rounded-[2px] border bg-white shadow-soft transition-colors',
         editMode ? 'border-amber-300' : 'border-[#E3E3E0]',
       )}>
+
+      {/* 일괄 선택 삭제 바 */}
+      {editMode && selectedRows.size > 0 && (
+        <div className="flex items-center justify-between border-b border-red-100 bg-red-50 px-4 py-2">
+          <span className="text-sm text-red-700">
+            <span className="font-semibold">{selectedRows.size}개</span> 선택됨
+          </span>
+          <button
+            onClick={() => onBulkDelete?.(Array.from(selectedRows))}
+            className="flex items-center gap-1.5 rounded px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            선택 삭제
+          </button>
+        </div>
+      )}
+
         <DndContext sensors={sensors} collisionDetection={sameTypeCollision} onDragEnd={handleDragEnd}>
           <Table className="table-fixed">
             <TableHeader>
               <TableRow className="bg-sidebar hover:bg-sidebar">
-                <TableHead className="w-12 text-text-secondary px-2" />
+                <TableHead className={cn('text-text-secondary px-2', editMode ? 'w-20' : 'w-12')}>
+                  {editMode && (
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                      onChange={toggleSelectAll}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                      title="전체 선택/해제"
+                    />
+                  )}
+                </TableHead>
                 <TableHead className={cn("text-text-secondary font-medium transition-all", collapsed ? "w-[490px]" : "w-[330px]")}>
                   구분 / 프로그램명
                 </TableHead>
@@ -437,6 +491,15 @@ export function ProgramTable({
                             className="py-2 pl-2 pr-1"
                           >
                             <div className="flex items-center gap-0.5">
+                              {editMode && (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRows.has(row.rowIndex)}
+                                  onChange={() => {/* handled by onClick */}}
+                                  onClick={(e) => toggleSelectRow(row.rowIndex, e)}
+                                  className="h-3.5 w-3.5 shrink-0 cursor-pointer accent-primary"
+                                />
+                              )}
                               <div
                                 {...dragHandleAttributes}
                                 {...dragHandleListeners}

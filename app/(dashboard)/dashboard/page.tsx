@@ -29,6 +29,10 @@ export default function DashboardPage() {
   const [deleteTarget, setDeleteTarget] = useState<ProgramRow | undefined>(undefined);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteTargets, setBulkDeleteTargets] = useState<number[]>([]);
+  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
+
   // 프로그램 그룹 접기/펼치기
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -193,6 +197,33 @@ export default function DashboardPage() {
       alert(err instanceof Error ? err.message : '삭제 중 오류가 발생했습니다.');
     } finally {
       setDeleteLoading(false);
+    }
+  }
+
+  function handleBulkDelete(rowIndices: number[]) {
+    setBulkDeleteTargets(rowIndices);
+    setBulkDeleteOpen(true);
+  }
+
+  async function handleBulkDeleteConfirm() {
+    setBulkDeleteLoading(true);
+    try {
+      const res = await fetch(`/api/sheets/program?sheetType=${budgetType}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rowIndices: bulkDeleteTargets }),
+      });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '삭제 실패');
+      }
+      await queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+      setBulkDeleteOpen(false);
+      setBulkDeleteTargets([]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '삭제 중 오류가 발생했습니다.');
+    } finally {
+      setBulkDeleteLoading(false);
     }
   }
 
@@ -399,6 +430,7 @@ export default function DashboardPage() {
             rows={filteredRows}
             onEdit={handleEdit}
             onDelete={handleDeleteClick}
+            onBulkDelete={canWrite ? handleBulkDelete : undefined}
             canWrite={canWrite}
             isLoggedIn={isLoggedIn}
             editMode={editMode}
@@ -433,6 +465,16 @@ export default function DashboardPage() {
         loading={deleteLoading}
         onConfirm={handleDeleteConfirm}
         onClose={() => setDeleteOpen(false)}
+      />
+
+      {/* 일괄 삭제 확인 다이얼로그 */}
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        title="프로그램 일괄 삭제"
+        description={`선택한 ${bulkDeleteTargets.length}개의 프로그램을 삭제하시겠습니까? 이 작업은 Sheets의 해당 행들을 초기화하며 되돌릴 수 없습니다.`}
+        loading={bulkDeleteLoading}
+        onConfirm={handleBulkDeleteConfirm}
+        onClose={() => { setBulkDeleteOpen(false); setBulkDeleteTargets([]); }}
       />
     </div>
   );

@@ -338,17 +338,28 @@ export async function DELETE(req: NextRequest) {
     const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
     const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
 
-    const { rowIndex } = await req.json() as { rowIndex: number };
+    const body = await req.json() as { rowIndex?: number; rowIndices?: number[] };
+    const indices = body.rowIndices ?? (body.rowIndex !== undefined ? [body.rowIndex] : []);
+    if (indices.length === 0) {
+      return NextResponse.json({ error: '삭제할 행이 없습니다.' }, { status: 400 });
+    }
 
     const sheets = getSheetsClient();
+    const ranges = indices.map((idx) => `${SHEET}!A${idx}:U${idx}`);
 
-    // 행 내용 초기화
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEET}!A${rowIndex}:Q${rowIndex}`,
-    });
+    if (ranges.length === 1) {
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: ranges[0],
+      });
+    } else {
+      await sheets.spreadsheets.values.batchClear({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: { ranges },
+      });
+    }
 
-    return NextResponse.json({ message: '삭제되었습니다.' });
+    return NextResponse.json({ message: `${indices.length}건이 삭제되었습니다.` });
   } catch (error) {
     console.error('Program DELETE error:', error);
     return NextResponse.json({ error: '삭제 중 오류가 발생했습니다.' }, { status: 500 });
