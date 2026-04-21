@@ -115,7 +115,7 @@ function CatWidget() {
 
   useEffect(() => {
     if (!playing) return;
-    const t = setTimeout(() => setPlaying(false), 4000);
+    const t = setTimeout(() => setPlaying(false), 117000);
     return () => clearTimeout(t);
   }, [playing, playKey]);
 
@@ -127,7 +127,7 @@ function CatWidget() {
           key={playKey}
           src="/cat01.gif"
           alt=""
-          className="h-[60px] w-auto"
+          className="h-[90px] w-auto"
           style={{ mixBlendMode: 'multiply' }}
         />
       ) : (
@@ -137,7 +137,7 @@ function CatWidget() {
           className="rounded-full p-1 transition-opacity hover:opacity-70"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/caticon.png" alt="고양이" className="h-[13px] w-auto" />
+          <img src="/caticon.png" alt="고양이" className="h-[20px] w-auto opacity-40" />
         </button>
       )}
     </div>
