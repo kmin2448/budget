@@ -157,7 +157,7 @@ export function WeMeetAllPdfReport({ summaries }: AllReportProps) {
     const imgWidth   = pageWidth - 20;
     const imgHeight  = (canvas.height * imgWidth) / canvas.width;
 
-    let yPos = 10;
+    const yPos = 10;
     const pageHeight = pdf.internal.pageSize.getHeight() - 20;
 
     if (imgHeight <= pageHeight) {
