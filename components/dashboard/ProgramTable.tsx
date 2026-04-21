@@ -201,15 +201,6 @@ export function ProgramTable({
     if (!editMode) setSelectedRows(new Set());
   }, [editMode]);
 
-  const allRowIndices = rows.map((r) => r.rowIndex);
-  const allSelected = allRowIndices.length > 0 && allRowIndices.every((idx) => selectedRows.has(idx));
-  const someSelected = allRowIndices.some((idx) => selectedRows.has(idx));
-
-  function toggleSelectAll() {
-    if (allSelected) setSelectedRows(new Set());
-    else setSelectedRows(new Set(allRowIndices));
-  }
-
   function toggleSelectRow(rowIndex: number, e: React.MouseEvent) {
     e.stopPropagation();
     setSelectedRows((prev) => {
@@ -364,19 +355,7 @@ export function ProgramTable({
           <Table className="table-fixed">
             <TableHeader>
               <TableRow className="bg-sidebar hover:bg-sidebar">
-                <TableHead className={cn('text-text-secondary px-2', editMode ? 'w-20' : 'w-12')}>
-                  {editMode && (
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
-                      onChange={toggleSelectAll}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-3.5 w-3.5 cursor-pointer accent-primary"
-                      title="전체 선택/해제"
-                    />
-                  )}
-                </TableHead>
+                <TableHead className={cn('text-text-secondary px-2', editMode ? 'w-20' : 'w-12')} />
                 <TableHead className={cn("text-text-secondary font-medium transition-all", collapsed ? "w-[490px]" : "w-[330px]")}>
                   구분 / 프로그램명
                 </TableHead>
