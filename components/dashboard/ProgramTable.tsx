@@ -633,43 +633,24 @@ export function ProgramTable({
                           <TableRow className="bg-[#FAFAF8]">
                             <TableCell colSpan={colSpan} className="pb-4 pt-2 pl-[52px] pr-6">
                               <div className="text-sm space-y-2">
-                                {/* 비고 */}
+                                {/* 비고 — 라벨 없이 내용만 */}
                                 {(getVal(row, 'note') || editMode) && (
-                                  <div>
-                                    <div className="font-medium text-text-secondary mb-1">비고</div>
-                                    <div className="pl-1 border-l-[3px] border-[#1F5C99]/40 text-sm text-[#131310]">
-                                      <InlineEditCell
-                                        rowIndex={row.rowIndex} field="note"
-                                        value={getVal(row, 'note')}
-                                        editMode={editMode}
-                                        isChanged={isCellChanged(row.rowIndex, 'note')}
-                                        editingCell={editingCell} setEditingCell={setEditingCell}
-                                        onCellChange={onCellChange}
-                                        onAutoSave={onAutoSave}
-                                        multiline
-                                        className="flex items-start text-sm text-[#131310]"
-                                      />
-                                    </div>
+                                  <div className="pl-1 border-l-[3px] border-[#1F5C99]/40 text-sm text-[#131310]">
+                                    <InlineEditCell
+                                      rowIndex={row.rowIndex} field="note"
+                                      value={getVal(row, 'note')}
+                                      editMode={editMode}
+                                      isChanged={isCellChanged(row.rowIndex, 'note')}
+                                      editingCell={editingCell} setEditingCell={setEditingCell}
+                                      onCellChange={onCellChange}
+                                      onAutoSave={onAutoSave}
+                                      multiline
+                                      className="flex items-start text-sm text-[#131310]"
+                                    />
                                   </div>
                                 )}
-                                {/* 추가 반영사항 */}
+                                {/* 추가 반영사항 — 라벨 없이 textarea만 */}
                                 <div>
-                                  <div className="font-medium text-text-secondary mb-1 flex items-center gap-1">
-                                    추가 반영사항
-                                    {row.additionalReflectionDate && (
-                                      <span className="font-normal text-gray-400">({row.additionalReflectionDate})</span>
-                                    )}
-                                    {canWrite && (
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); onDelete?.(row); }}
-                                        title="삭제"
-                                        className="ml-auto flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                        삭제
-                                      </button>
-                                    )}
-                                  </div>
                                   <textarea
                                     defaultValue={getVal(row, 'additionalReflection')}
                                     onBlur={(e) => {
@@ -731,8 +712,8 @@ export function ProgramTable({
                                       />
                                     </div>
                                   </div>
-                                  {/* 비목/세목/보조세목/예산계획/집행/잔액 */}
-                                  <div className="flex flex-wrap gap-x-5 gap-y-1 text-gray-300">
+                                  {/* 비목/세목/보조세목/예산계획/집행/잔액 + 삭제 버튼 */}
+                                  <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-gray-300">
                                     <div className="flex h-5 items-center gap-1">
                                       <span>비목</span>
                                       <InlineEditCell
@@ -796,6 +777,16 @@ export function ProgramTable({
                                         {formatKRW(row.balance)}원
                                       </span>
                                     </div>
+                                    {canWrite && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); onDelete?.(row); }}
+                                        title="삭제"
+                                        className="ml-auto flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        삭제
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               </div>
