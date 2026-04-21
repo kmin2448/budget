@@ -633,6 +633,25 @@ export function ProgramTable({
                           <TableRow className="bg-[#FAFAF8]">
                             <TableCell colSpan={colSpan} className="pb-4 pt-2 pl-[52px] pr-6">
                               <div className="text-sm space-y-2">
+                                {/* 비고 */}
+                                {(getVal(row, 'note') || editMode) && (
+                                  <div>
+                                    <div className="font-medium text-text-secondary mb-1">비고</div>
+                                    <div className="pl-1 border-l-[3px] border-[#1F5C99]/40 text-sm text-[#131310]">
+                                      <InlineEditCell
+                                        rowIndex={row.rowIndex} field="note"
+                                        value={getVal(row, 'note')}
+                                        editMode={editMode}
+                                        isChanged={isCellChanged(row.rowIndex, 'note')}
+                                        editingCell={editingCell} setEditingCell={setEditingCell}
+                                        onCellChange={onCellChange}
+                                        onAutoSave={onAutoSave}
+                                        multiline
+                                        className="flex items-start text-sm text-[#131310]"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
                                 {/* 추가 반영사항 */}
                                 <div>
                                   <div className="font-medium text-text-secondary mb-1 flex items-center gap-1">
@@ -670,22 +689,6 @@ export function ProgramTable({
                                 </div>
                                 {/* 하단 메타 정보 */}
                                 <div className="pt-2 border-t border-divider mt-1 space-y-1.5 text-xs">
-                                  {/* 비고 */}
-                                  {(getVal(row, 'note') || editMode) && (
-                                    <div className="flex items-start gap-2 pl-1 border-l-[3px] border-[#1F5C99]/40 text-sm text-[#131310]">
-                                      <InlineEditCell
-                                        rowIndex={row.rowIndex} field="note"
-                                        value={getVal(row, 'note')}
-                                        editMode={editMode}
-                                        isChanged={isCellChanged(row.rowIndex, 'note')}
-                                        editingCell={editingCell} setEditingCell={setEditingCell}
-                                        onCellChange={onCellChange}
-                                        onAutoSave={onAutoSave}
-                                        multiline
-                                        className="flex items-start text-sm text-[#131310]"
-                                      />
-                                    </div>
-                                  )}
                                   {/* 소관/담당교원/담당직원 */}
                                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-gray-400">
                                     <div className="flex h-5 items-center gap-1">

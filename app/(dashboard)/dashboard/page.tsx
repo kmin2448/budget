@@ -252,9 +252,9 @@ export default function DashboardPage() {
   }, [data?.programRows, filterRecent, filterExcludeCompleted, filterExcludeOnHold, oneMonthAgo, searchQuery]);
 
   const forcedOpenRows = useMemo(() => {
-    if (!filterRecent && !searchQuery.trim()) return undefined;
+    if (!filterRecent) return undefined;
     return filteredRows.map((r) => r.rowIndex);
-  }, [filterRecent, searchQuery, filteredRows]);
+  }, [filterRecent, filteredRows]);
 
   return (
     <div className="space-y-6">
