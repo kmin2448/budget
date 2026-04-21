@@ -240,7 +240,7 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
           <img
             src="/cat01.gif"
             alt=""
-            className="h-10 w-auto"
+            className="h-[60px] w-auto"
             style={{ mixBlendMode: 'multiply' }}
           />
         </div>
