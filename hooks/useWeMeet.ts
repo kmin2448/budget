@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { WeMeetExecution, WeMeetTeamSummary } from '@/types';
+import type { WeMeetExecution, WeMeetTeamSummary, WeMeetTeamInfo } from '@/types';
 
 const QUERY_KEY = 'wemeet';
 const SUMMARY_KEY = 'wemeet-summary';
+const TEAM_INFO_KEY = 'wemeet-team-info';
 
 // ── 집행현황 조회 ─────────────────────────────────────────────────────
 
@@ -155,6 +156,95 @@ export function useDeleteWeMeetTeam() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [SUMMARY_KEY] });
+    },
+  });
+}
+
+// ── 팀정보 조회 ──────────────────────────────────────────────────────
+
+interface TeamInfoResponse {
+  teamInfos: WeMeetTeamInfo[];
+  teams: string[];
+}
+
+async function fetchTeamInfos(): Promise<TeamInfoResponse> {
+  const res = await fetch('/api/we-meet/team-info');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? '팀 정보 로드 실패');
+  }
+  return res.json() as Promise<TeamInfoResponse>;
+}
+
+export function useWeMeetTeamInfos() {
+  return useQuery({
+    queryKey: [TEAM_INFO_KEY],
+    queryFn: fetchTeamInfos,
+    staleTime: 3 * 60 * 1000,
+  });
+}
+
+// ── 팀정보 추가 ──────────────────────────────────────────────────────
+
+export type TeamInfoPayload = Omit<WeMeetTeamInfo, 'rowIndex'>;
+
+export function useAddWeMeetTeamInfo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: TeamInfoPayload) => {
+      const res = await fetch('/api/we-meet/team-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '팀 정보 추가 실패');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [TEAM_INFO_KEY] });
+    },
+  });
+}
+
+// ── 팀정보 수정 ──────────────────────────────────────────────────────
+
+export function useUpdateWeMeetTeamInfo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: WeMeetTeamInfo) => {
+      const { rowIndex, ...data } = payload;
+      const res = await fetch(`/api/we-meet/team-info/${rowIndex}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '팀 정보 수정 실패');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [TEAM_INFO_KEY] });
+    },
+  });
+}
+
+// ── 팀정보 삭제 ──────────────────────────────────────────────────────
+
+export function useDeleteWeMeetTeamInfo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (rowIndex: number) => {
+      const res = await fetch(`/api/we-meet/team-info/${rowIndex}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '팀 정보 삭제 실패');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [TEAM_INFO_KEY] });
     },
   });
 }

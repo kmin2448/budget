@@ -185,12 +185,14 @@ export interface LibraryFile {
 
 export interface WeMeetExecution {
   rowIndex: number;        // 집행현황 시트 실제 행 번호 (2~200)
-  usageType: string;       // 사용구분 (멘토링/회의비/재료비/학생활동지원비)
-  teamName: string;        // 팀명
-  plannedAmount: number;   // 계획금액
-  confirmed: boolean;      // 확정여부
-  confirmedAmount: number; // 확정금액
-  description: string;     // G열: 지출건명
+  usageType: string;       // A: 사용구분
+  teamName: string;        // B: 팀명
+  draftAmount: number;     // C: 기안금액
+  confirmed: boolean;      // D: 확정여부
+  confirmedAmount: number; // F: 확정금액
+  usageDate: string;       // G: 사용(신청)일자
+  description: string;     // H: 지출건명
+  fileUrl?: string;        // I: 증빙제출 (Drive URL, 여러 개면 \n 구분)
 }
 
 export interface WeMeetTeamSummary {
@@ -217,6 +219,19 @@ export interface WeMeetTeamSummary {
 export interface WeMeetPageData {
   executions: WeMeetExecution[];
   teams: string[];
+}
+
+export interface WeMeetTeamInfo {
+  rowIndex: number;      // 팀정보 시트 행 번호 (2~)
+  teamName: string;      // A: 팀명
+  advisor: string;       // B: 지도교수
+  topic: string;         // C: 주제
+  mentorOrg: string;     // D: 멘토소속
+  mentor: string;        // E: 멘토
+  teamLeader: string;    // F: 팀장
+  teamMembers: string;   // G: 팀원
+  assistantMentor: string; // H: 보조멘토
+  remarks: string;       // J: 비고
 }
 
 // 예산변경 확정 요청 payload

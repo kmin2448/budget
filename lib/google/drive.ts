@@ -124,3 +124,65 @@ export async function deleteFromUserDrive(params: {
   const drive = getDriveClient(params.accessToken);
   await drive.files.delete({ fileId: params.fileId });
 }
+
+/** WE-Meet 증빙 파일 업로드
+ *  폴더: COSS_지출부 / WE-Meet / {teamName} /
+ *  파일명: {지출건명}({확정금액})_{사용일자}[.(1)].{ext}
+ */
+export async function uploadToWeMeetDrive(params: {
+  accessToken: string;
+  teamName: string;
+  description: string;
+  confirmedAmount: number;
+  usageDate: string;
+  buffer: Buffer;
+  mimeType: string;
+  ext: string;
+}): Promise<{ fileId: string; webViewLink: string; fileName: string }> {
+  const drive = getDriveClient(params.accessToken);
+
+  const rootId    = await getOrCreateFolder(drive, ROOT_FOLDER_NAME);
+  const wemeetId  = await getOrCreateFolder(drive, 'WE-Meet', rootId);
+  const teamId    = await getOrCreateFolder(drive, params.teamName, wemeetId);
+
+  const sanitize = (s: string) => s.replace(/[/\\:*?"<>|]/g, '_').trim() || 'file';
+  const amtStr   = params.confirmedAmount.toLocaleString('ko-KR');
+  const dateStr  = params.usageDate || '날짜미정';
+  const baseName = `${sanitize(params.description)}(${amtStr})_${dateStr}`;
+  const ext      = params.ext.toLowerCase().replace(/^\./, '');
+
+  // 동일 폴더 내 파일명 목록 조회 → 중복 시 (1),(2)... 부여
+  const listRes = await drive.files.list({
+    q: `'${teamId}' in parents and trashed=false`,
+    fields: 'files(name)',
+    pageSize: 200,
+  });
+  const existingNames = new Set((listRes.data.files ?? []).map((f) => f.name ?? ''));
+
+  let fileName = `${baseName}.${ext}`;
+  if (existingNames.has(fileName)) {
+    let n = 1;
+    while (existingNames.has(`${baseName}(${n}).${ext}`)) n++;
+    fileName = `${baseName}(${n}).${ext}`;
+  }
+
+  const stream = Readable.from(params.buffer);
+  const uploadRes = await drive.files.create({
+    requestBody: { name: fileName, parents: [teamId], mimeType: params.mimeType },
+    media: { mimeType: params.mimeType, body: stream },
+    fields: 'id, webViewLink',
+  });
+
+  if (!uploadRes.data.id) throw new Error('파일 업로드 실패');
+
+  await drive.permissions.create({
+    fileId: uploadRes.data.id,
+    requestBody: { role: 'reader', type: 'anyone' },
+  });
+
+  return {
+    fileId:      uploadRes.data.id,
+    webViewLink: uploadRes.data.webViewLink ?? `https://drive.google.com/file/d/${uploadRes.data.id}/view`,
+    fileName,
+  };
+}

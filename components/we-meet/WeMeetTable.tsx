@@ -46,7 +46,7 @@ export function WeMeetTable({
     });
   }, [rows, effectiveTeam, filterUsage, search]);
 
-  const totalPlanned   = filtered.reduce((s, r) => s + r.plannedAmount, 0);
+  const totalDraft     = filtered.reduce((s, r) => s + r.draftAmount, 0);
   const totalConfirmed = filtered.reduce((s, r) => s + (r.confirmed ? r.confirmedAmount : 0), 0);
 
   const colSpan = canWrite ? 7 : 6;
@@ -128,7 +128,7 @@ export function WeMeetTable({
               <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">사용구분</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">팀명</th>
               <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">지출건명</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B]">계획금액</th>
+              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B]">기안금액</th>
               <th className="px-3 py-2.5 text-center font-medium text-[#6F6F6B]">확정</th>
               <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B]">확정금액</th>
               {canWrite && <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B]"></th>}
@@ -150,10 +150,15 @@ export function WeMeetTable({
                     </span>
                   </td>
                   <td className="px-3 py-2 text-[#131310]">{row.teamName}</td>
-                  <td className="px-3 py-2 text-[#131310] max-w-[200px] truncate" title={row.description}>
-                    {row.description || <span className="text-gray-300">—</span>}
+                  <td className="px-3 py-2 max-w-[200px]" title={row.description}>
+                    <div className="truncate text-[#131310]">
+                      {row.description || <span className="text-gray-300">—</span>}
+                    </div>
+                    {row.usageDate && (
+                      <div className="text-[11px] text-gray-400">{row.usageDate}</div>
+                    )}
                   </td>
-                  <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(row.plannedAmount)}</td>
+                  <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(row.draftAmount)}</td>
                   <td className="px-3 py-2 text-center">
                     <input
                       type="checkbox"
@@ -201,7 +206,7 @@ export function WeMeetTable({
             <tfoot>
               <tr className="border-t border-[#E3E3E0] bg-[#F3F3EE] font-medium">
                 <td colSpan={3} className="px-3 py-2 text-[#6F6F6B]">합계 ({filtered.length}건)</td>
-                <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(totalPlanned)}</td>
+                <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(totalDraft)}</td>
                 <td />
                 <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(totalConfirmed)}</td>
                 {canWrite && <td />}

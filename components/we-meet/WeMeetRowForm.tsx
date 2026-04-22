@@ -24,6 +24,7 @@ interface Props {
   mode: 'add' | 'edit';
   teams: string[];
   initialData?: WeMeetExecution;
+  defaultTeam?: string;
   onClose: () => void;
   onSubmit: (payload: ExecutionPayload) => Promise<void>;
   isPending: boolean;
@@ -32,15 +33,16 @@ interface Props {
 const DEFAULT_FORM: ExecutionPayload = {
   usageType: '',
   teamName: '',
-  plannedAmount: 0,
+  draftAmount: 0,
   confirmed: false,
   confirmedAmount: 0,
   description: '',
+  usageDate: '',
 };
 
-export function WeMeetRowForm({ open, mode, teams, initialData, onClose, onSubmit, isPending }: Props) {
-  const [form, setForm] = useState<ExecutionPayload>(DEFAULT_FORM);
-  const [plannedStr,   setPlannedStr]   = useState('');
+export function WeMeetRowForm({ open, mode, teams, initialData, defaultTeam, onClose, onSubmit, isPending }: Props) {
+  const [form, setForm]           = useState<ExecutionPayload>(DEFAULT_FORM);
+  const [draftStr,    setDraftStr]    = useState('');
   const [confirmedStr, setConfirmedStr] = useState('');
   const [error, setError] = useState('');
 
@@ -50,31 +52,45 @@ export function WeMeetRowForm({ open, mode, teams, initialData, onClose, onSubmi
         setForm({
           usageType:       initialData.usageType,
           teamName:        initialData.teamName,
-          plannedAmount:   initialData.plannedAmount,
+          draftAmount:     initialData.draftAmount,
           confirmed:       initialData.confirmed,
           confirmedAmount: initialData.confirmedAmount,
           description:     initialData.description,
+          usageDate:       initialData.usageDate,
         });
-        setPlannedStr(formatKRW(initialData.plannedAmount));
+        setDraftStr(formatKRW(initialData.draftAmount));
         setConfirmedStr(formatKRW(initialData.confirmedAmount));
       } else {
-        setForm(DEFAULT_FORM);
-        setPlannedStr('');
+        setForm({ ...DEFAULT_FORM, teamName: defaultTeam ?? '' });
+        setDraftStr('');
         setConfirmedStr('');
       }
       setError('');
     }
-  }, [open, mode, initialData]);
+  }, [open, mode, initialData, defaultTeam]);
+
+  // 확정 체크 해제 시 확정금액 초기화
+  function handleConfirmedChange(checked: boolean) {
+    setForm((f) => ({ ...f, confirmed: checked }));
+    if (!checked) {
+      setConfirmedStr('');
+    } else if (!confirmedStr) {
+      setConfirmedStr(draftStr);
+    }
+  }
 
   async function handleSubmit() {
     if (!form.usageType) { setError('사용구분을 선택해주세요.'); return; }
     if (!form.teamName)  { setError('팀명을 선택해주세요.'); return; }
     setError('');
 
+    const draft     = parseKRW(draftStr);
+    const confirmed = parseKRW(confirmedStr);
+
     await onSubmit({
       ...form,
-      plannedAmount:   parseKRW(plannedStr),
-      confirmedAmount: parseKRW(confirmedStr),
+      draftAmount:     draft,
+      confirmedAmount: form.confirmed ? confirmed : draft, // FALSE면 기안금액을 E열에
     });
     onClose();
   }
@@ -117,24 +133,35 @@ export function WeMeetRowForm({ open, mode, teams, initialData, onClose, onSubmi
             </select>
           </div>
 
-          {/* 지출건명 */}
-          <div className="space-y-1.5">
-            <Label>지출건명</Label>
-            <input
-              type="text"
-              value={form.description}
-              onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              placeholder="지출건명 입력"
-              className="w-full rounded-md border border-[#E3E3E0] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            />
+          {/* 지출건명 + 사용일자 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>지출건명</Label>
+              <input
+                type="text"
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="지출건명 입력"
+                className="w-full rounded-md border border-[#E3E3E0] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>사용일자</Label>
+              <input
+                type="date"
+                value={form.usageDate}
+                onChange={(e) => setForm((f) => ({ ...f, usageDate: e.target.value }))}
+                className="w-full rounded-md border border-[#E3E3E0] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
           </div>
 
-          {/* 계획금액 */}
+          {/* 기안금액 */}
           <div className="space-y-1.5">
-            <Label>계획금액</Label>
+            <Label>기안금액</Label>
             <KRWInput
-              value={plannedStr}
-              onChange={setPlannedStr}
+              value={draftStr}
+              onChange={setDraftStr}
               placeholder="0"
               className="w-full rounded-md border border-[#E3E3E0] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
@@ -146,22 +173,29 @@ export function WeMeetRowForm({ open, mode, teams, initialData, onClose, onSubmi
               id="confirmed"
               type="checkbox"
               checked={form.confirmed}
-              onChange={(e) => setForm((f) => ({ ...f, confirmed: e.target.checked }))}
+              onChange={(e) => handleConfirmedChange(e.target.checked)}
               className="h-4 w-4 accent-primary"
             />
             <Label htmlFor="confirmed" className="cursor-pointer">확정</Label>
+            {!form.confirmed && draftStr && (
+              <span className="ml-auto text-xs text-gray-400">
+                미확정 — 기안금액({draftStr})이 집계에 반영됩니다
+              </span>
+            )}
           </div>
 
-          {/* 확정금액 */}
-          <div className="space-y-1.5">
-            <Label>확정금액</Label>
-            <KRWInput
-              value={confirmedStr}
-              onChange={setConfirmedStr}
-              placeholder="0"
-              className="w-full rounded-md border border-[#E3E3E0] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
+          {/* 확정금액 — 확정=TRUE일 때만 표시 */}
+          {form.confirmed && (
+            <div className="space-y-1.5">
+              <Label>확정금액</Label>
+              <KRWInput
+                value={confirmedStr}
+                onChange={setConfirmedStr}
+                placeholder="0"
+                className="w-full rounded-md border border-[#E3E3E0] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>

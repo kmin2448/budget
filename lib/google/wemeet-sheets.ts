@@ -3,11 +3,12 @@ import {
   WEMEET_EXECUTION_RANGE,
   WEMEET_SUMMARY_RANGE,
   WEMEET_TEAM_LIST_RANGE,
+  WEMEET_TEAM_INFO_RANGE,
   WEMEET_SUMMARY_COLS,
   WEMEET_MAX_TEAMS,
   WEMEET_MAX_ROWS,
 } from '@/constants/wemeet';
-import type { WeMeetExecution, WeMeetTeamSummary } from '@/types';
+import type { WeMeetExecution, WeMeetTeamSummary, WeMeetTeamInfo } from '@/types';
 
 const SHEETS_ID = () => {
   const id = process.env.WEMEET_SHEETS_ID;
@@ -21,7 +22,7 @@ export async function getWeMeetExecutions(): Promise<WeMeetExecution[]> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEETS_ID(),
-    range: '집행현황!A2:G200', // G열(지출건명)까지 읽기
+    range: '집행현황!A2:I200',
     valueRenderOption: 'UNFORMATTED_VALUE',
   });
 
@@ -38,10 +39,13 @@ export async function getWeMeetExecutions(): Promise<WeMeetExecution[]> {
       rowIndex:        i + 2,
       usageType,
       teamName,
-      plannedAmount:   Number(row?.[2] ?? 0),
-      confirmed:       row?.[3] === true || row?.[3] === 'TRUE' || row?.[3] === 1,
-      confirmedAmount: Number(row?.[4] ?? 0),
-      description:     String(row?.[6] ?? '').trim(), // G열: 지출건명 (F열 건너뜀)
+      draftAmount:     Number(row?.[2] ?? 0),   // C
+      confirmed:       row?.[3] === true || row?.[3] === 'TRUE' || row?.[3] === 1, // D
+      // E(idx4): 미확정금액 — 시트 수식값, 별도 저장 안 함
+      confirmedAmount: Number(row?.[5] ?? 0),   // F
+      usageDate:       String(row?.[6] ?? '').trim(), // G
+      description:     String(row?.[7] ?? '').trim(), // H
+      fileUrl:         String(row?.[8] ?? '').trim(), // I
     });
   }
 
@@ -57,7 +61,6 @@ export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowInde
   });
 
   const rows = res.data.values ?? [];
-  // 마지막으로 값이 있는 행 다음에 추가
   let lastFilledIdx = -1;
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -66,24 +69,26 @@ export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowInde
     }
   }
 
-  const nextRowNum = lastFilledIdx + 1 + 2; // 0-based → 시트 행 번호 (헤더=1, 데이터 시작=2)
+  const nextRowNum = lastFilledIdx + 1 + 2;
   if (nextRowNum > WEMEET_MAX_ROWS + 1) {
     throw new Error(`집행현황 최대 행(${WEMEET_MAX_ROWS}행)을 초과했습니다.`);
   }
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A${nextRowNum}:G${nextRowNum}`,
+    range: `집행현황!A${nextRowNum}:I${nextRowNum}`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
-        data.usageType,
-        data.teamName,
-        data.plannedAmount,
-        data.confirmed,
-        data.confirmedAmount,
-        '',              // F열 (빈칸)
-        data.description ?? '',
+        data.usageType,                               // A
+        data.teamName,                                // B
+        data.draftAmount,                             // C: 기안금액
+        data.confirmed,                               // D: 확정여부
+        data.confirmed ? 0 : data.draftAmount,        // E: 미확정금액
+        data.confirmed ? data.confirmedAmount : 0,    // F: 확정금액
+        data.usageDate ?? '',                         // G: 사용일자
+        data.description ?? '',                       // H: 지출건명
+        data.fileUrl ?? '',                           // I: 증빙
       ]],
     },
   });
@@ -96,19 +101,31 @@ export async function updateWeMeetExecution(
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A${rowIndex}:G${rowIndex}`,
+    range: `집행현황!A${rowIndex}:I${rowIndex}`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
-        data.usageType,
-        data.teamName,
-        data.plannedAmount,
-        data.confirmed,
-        data.confirmedAmount,
-        '',
-        data.description ?? '',
+        data.usageType,                            // A
+        data.teamName,                             // B
+        data.draftAmount,                          // C: 기안금액
+        data.confirmed,                            // D: 확정여부
+        data.confirmed ? 0 : data.draftAmount,     // E: 미확정금액
+        data.confirmed ? data.confirmedAmount : 0, // F: 확정금액
+        data.usageDate ?? '',                      // G: 사용일자
+        data.description ?? '',                    // H: 지출건명
+        data.fileUrl ?? '',                        // I: 증빙
       ]],
     },
+  });
+}
+
+export async function updateWeMeetFileUrl(rowIndex: number, fileUrl: string): Promise<void> {
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEETS_ID(),
+    range: `집행현황!I${rowIndex}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [[fileUrl]] },
   });
 }
 
@@ -127,19 +144,23 @@ export async function deleteWeMeetExecution(rowIndex: number): Promise<void> {
   // 해당 행 제거 후 아래 행 shift up
   const filtered = rows.filter((_, i) => i !== arrIdx);
 
-  // 기존 범위 전체 클리어 후 재작성
-  const clearEnd = rows.length + 1; // 원래 마지막 행
+  const clearEnd = rows.length + 1;
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A2:E${clearEnd}`,
+    range: `집행현황!A2:I${clearEnd}`,
   });
 
   if (filtered.length > 0) {
+    const normalized = filtered.map((row) => {
+      const r = [...row];
+      while (r.length < 9) r.push('');
+      return r.slice(0, 9);
+    });
     await sheets.spreadsheets.values.update({
       spreadsheetId: SHEETS_ID(),
-      range: `집행현황!A2:E${filtered.length + 1}`,
+      range: `집행현황!A2:I${filtered.length + 1}`,
       valueInputOption: 'RAW',
-      requestBody: { values: filtered },
+      requestBody: { values: normalized },
     });
   }
 }
@@ -201,6 +222,116 @@ export async function deleteWeMeetTeam(rowIndex: number): Promise<void> {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SHEETS_ID(),
       range: `팀별취합!A3:A${filtered.length + 2}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: filtered },
+    });
+  }
+}
+
+// ── 팀 정보 ───────────────────────────────────────────────────────────
+
+export async function getWeMeetTeamInfos(): Promise<WeMeetTeamInfo[]> {
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEETS_ID(),
+    range: WEMEET_TEAM_INFO_RANGE,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  });
+
+  const rows = res.data.values ?? [];
+  const result: WeMeetTeamInfo[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const teamName = String(row?.[0] ?? '').trim();
+    if (!teamName) continue;
+    result.push({
+      rowIndex:       i + 2,
+      teamName,
+      advisor:        String(row?.[1] ?? '').trim(),
+      topic:          String(row?.[2] ?? '').trim(),
+      mentorOrg:      String(row?.[3] ?? '').trim(),
+      mentor:         String(row?.[4] ?? '').trim(),
+      teamLeader:     String(row?.[5] ?? '').trim(),
+      teamMembers:    String(row?.[6] ?? '').trim(),
+      assistantMentor: String(row?.[7] ?? '').trim(),
+      remarks:        String(row?.[9] ?? '').trim(),
+    });
+  }
+
+  return result;
+}
+
+export async function upsertWeMeetTeamInfo(
+  data: Omit<WeMeetTeamInfo, 'rowIndex'>,
+  existingRowIndex?: number,
+): Promise<void> {
+  const sheets = getSheetsClient();
+
+  let targetRow: number;
+
+  if (existingRowIndex) {
+    targetRow = existingRowIndex;
+  } else {
+    // 새 행: 마지막 채워진 행 다음
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEETS_ID(),
+      range: WEMEET_TEAM_INFO_RANGE,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const rows = res.data.values ?? [];
+    let lastIdx = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i]?.some((c) => c !== null && c !== undefined && c !== '')) {
+        lastIdx = i;
+      }
+    }
+    targetRow = lastIdx + 1 + 2;
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEETS_ID(),
+    range: `팀정보!A${targetRow}:J${targetRow}`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[
+        data.teamName,
+        data.advisor,
+        data.topic,
+        data.mentorOrg,
+        data.mentor,
+        data.teamLeader,
+        data.teamMembers,
+        data.assistantMentor,
+        '',           // I열 (빈칸)
+        data.remarks,
+      ]],
+    },
+  });
+}
+
+export async function deleteWeMeetTeamInfo(rowIndex: number): Promise<void> {
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEETS_ID(),
+    range: WEMEET_TEAM_INFO_RANGE,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  });
+
+  const rows = res.data.values ?? [];
+  const arrIdx = rowIndex - 2;
+  const filtered = rows.filter((_, i) => i !== arrIdx);
+
+  const clearEnd = rows.length + 1;
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SHEETS_ID(),
+    range: `팀정보!A2:J${clearEnd}`,
+  });
+
+  if (filtered.length > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEETS_ID(),
+      range: `팀정보!A2:J${filtered.length + 1}`,
       valueInputOption: 'RAW',
       requestBody: { values: filtered },
     });

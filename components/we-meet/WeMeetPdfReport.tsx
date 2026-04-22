@@ -104,7 +104,7 @@ export function WeMeetTeamPdfReport({ teamName, summary, executions }: TeamRepor
               <thead>
                 <tr className="bg-[#F3F3EE]">
                   <th className="border border-[#E3E3E0] px-3 py-2 text-left text-[#6F6F6B]">사용구분</th>
-                  <th className="border border-[#E3E3E0] px-3 py-2 text-right text-[#6F6F6B]">계획금액</th>
+                  <th className="border border-[#E3E3E0] px-3 py-2 text-right text-[#6F6F6B]">기안금액</th>
                   <th className="border border-[#E3E3E0] px-3 py-2 text-center text-[#6F6F6B]">확정</th>
                   <th className="border border-[#E3E3E0] px-3 py-2 text-right text-[#6F6F6B]">확정금액</th>
                 </tr>
@@ -120,7 +120,7 @@ export function WeMeetTeamPdfReport({ teamName, summary, executions }: TeamRepor
                   teamExecs.map((e) => (
                     <tr key={e.rowIndex}>
                       <td className="border border-[#E3E3E0] px-3 py-1.5">{e.usageType}</td>
-                      <td className="border border-[#E3E3E0] px-3 py-1.5 text-right">{formatKRW(e.plannedAmount)}</td>
+                      <td className="border border-[#E3E3E0] px-3 py-1.5 text-right">{formatKRW(e.draftAmount)}</td>
                       <td className="border border-[#E3E3E0] px-3 py-1.5 text-center">{e.confirmed ? '●' : '○'}</td>
                       <td className="border border-[#E3E3E0] px-3 py-1.5 text-right">{formatKRW(e.confirmedAmount)}</td>
                     </tr>

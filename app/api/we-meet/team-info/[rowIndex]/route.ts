@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { updateWeMeetExecution, deleteWeMeetExecution } from '@/lib/google/wemeet-sheets';
+import {
+  upsertWeMeetTeamInfo,
+  deleteWeMeetTeamInfo,
+} from '@/lib/google/wemeet-sheets';
+import type { WeMeetTeamInfo } from '@/types';
 
 async function assertCanWrite(email: string) {
   const supabase = createServerSupabaseClient();
@@ -17,6 +21,7 @@ async function assertCanWrite(email: string) {
 
 export const dynamic = 'force-dynamic';
 
+// PATCH: 팀정보 수정 (rowIndex)
 export async function PATCH(
   req: Request,
   { params }: { params: { rowIndex: string } },
@@ -27,30 +32,26 @@ export async function PATCH(
   }
 
   const rowIndex = Number(params.rowIndex);
-  if (isNaN(rowIndex) || rowIndex < 2) {
-    return NextResponse.json({ error: '잘못된 rowIndex' }, { status: 400 });
+  if (isNaN(rowIndex)) {
+    return NextResponse.json({ error: '잘못된 rowIndex입니다.' }, { status: 400 });
   }
 
   try {
     await assertCanWrite(session.user.email);
-    const body = await req.json() as {
-      usageType: string;
-      teamName: string;
-      draftAmount: number;
-      confirmed: boolean;
-      confirmedAmount: number;
-      description: string;
-      usageDate: string;
-    };
-    await updateWeMeetExecution(rowIndex, body);
+    const body = await req.json() as Omit<WeMeetTeamInfo, 'rowIndex'>;
+    if (!body.teamName?.trim()) {
+      return NextResponse.json({ error: '팀명을 선택해주세요.' }, { status: 400 });
+    }
+    await upsertWeMeetTeamInfo(body, rowIndex);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : '수정 실패';
+    const message = err instanceof Error ? err.message : '팀 정보 수정 실패';
     const status = message === '권한이 없습니다.' ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }
 
+// DELETE: 팀정보 삭제 (rowIndex)
 export async function DELETE(
   _req: Request,
   { params }: { params: { rowIndex: string } },
@@ -61,16 +62,16 @@ export async function DELETE(
   }
 
   const rowIndex = Number(params.rowIndex);
-  if (isNaN(rowIndex) || rowIndex < 2) {
-    return NextResponse.json({ error: '잘못된 rowIndex' }, { status: 400 });
+  if (isNaN(rowIndex)) {
+    return NextResponse.json({ error: '잘못된 rowIndex입니다.' }, { status: 400 });
   }
 
   try {
     await assertCanWrite(session.user.email);
-    await deleteWeMeetExecution(rowIndex);
+    await deleteWeMeetTeamInfo(rowIndex);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : '삭제 실패';
+    const message = err instanceof Error ? err.message : '팀 정보 삭제 실패';
     const status = message === '권한이 없습니다.' ? 403 : 500;
     return NextResponse.json({ error: message }, { status });
   }
