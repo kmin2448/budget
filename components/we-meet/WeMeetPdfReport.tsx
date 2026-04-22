@@ -4,7 +4,7 @@ import { useRef } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { formatKRW } from '@/lib/utils';
-import type { WeMeetExecution, WeMeetTeamSummary } from '@/types';
+import type { WeMeetExecution, WeMeetTeamSummary, WeMeetTeamInfo } from '@/types';
 import { WEMEET_USAGE_TYPES } from '@/constants/wemeet';
 
 // ── 팀별 개별 보고서 ─────────────────────────────────────────────────
@@ -13,9 +13,10 @@ interface TeamReportProps {
   teamName: string;
   summary: WeMeetTeamSummary | undefined;
   executions: WeMeetExecution[];
+  teamInfo?: WeMeetTeamInfo;
 }
 
-export function WeMeetTeamPdfReport({ teamName, summary, executions }: TeamReportProps) {
+export function WeMeetTeamPdfReport({ teamName, summary, executions, teamInfo }: TeamReportProps) {
   const reportRef = useRef<HTMLDivElement>(null);
 
   async function handleDownload() {
@@ -48,6 +49,50 @@ export function WeMeetTeamPdfReport({ teamName, summary, executions }: TeamRepor
             <h1 className="text-xl font-bold text-primary">WE-Meet 정산 보고서</h1>
             <p className="mt-1 text-sm text-gray-500">팀명: {teamName}</p>
           </div>
+
+          {/* 팀 정보 */}
+          {teamInfo && (
+            <div className="mb-6 rounded-lg border border-[#E3E3E0] p-4">
+              <h2 className="mb-3 text-sm font-semibold text-[#131310]">팀 정보</h2>
+              <div className="grid grid-cols-3 gap-x-6 gap-y-2 text-sm">
+                {(
+                  [
+                    ['지도교수', teamInfo.advisor],
+                    ['팀장',    teamInfo.teamLeader],
+                    ['멘토소속', teamInfo.mentorOrg],
+                    ['멘토',    teamInfo.mentor],
+                    ['보조멘토', teamInfo.assistantMentor],
+                    ['팀원(합산)', teamInfo.teamMembers],
+                  ] as [string, string][]
+                )
+                  .filter(([, v]) => v)
+                  .map(([label, val]) => (
+                    <div key={label} className="flex gap-1.5">
+                      <span className="shrink-0 text-gray-500">{label}</span>
+                      <span className="font-medium text-[#131310]">{val}</span>
+                    </div>
+                  ))}
+              </div>
+              {teamInfo.topic && (
+                <div className="mt-2 flex gap-1.5 text-sm">
+                  <span className="shrink-0 text-gray-500">주제</span>
+                  <span className="font-medium text-[#131310]">{teamInfo.topic}</span>
+                </div>
+              )}
+              {teamInfo.memberList && teamInfo.memberList.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-start gap-1.5 text-sm">
+                  <span className="shrink-0 text-gray-500">팀원명단</span>
+                  <span className="text-[#131310]">{teamInfo.memberList.join(', ')}</span>
+                </div>
+              )}
+              {teamInfo.remarks && (
+                <div className="mt-2 flex gap-1.5 text-sm">
+                  <span className="shrink-0 text-gray-500">비고</span>
+                  <span className="text-[#131310]">{teamInfo.remarks}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 요약 */}
           {summary && (

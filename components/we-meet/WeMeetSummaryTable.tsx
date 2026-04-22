@@ -310,6 +310,7 @@ export function WeMeetSummaryTable({
                                               teamName={s.teamName}
                                               summary={s}
                                               executions={executions}
+                                              teamInfo={info}
                                             />
                                             {canWrite && !isEditing && (
                                               <button
@@ -355,7 +356,6 @@ export function WeMeetSummaryTable({
                                             {inp('assistantMentor', '보조멘토')}
                                             {inp('teamMembers', '팀원(합산)')}
                                             {inp('topic', '주제', true)}
-                                            {inp('remarks', '비고', true)}
                                           </div>
                                         ) : (
                                           <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-5">
@@ -407,13 +407,26 @@ export function WeMeetSummaryTable({
                                           </div>
                                         )}
 
-                                        {/* 비고 (읽기 전용일 때 표시) */}
-                                        {!isEditing && (
-                                          <div className="text-xs text-[#6F6F6B]">
-                                            비고:&nbsp;
-                                            <span className="text-[#131310]">{info.remarks || <em className="not-italic text-gray-300">없음</em>}</span>
-                                          </div>
-                                        )}
+                                        {/* 비고 — 항상 편집 가능, blur 시 자동저장 */}
+                                        <div
+                                          className="space-y-1"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <label className="text-xs text-[#6F6F6B]">비고</label>
+                                          <textarea
+                                            key={`remarks-${info.rowIndex}-${info.remarks}`}
+                                            defaultValue={info.remarks}
+                                            onBlur={(e) => {
+                                              const next = e.target.value;
+                                              if (next !== info.remarks) {
+                                                onUpdateTeamInfo({ ...info, remarks: next });
+                                              }
+                                            }}
+                                            placeholder="비고를 입력하세요 (입력 후 다른 곳 클릭 시 자동 저장)"
+                                            rows={2}
+                                            className="w-full resize-y rounded border border-[#E3E3E0] p-2 text-xs text-[#131310] placeholder:text-gray-300 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
+                                          />
+                                        </div>
                                       </div>
                                     ) : (
                                       <p className="text-xs text-gray-400">
