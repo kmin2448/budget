@@ -34,7 +34,7 @@ export default function WeMeetPage() {
   const addMutation            = useAddWeMeetExecution();
   const updateMutation         = useUpdateWeMeetExecution();
   const deleteMutation         = useDeleteWeMeetExecution();
-  const { data: teamInfoData, refetch: refetchTeamInfos } = useWeMeetTeamInfos();
+  const { data: teamInfoData, isError: isTeamInfoError, error: teamInfoError, refetch: refetchTeamInfos } = useWeMeetTeamInfos();
   const addTeamInfoMutation    = useAddWeMeetTeamInfo();
   const updateTeamInfoMutation = useUpdateWeMeetTeamInfo();
   const deleteTeamInfoMutation = useDeleteWeMeetTeamInfo();
@@ -186,6 +186,11 @@ export default function WeMeetPage() {
       {isError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error instanceof Error ? error.message : '데이터를 불러오지 못했습니다.'}
+        </div>
+      )}
+      {isTeamInfoError && (
+        <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+          팀 정보 로드 실패: {teamInfoError instanceof Error ? teamInfoError.message : '팀 정보를 불러오지 못했습니다.'}
         </div>
       )}
 

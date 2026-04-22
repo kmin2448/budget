@@ -31,6 +31,7 @@ export async function GET() {
     ]);
     return NextResponse.json({ teamInfos, teams });
   } catch (err) {
+    console.error('[team-info GET]', err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : '팀 정보 로드 실패' },
       { status: 500 },

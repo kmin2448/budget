@@ -11,8 +11,8 @@ import {
 import type { WeMeetExecution, WeMeetTeamSummary, WeMeetTeamInfo } from '@/types';
 
 const SHEETS_ID = () => {
-  const id = process.env.WEMEET_SHEETS_ID;
-  if (!id) throw new Error('WEMEET_SHEETS_ID 환경변수가 설정되지 않았습니다.');
+  const id = process.env.WEMEET_SHEETS_ID ?? process.env.GOOGLE_SHEETS_ID;
+  if (!id) throw new Error('WEMEET_SHEETS_ID 또는 GOOGLE_SHEETS_ID 환경변수가 필요합니다.');
   return id;
 };
 
