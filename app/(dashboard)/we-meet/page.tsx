@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, X } from 'lucide-react';
+import { RefreshCw, Users, X, ExternalLink, Pencil, Check } from 'lucide-react';
 import { WeMeetSummaryTable } from '@/components/we-meet/WeMeetSummaryTable';
 import { WeMeetTeamManageTable } from '@/components/we-meet/WeMeetTeamManageTable';
 import { WeMeetRowForm } from '@/components/we-meet/WeMeetRowForm';
@@ -45,6 +45,38 @@ export default function WeMeetPage() {
   const [addTeamName, setAddTeamName]       = useState<string | undefined>();
   const [showTeamManage, setShowTeamManage] = useState(false);
   const [sendTarget, setSendTarget]         = useState<WeMeetExecution | null>(null);
+
+  const DEFAULT_REF_URL = 'https://docs.google.com/spreadsheets/d/1Z1TuM4Z8AlKdhiPUicWOG90OFHe317EyQ4WXQaJuaHQ/edit?gid=603218452#gid=603218452';
+  const STORAGE_KEY = 'wemeet-reference-url';
+
+  const [referenceUrl, setReferenceUrl]   = useState(DEFAULT_REF_URL);
+  const [isEditingUrl, setIsEditingUrl]   = useState(false);
+  const [urlInput, setUrlInput]           = useState('');
+  const urlInputRef                       = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) setReferenceUrl(saved);
+  }, []);
+
+  function openUrlEdit() {
+    setUrlInput(referenceUrl);
+    setIsEditingUrl(true);
+    setTimeout(() => urlInputRef.current?.select(), 0);
+  }
+
+  function saveUrl() {
+    const trimmed = urlInput.trim();
+    if (trimmed) {
+      setReferenceUrl(trimmed);
+      localStorage.setItem(STORAGE_KEY, trimmed);
+    }
+    setIsEditingUrl(false);
+  }
+
+  function cancelUrlEdit() {
+    setIsEditingUrl(false);
+  }
 
   const executions = data?.executions ?? [];
   const teams      = data?.teams ?? [];
@@ -160,10 +192,66 @@ export default function WeMeetPage() {
         </div>
       ) : (
         <div className="space-y-1.5">
-          <h2 className="text-sm font-medium text-[#6F6F6B]">
-            팀별 예산 현황
-            <span className="ml-1.5 text-xs text-gray-400">지도교수 행 클릭으로 팀 목록 펼치기 · 팀 클릭으로 상세 정보 및 집행현황 확인</span>
-          </h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-sm font-medium text-[#6F6F6B] whitespace-nowrap">
+              팀별 예산 현황
+              <span className="ml-1.5 text-xs text-gray-400">지도교수 행 클릭으로 팀 목록 펼치기 · 팀 클릭으로 상세 정보 및 집행현황 확인</span>
+            </h2>
+
+            {/* 참고링크 */}
+            <div className="flex items-center gap-1 ml-auto">
+              {isEditingUrl ? (
+                <>
+                  <input
+                    ref={urlInputRef}
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveUrl();
+                      if (e.key === 'Escape') cancelUrlEdit();
+                    }}
+                    placeholder="URL 입력"
+                    className="h-7 w-72 rounded border border-[#E3E3E0] px-2 text-xs text-[#131310] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    onClick={saveUrl}
+                    title="저장"
+                    className="flex h-7 w-7 items-center justify-center rounded bg-primary text-white hover:bg-primary-light transition-colors"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={cancelUrlEdit}
+                    title="취소"
+                    className="flex h-7 w-7 items-center justify-center rounded border border-[#E3E3E0] bg-white text-gray-500 hover:bg-gray-50 transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <a
+                    href={referenceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-md border border-[#D6E4F0] bg-[#EEF3F8] px-2.5 py-1 text-xs font-medium text-[#1F5C99] hover:bg-[#D6E4F0] transition-colors"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    참고링크 바로가기
+                  </a>
+                  {canWrite && (
+                    <button
+                      onClick={openUrlEdit}
+                      title="링크 주소 수정"
+                      className="flex h-7 w-7 items-center justify-center rounded border border-[#E3E3E0] bg-white text-gray-400 hover:border-primary hover:text-primary transition-colors"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
           {isSummaryLoading || isLoading ? (
             <div className="h-40 animate-pulse rounded-lg bg-[#F3F3EE]" />
           ) : (
