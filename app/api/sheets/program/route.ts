@@ -95,32 +95,62 @@ export async function POST(req: NextRequest) {
           : sentinelRowNumber - 1;           // sentinel 바로 위
     }
 
+    // O, P열(index 14, 15) 수식 복사 헬퍼 — 삽입된 새 행의 바로 윗 행에서 수식 복사
+    const buildFormulaCopyRequest = (srcRowIdx: number, destRowIdx: number) => ({
+      copyPaste: {
+        source: {
+          sheetId,
+          startRowIndex: srcRowIdx,   // 0-indexed, 복사 원본(윗 행)
+          endRowIndex:   srcRowIdx + 1,
+          startColumnIndex: 14,       // O열
+          endColumnIndex:   16,       // P열(포함) → exclusive 끝은 16
+        },
+        destination: {
+          sheetId,
+          startRowIndex: destRowIdx,  // 0-indexed, 붙여넣을 새 행
+          endRowIndex:   destRowIdx + 1,
+          startColumnIndex: 14,
+          endColumnIndex:   16,
+        },
+        pasteType: 'PASTE_FORMULA',
+        pasteOrientation: 'NORMAL',
+      },
+    });
+
     // ── 행 삽입 시도 → 보호 걸려 있으면 빈 행 폴백 ──
     let newRowNumber: number;
 
     try {
-      // 1순위: insertDimension (시트 보호가 없을 때)
+      // 1순위: insertDimension + O,P 수식 복사를 한 번의 batchUpdate로 처리
+      // insertAfterRow 는 0-indexed insert position:
+      //   새 행 = index insertAfterRow → 1-based 행 번호 insertAfterRow + 1
+      //   윗 행 = index insertAfterRow - 1
+      const requests: object[] = [
+        {
+          insertDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: insertAfterRow,
+              endIndex:   insertAfterRow + 1,
+            },
+            inheritFromBefore: true,
+          },
+        },
+      ];
+      // 윗 행이 존재할 때만 수식 복사 (삽입 위치가 첫 데이터 행보다 뒤인 경우)
+      if (insertAfterRow > 5) {
+        requests.push(buildFormulaCopyRequest(insertAfterRow - 1, insertAfterRow));
+      }
+
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId: SPREADSHEET_ID,
-        requestBody: {
-          requests: [{
-            insertDimension: {
-              range: {
-                sheetId,
-                dimension: 'ROWS',
-                startIndex: insertAfterRow,
-                endIndex: insertAfterRow + 1,
-              },
-              inheritFromBefore: true,
-            },
-          }],
-        },
+        requestBody: { requests },
       });
       newRowNumber = insertAfterRow + 1;
     } catch {
       // 2순위: 시트 보호로 삽입 실패 → insertAfterRow 이후 첫 번째 빈 행 사용
       const sentinelLimit = sentinelIdx === -1 ? allRows.length : sentinelIdx;
-      // insertAfterRow(1-based) → allRows 인덱스: insertAfterRow - 6 + 1 = insertAfterRow - 5
       const searchFrom = Math.max(0, insertAfterRow - 5);
       let emptyIdx = -1;
       for (let i = searchFrom; i < sentinelLimit; i++) {
@@ -137,9 +167,23 @@ export async function POST(req: NextRequest) {
         );
       }
       newRowNumber = emptyIdx + 6; // allRows 인덱스 → 1-based 행 번호
+
+      // 빈 행 사용 시에도 O,P 수식 복사 시도 (실패해도 데이터 기록은 계속)
+      if (emptyIdx > 0) {
+        try {
+          // emptyIdx(allRows 기준) → 0-indexed sheet row: emptyIdx + 5
+          const destRowIdx = emptyIdx + 5;
+          await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: SPREADSHEET_ID,
+            requestBody: { requests: [buildFormulaCopyRequest(destRowIdx - 1, destRowIdx)] },
+          });
+        } catch {
+          // 수식 복사 실패는 무시 — 데이터는 정상 기록됨
+        }
+      }
     }
 
-    // ── 데이터 기록 ──
+    // ── 데이터 기록 (A~L열, M·N은 ArrayFormula, O·P는 수식 복사로 처리) ──
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEET}!A${newRowNumber}:L${newRowNumber}`,
@@ -158,6 +202,8 @@ export async function POST(req: NextRequest) {
           body.teacher ?? '',        // J: 담당교원
           body.staff ?? '',          // K: 담당직원
           body.budgetPlan || 0,      // L: 예산계획
+          // M, N: ArrayFormula 자동 계산 — 값 미기록
+          // O, P: 윗 행 수식 복사 완료 — 값 미기록
         ]],
       },
     });
