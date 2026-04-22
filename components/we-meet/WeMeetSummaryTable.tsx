@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { formatKRW } from '@/lib/utils';
+import { formatKRW, parseKRW } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ChevronRight, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 import { WeMeetTeamPdfReport } from '@/components/we-meet/WeMeetPdfReport';
@@ -15,7 +15,7 @@ const USAGE_LABELS = [
   { key: 'material'        as const, label: '재료비' },
   { key: 'studentActivity' as const, label: '학생활동지원비' },
 ];
-const COL_COUNT = 10;
+const COL_COUNT = 11;
 const NO_ADVISOR = '지도교수 미배정';
 
 // ── 타입 ────────────────────────────────────────────────────────────────
@@ -36,6 +36,7 @@ interface Props {
   onEditExecution: (row: WeMeetExecution) => void;
   onDeleteExecution: (row: WeMeetExecution) => void;
   onToggleConfirmed: (row: WeMeetExecution) => void;
+  onUpdateExecution: (row: WeMeetExecution) => void;
   isToggling: boolean;
 }
 
@@ -71,7 +72,7 @@ function toEdit(info: WeMeetTeamInfo): EditState {
 export function WeMeetSummaryTable({
   summaries, teamInfos, executions, canWrite,
   onSelectTeam, onUpdateTeamInfo,
-  onAddExecution, onEditExecution, onDeleteExecution, onToggleConfirmed, isToggling,
+  onAddExecution, onEditExecution, onDeleteExecution, onToggleConfirmed, onUpdateExecution, isToggling,
 }: Props) {
   const [openAdvisors, setOpenAdvisors] = useState<Set<string>>(new Set());
   const [openTeam, setOpenTeam]         = useState<string | null>(null);
@@ -464,7 +465,8 @@ export function WeMeetSummaryTable({
                                                 <th className="px-3 py-2 text-left font-medium text-[#6F6F6B]">사용구분</th>
                                                 <th className="px-3 py-2 text-left font-medium text-[#6F6F6B]">지출건명</th>
                                                 <th className="px-3 py-2 text-right font-medium text-[#6F6F6B]">기안금액</th>
-                                                <th className="px-3 py-2 text-center font-medium text-[#6F6F6B]">확정</th>
+                                                <th className="px-3 py-2 text-center font-medium text-[#6F6F6B]">확정여부</th>
+                                                <th className="px-3 py-2 text-right font-medium text-[#6F6F6B]">미확정금액</th>
                                                 <th className="px-3 py-2 text-right font-medium text-[#6F6F6B]">확정금액</th>
                                                 {canWrite && <th className="px-3 py-2 font-medium text-[#6F6F6B]"></th>}
                                               </tr>
@@ -495,10 +497,29 @@ export function WeMeetSummaryTable({
                                                       className="h-3.5 w-3.5 cursor-pointer accent-primary disabled:cursor-default"
                                                     />
                                                   </td>
+                                                  <td className="px-3 py-1.5 text-right text-gray-400">
+                                                    {row.confirmed
+                                                      ? <span className="text-gray-300">—</span>
+                                                      : formatKRW(row.draftAmount)}
+                                                  </td>
                                                   <td className="px-3 py-1.5 text-right">
-                                                    <span className={row.confirmed ? 'font-medium text-[#131310]' : 'text-gray-400'}>
-                                                      {formatKRW(row.confirmedAmount)}
-                                                    </span>
+                                                    {row.confirmed ? (
+                                                      <input
+                                                        key={`${row.rowIndex}-${row.confirmedAmount}`}
+                                                        type="text"
+                                                        defaultValue={formatKRW(row.confirmedAmount)}
+                                                        onBlur={(e) => {
+                                                          const next = parseKRW(e.target.value);
+                                                          if (next !== row.confirmedAmount) {
+                                                            onUpdateExecution({ ...row, confirmedAmount: next });
+                                                          }
+                                                        }}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="w-24 rounded border border-[#E3E3E0] px-2 py-0.5 text-right text-xs font-medium text-[#131310] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                      />
+                                                    ) : (
+                                                      <span className="text-gray-400">—</span>
+                                                    )}
                                                   </td>
                                                   {canWrite && (
                                                     <td className="px-3 py-1.5">
@@ -532,6 +553,9 @@ export function WeMeetSummaryTable({
                                                   {formatKRW(execs.reduce((sum, r) => sum + r.draftAmount, 0))}
                                                 </td>
                                                 <td />
+                                                <td className="px-3 py-1.5 text-right text-gray-500">
+                                                  {formatKRW(execs.reduce((sum, r) => sum + (r.confirmed ? 0 : r.draftAmount), 0))}
+                                                </td>
                                                 <td className="px-3 py-1.5 text-right text-[#131310]">
                                                   {formatKRW(execs.reduce((sum, r) => sum + (r.confirmed ? r.confirmedAmount : 0), 0))}
                                                 </td>

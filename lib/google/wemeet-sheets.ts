@@ -270,6 +270,16 @@ export async function getWeMeetTeamInfos(): Promise<WeMeetTeamInfo[]> {
   return result;
 }
 
+function colLetter(zeroIndex: number): string {
+  let result = '';
+  let n = zeroIndex;
+  while (n >= 0) {
+    result = String.fromCharCode((n % 26) + 65) + result;
+    n = Math.floor(n / 26) - 1;
+  }
+  return result;
+}
+
 export async function upsertWeMeetTeamInfo(
   data: Omit<WeMeetTeamInfo, 'rowIndex'>,
   existingRowIndex?: number,
@@ -297,9 +307,13 @@ export async function upsertWeMeetTeamInfo(
     targetRow = lastIdx + 1 + 2;
   }
 
+  const members = (data.memberList ?? []).filter((m) => m.trim() !== '');
+  const endColIdx = members.length > 0 ? 9 + members.length : 9; // J=9, K=10, ...
+  const endCol = colLetter(endColIdx);
+
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `팀정보!A${targetRow}:J${targetRow}`,
+    range: `팀정보!A${targetRow}:${endCol}${targetRow}`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
@@ -313,6 +327,7 @@ export async function upsertWeMeetTeamInfo(
         data.assistantMentor,
         '',           // I열 (빈칸)
         data.remarks,
+        ...members,   // K열부터 팀원명단
       ]],
     },
   });
@@ -333,13 +348,13 @@ export async function deleteWeMeetTeamInfo(rowIndex: number): Promise<void> {
   const clearEnd = rows.length + 1;
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SHEETS_ID(),
-    range: `팀정보!A2:J${clearEnd}`,
+    range: `팀정보!A2:Z${clearEnd}`,
   });
 
   if (filtered.length > 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SHEETS_ID(),
-      range: `팀정보!A2:J${filtered.length + 1}`,
+      range: `팀정보!A2:Z${filtered.length + 1}`,
       valueInputOption: 'RAW',
       requestBody: { values: filtered },
     });

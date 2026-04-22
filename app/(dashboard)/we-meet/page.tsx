@@ -105,12 +105,26 @@ export default function WeMeetPage() {
   }
 
   async function handleToggleConfirmed(row: WeMeetExecution) {
+    const togglingOn = !row.confirmed;
     await updateMutation.mutateAsync({
       rowIndex:        row.rowIndex,
       usageType:       row.usageType,
       teamName:        row.teamName,
       draftAmount:     row.draftAmount,
-      confirmed:       !row.confirmed,
+      confirmed:       togglingOn,
+      confirmedAmount: togglingOn && row.confirmedAmount === 0 ? row.draftAmount : row.confirmedAmount,
+      description:     row.description,
+      usageDate:       row.usageDate,
+    });
+  }
+
+  function handleUpdateExecution(row: WeMeetExecution) {
+    void updateMutation.mutateAsync({
+      rowIndex:        row.rowIndex,
+      usageType:       row.usageType,
+      teamName:        row.teamName,
+      draftAmount:     row.draftAmount,
+      confirmed:       row.confirmed,
       confirmedAmount: row.confirmedAmount,
       description:     row.description,
       usageDate:       row.usageDate,
@@ -266,6 +280,7 @@ export default function WeMeetPage() {
               onEditExecution={handleEditExecution}
               onDeleteExecution={handleDeleteExecution}
               onToggleConfirmed={handleToggleConfirmed}
+              onUpdateExecution={handleUpdateExecution}
               isToggling={updateMutation.isPending}
             />
           )}

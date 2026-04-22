@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { ChevronRight, Plus, Trash2, Check, X } from 'lucide-react';
+import { ChevronRight, Plus, Minus, Trash2, Check, X } from 'lucide-react';
 import type { WeMeetTeamInfo } from '@/types';
 import type { TeamInfoPayload } from '@/hooks/useWeMeet';
 
@@ -22,6 +22,7 @@ const EMPTY_PAYLOAD: TeamInfoPayload = {
 interface EditState {
   advisor: string; topic: string; mentorOrg: string; mentor: string;
   teamLeader: string; teamMembers: string; assistantMentor: string; remarks: string;
+  memberList: string[];
 }
 
 interface Props {
@@ -34,11 +35,18 @@ interface Props {
 
 // ── 유틸 ────────────────────────────────────────────────────────────────
 
+const DEFAULT_MEMBER_SLOTS = 5;
+
 function toEditState(info: WeMeetTeamInfo): EditState {
+  const existing = info.memberList ?? [];
+  const memberList = existing.length >= DEFAULT_MEMBER_SLOTS
+    ? [...existing]
+    : [...existing, ...Array(DEFAULT_MEMBER_SLOTS - existing.length).fill('')];
   return {
     advisor: info.advisor, topic: info.topic, mentorOrg: info.mentorOrg,
     mentor: info.mentor, teamLeader: info.teamLeader, teamMembers: info.teamMembers,
     assistantMentor: info.assistantMentor, remarks: info.remarks,
+    memberList,
   };
 }
 
@@ -128,13 +136,35 @@ export function WeMeetTeamManageTable({
     }
   }
 
-  function setField<K extends keyof EditState>(key: K, val: string) {
+  function setField<K extends keyof Omit<EditState, 'memberList'>>(key: K, val: string) {
     setEditState((prev) => (prev ? { ...prev, [key]: val } : prev));
+  }
+
+  function setMember(idx: number, val: string) {
+    setEditState((prev) => {
+      if (!prev) return prev;
+      const next = [...prev.memberList];
+      next[idx] = val;
+      return { ...prev, memberList: next };
+    });
+  }
+
+  function addMember() {
+    setEditState((prev) => (prev ? { ...prev, memberList: [...prev.memberList, ''] } : prev));
+  }
+
+  function removeMember(idx: number) {
+    setEditState((prev) => {
+      if (!prev) return prev;
+      const next = prev.memberList.filter((_, i) => i !== idx);
+      return { ...prev, memberList: next };
+    });
   }
 
   // ── 헬퍼: 필드 입력 ──────────────────────────────────────────────────
 
-  const inp = (key: keyof EditState, label: string, full = false) => (
+  type StringField = keyof Omit<EditState, 'memberList'>;
+  const inp = (key: StringField, label: string, full = false) => (
     <div className={full ? 'col-span-full' : ''}>
       <label className="mb-0.5 block text-[10px] text-[#6F6F6B]">{label}</label>
       <input
@@ -268,19 +298,39 @@ export function WeMeetTeamManageTable({
                                 {inp('remarks', '비고', true)}
                               </div>
 
-                              {/* 팀원명단 (K열 이후) — 읽기 전용 안내 */}
-                              {info.memberList && info.memberList.length > 0 && (
-                                <div className="space-y-1">
-                                  <p className="text-[10px] text-[#6F6F6B]">팀원명단 (시트 K열 이후 — 읽기 전용)</p>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {info.memberList.map((m: string, mi: number) => (
-                                      <span key={mi} className="rounded-full bg-primary-bg px-2 py-0.5 text-[11px] text-primary">
-                                        {m}
-                                      </span>
-                                    ))}
-                                  </div>
+                              {/* 팀원명단 입력 (K열 이후) */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] font-medium text-[#6F6F6B]">팀원명단 (개별 입력)</p>
+                                  <button
+                                    type="button"
+                                    onClick={addMember}
+                                    className="flex items-center gap-1 rounded border border-[#E3E3E0] bg-white px-2 py-0.5 text-[11px] text-[#6F6F6B] hover:border-primary hover:text-primary transition-colors"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                    팀원 추가
+                                  </button>
                                 </div>
-                              )}
+                                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
+                                  {(editState?.memberList ?? []).map((m, mi) => (
+                                    <div key={mi} className="flex items-center gap-1">
+                                      <input
+                                        value={m}
+                                        onChange={(e) => setMember(mi, e.target.value)}
+                                        placeholder={`팀원 ${mi + 1}`}
+                                        className="w-full rounded border border-[#E3E3E0] px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => removeMember(mi)}
+                                        className="shrink-0 rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-400 transition-colors"
+                                      >
+                                        <Minus className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
 
                               <div className="flex items-center gap-2 pt-1">
                                 <button
