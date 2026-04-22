@@ -7,7 +7,7 @@ import { RefreshCw, Users, X } from 'lucide-react';
 import { WeMeetSummaryTable } from '@/components/we-meet/WeMeetSummaryTable';
 import { WeMeetTeamManageTable } from '@/components/we-meet/WeMeetTeamManageTable';
 import { WeMeetRowForm } from '@/components/we-meet/WeMeetRowForm';
-import { WeMeetAllPdfReport, WeMeetTeamPdfReport } from '@/components/we-meet/WeMeetPdfReport';
+import { WeMeetAllPdfReport } from '@/components/we-meet/WeMeetPdfReport';
 import { WeMeetSendModal } from '@/components/we-meet/WeMeetSendModal';
 import {
   useWeMeetExecutions,
@@ -28,18 +28,17 @@ export default function WeMeetPage() {
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const canWrite = userRole === 'super_admin' || userRole === 'admin';
 
-  const { data, isLoading, isError, error, refetch } = useWeMeetExecutions();
+  const { data, isLoading, isError, error, refetch }                       = useWeMeetExecutions();
   const { data: summaries = [], isLoading: isSummaryLoading, refetch: refetchSummary } = useWeMeetSummary();
 
-  const addMutation        = useAddWeMeetExecution();
-  const updateMutation     = useUpdateWeMeetExecution();
-  const deleteMutation     = useDeleteWeMeetExecution();
+  const addMutation            = useAddWeMeetExecution();
+  const updateMutation         = useUpdateWeMeetExecution();
+  const deleteMutation         = useDeleteWeMeetExecution();
   const { data: teamInfoData, refetch: refetchTeamInfos } = useWeMeetTeamInfos();
   const addTeamInfoMutation    = useAddWeMeetTeamInfo();
   const updateTeamInfoMutation = useUpdateWeMeetTeamInfo();
   const deleteTeamInfoMutation = useDeleteWeMeetTeamInfo();
 
-  const [selectedTeam, setSelectedTeam]     = useState<string | null>(null);
   const [formOpen, setFormOpen]             = useState(false);
   const [formMode, setFormMode]             = useState<'add' | 'edit'>('add');
   const [editTarget, setEditTarget]         = useState<WeMeetExecution | undefined>();
@@ -50,10 +49,6 @@ export default function WeMeetPage() {
   const executions = data?.executions ?? [];
   const teams      = data?.teams ?? [];
   const teamInfos  = teamInfoData?.teamInfos ?? [];
-
-  const selectedSummary = selectedTeam
-    ? summaries.find((s) => s.teamName === selectedTeam)
-    : undefined;
 
   function handleAddExecution(teamName: string) {
     setFormMode('add');
@@ -102,7 +97,6 @@ export default function WeMeetPage() {
 
   function handleToggleTeamManage() {
     setShowTeamManage((v) => !v);
-    if (!showTeamManage) setSelectedTeam(null);
   }
 
   return (
@@ -149,12 +143,12 @@ export default function WeMeetPage() {
         </div>
       )}
 
-      {/* 팀 관리 테이블 또는 팀별 예산 현황 */}
+      {/* 팀 관리 또는 팀별 예산 현황 */}
       {showTeamManage ? (
         <div className="space-y-1.5">
           <h2 className="text-sm font-medium text-[#6F6F6B]">
             팀 관리
-            <span className="ml-1.5 text-xs text-gray-400">팀 추가·삭제 및 팀 정보 수정</span>
+            <span className="ml-1.5 text-xs text-gray-400">지도교수별 팀 관리 · 팀 추가 · 삭제 · 정보 수정</span>
           </h2>
           <WeMeetTeamManageTable
             teamInfos={teamInfos}
@@ -166,19 +160,10 @@ export default function WeMeetPage() {
         </div>
       ) : (
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-[#6F6F6B]">
-              팀별 예산 현황
-              <span className="ml-1.5 text-xs text-gray-400">팀 행 클릭 시 팀 정보 및 집행현황 표시</span>
-            </h2>
-            {selectedTeam && selectedSummary && (
-              <WeMeetTeamPdfReport
-                teamName={selectedTeam}
-                summary={selectedSummary}
-                executions={executions}
-              />
-            )}
-          </div>
+          <h2 className="text-sm font-medium text-[#6F6F6B]">
+            팀별 예산 현황
+            <span className="ml-1.5 text-xs text-gray-400">지도교수 행 클릭으로 팀 목록 펼치기 · 팀 클릭으로 상세 정보 및 집행현황 확인</span>
+          </h2>
           {isSummaryLoading || isLoading ? (
             <div className="h-40 animate-pulse rounded-lg bg-[#F3F3EE]" />
           ) : (
@@ -186,13 +171,9 @@ export default function WeMeetPage() {
               summaries={summaries}
               teamInfos={teamInfos}
               executions={executions}
-              selectedTeam={selectedTeam}
               canWrite={canWrite}
-              onSelectTeam={setSelectedTeam}
-              onSaveTeamRemarks={(rowIndex, remarks) => {
-                const info = teamInfos.find((t) => t.rowIndex === rowIndex);
-                if (info) updateTeamInfoMutation.mutate({ ...info, remarks });
-              }}
+              onSelectTeam={() => { /* PDF 선택은 컴포넌트 내부에서 처리 */ }}
+              onUpdateTeamInfo={updateTeamInfoMutation.mutate}
               onAddExecution={handleAddExecution}
               onEditExecution={handleEditExecution}
               onDeleteExecution={handleDeleteExecution}
@@ -203,7 +184,7 @@ export default function WeMeetPage() {
         </div>
       )}
 
-      {/* 행 추가/수정 모달 */}
+      {/* 집행 행 추가/수정 모달 */}
       <WeMeetRowForm
         open={formOpen}
         mode={formMode}

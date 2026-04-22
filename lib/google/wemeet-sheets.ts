@@ -245,6 +245,13 @@ export async function getWeMeetTeamInfos(): Promise<WeMeetTeamInfo[]> {
     const row = rows[i];
     const teamName = String(row?.[0] ?? '').trim();
     if (!teamName) continue;
+    // K열(index 10)부터 개별 팀원 명단
+    const memberList: string[] = [];
+    for (let j = 10; j < (row?.length ?? 0); j++) {
+      const v = String(row?.[j] ?? '').trim();
+      if (v) memberList.push(v);
+    }
+
     result.push({
       rowIndex:       i + 2,
       teamName,
@@ -256,6 +263,7 @@ export async function getWeMeetTeamInfos(): Promise<WeMeetTeamInfo[]> {
       teamMembers:    String(row?.[6] ?? '').trim(),
       assistantMentor: String(row?.[7] ?? '').trim(),
       remarks:        String(row?.[9] ?? '').trim(),
+      memberList,
     });
   }
 

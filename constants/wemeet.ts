@@ -26,7 +26,7 @@ export const WEMEET_MAX_TEAMS = 29;  // A3:A31 (29행)
 export const WEMEET_MAX_ROWS = 199;  // A2:A200 (199행)
 
 // 팀정보 시트 범위
-export const WEMEET_TEAM_INFO_RANGE = '팀정보!A2:J200';
+export const WEMEET_TEAM_INFO_RANGE = '팀정보!A2:Z200';
 
 // 팀별취합 열 인덱스 (0-based, A=0)
 export const WEMEET_SUMMARY_COLS = {

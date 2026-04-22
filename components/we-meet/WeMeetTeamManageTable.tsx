@@ -1,21 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { ChevronRight, Plus, Trash2, Check, X } from 'lucide-react';
 import type { WeMeetTeamInfo } from '@/types';
 import type { TeamInfoPayload } from '@/hooks/useWeMeet';
 
+// ── 상수 ────────────────────────────────────────────────────────────────
+
+const NO_ADVISOR = '지도교수 미배정';
+
+const EMPTY_PAYLOAD: TeamInfoPayload = {
+  teamName: '', advisor: '', topic: '', mentorOrg: '', mentor: '',
+  teamLeader: '', teamMembers: '', assistantMentor: '', remarks: '',
+  memberList: [],
+};
+
+// ── 타입 ────────────────────────────────────────────────────────────────
+
 interface EditState {
-  advisor: string;
-  topic: string;
-  mentorOrg: string;
-  mentor: string;
-  teamLeader: string;
-  teamMembers: string;
-  assistantMentor: string;
-  remarks: string;
+  advisor: string; topic: string; mentorOrg: string; mentor: string;
+  teamLeader: string; teamMembers: string; assistantMentor: string; remarks: string;
 }
 
 interface Props {
@@ -26,38 +32,75 @@ interface Props {
   isDeleting: boolean;
 }
 
+// ── 유틸 ────────────────────────────────────────────────────────────────
+
 function toEditState(info: WeMeetTeamInfo): EditState {
   return {
-    advisor:         info.advisor,
-    topic:           info.topic,
-    mentorOrg:       info.mentorOrg,
-    mentor:          info.mentor,
-    teamLeader:      info.teamLeader,
-    teamMembers:     info.teamMembers,
-    assistantMentor: info.assistantMentor,
-    remarks:         info.remarks,
+    advisor: info.advisor, topic: info.topic, mentorOrg: info.mentorOrg,
+    mentor: info.mentor, teamLeader: info.teamLeader, teamMembers: info.teamMembers,
+    assistantMentor: info.assistantMentor, remarks: info.remarks,
   };
 }
 
-export function WeMeetTeamManageTable({
-  teamInfos, onAddTeam, onUpdateTeam, onDeleteTeam,
-  isDeleting,
-}: Props) {
-  const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
-  const [editState, setEditState]             = useState<EditState | null>(null);
-  const [newTeamName, setNewTeamName]         = useState('');
-  const [deleteOpen, setDeleteOpen]           = useState(false);
-  const [deleteTarget, setDeleteTarget]       = useState<WeMeetTeamInfo | null>(null);
-  const [savePending, setSavePending]         = useState(false);
-  const [addPending, setAddPending]           = useState(false);
+// ── 컴포넌트 ─────────────────────────────────────────────────────────────
 
-  function startEdit(info: WeMeetTeamInfo) {
-    setEditingRowIndex(info.rowIndex);
-    setEditState(toEditState(info));
+export function WeMeetTeamManageTable({
+  teamInfos, onAddTeam, onUpdateTeam, onDeleteTeam, isDeleting,
+}: Props) {
+  // 지도교수 그룹 펼침 상태
+  const [openAdvisors, setOpenAdvisors] = useState<Set<string>>(new Set());
+  // 팀별 편집 패널 (rowIndex)
+  const [openTeamRow, setOpenTeamRow]   = useState<number | null>(null);
+  const [editState, setEditState]       = useState<EditState | null>(null);
+  const [savePending, setSavePending]   = useState(false);
+  // 팀 추가
+  const [newTeamName, setNewTeamName]   = useState('');
+  const [addPending, setAddPending]     = useState(false);
+  // 삭제 확인
+  const [deleteOpen, setDeleteOpen]     = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<WeMeetTeamInfo | null>(null);
+
+  // ── 파생 데이터 ──────────────────────────────────────────────────────
+
+  const advisorGroups = useMemo(() => {
+    const map = new Map<string, WeMeetTeamInfo[]>();
+    for (const info of teamInfos) {
+      const adv = info.advisor?.trim() || NO_ADVISOR;
+      if (!map.has(adv)) map.set(adv, []);
+      map.get(adv)!.push(info);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => {
+        if (a === NO_ADVISOR) return 1;
+        if (b === NO_ADVISOR) return -1;
+        return a.localeCompare(b, 'ko');
+      })
+      .map(([advisor, teams]: [string, WeMeetTeamInfo[]]) => ({ advisor, teams }));
+  }, [teamInfos]);
+
+  // ── 핸들러 ───────────────────────────────────────────────────────────
+
+  function toggleAdvisor(advisor: string) {
+    setOpenAdvisors((prev) => {
+      const next = new Set(prev);
+      if (next.has(advisor)) next.delete(advisor);
+      else next.add(advisor);
+      return next;
+    });
+  }
+
+  function openEdit(info: WeMeetTeamInfo) {
+    if (openTeamRow === info.rowIndex) {
+      setOpenTeamRow(null);
+      setEditState(null);
+    } else {
+      setOpenTeamRow(info.rowIndex);
+      setEditState(toEditState(info));
+    }
   }
 
   function cancelEdit() {
-    setEditingRowIndex(null);
+    setOpenTeamRow(null);
     setEditState(null);
   }
 
@@ -66,7 +109,7 @@ export function WeMeetTeamManageTable({
     setSavePending(true);
     try {
       await onUpdateTeam({ ...info, ...editState });
-      setEditingRowIndex(null);
+      setOpenTeamRow(null);
       setEditState(null);
     } finally {
       setSavePending(false);
@@ -78,175 +121,206 @@ export function WeMeetTeamManageTable({
     if (!name) return;
     setAddPending(true);
     try {
-      await onAddTeam({
-        teamName: name, advisor: '', topic: '', mentorOrg: '', mentor: '',
-        teamLeader: '', teamMembers: '', assistantMentor: '', remarks: '',
-      });
+      await onAddTeam({ ...EMPTY_PAYLOAD, teamName: name });
       setNewTeamName('');
     } finally {
       setAddPending(false);
     }
   }
 
-  function setField(key: keyof EditState, value: string) {
-    setEditState((prev) => prev ? { ...prev, [key]: value } : prev);
+  function setField<K extends keyof EditState>(key: K, val: string) {
+    setEditState((prev) => (prev ? { ...prev, [key]: val } : prev));
   }
 
-  const fieldInput = (key: keyof EditState, placeholder: string) => (
-    <input
-      value={editState?.[key] ?? ''}
-      onChange={(e) => setField(key, e.target.value)}
-      placeholder={placeholder}
-      className="w-full min-w-[80px] rounded border border-[#E3E3E0] px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-    />
+  // ── 헬퍼: 필드 입력 ──────────────────────────────────────────────────
+
+  const inp = (key: keyof EditState, label: string, full = false) => (
+    <div className={full ? 'col-span-full' : ''}>
+      <label className="mb-0.5 block text-[10px] text-[#6F6F6B]">{label}</label>
+      <input
+        value={editState?.[key] ?? ''}
+        onChange={(e) => setField(key, e.target.value)}
+        placeholder={label}
+        className="w-full rounded border border-[#E3E3E0] px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+    </div>
   );
+
+  // ── 렌더 ─────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-3">
-      {/* 추가 행 */}
+      {/* 팀 추가 바 */}
       <div className="flex items-center gap-2">
         <input
           type="text"
           value={newTeamName}
           onChange={(e) => setNewTeamName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') void handleAdd(); }}
           placeholder="새 팀명 입력"
-          className="h-8 rounded-md border border-[#E3E3E0] px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary w-48"
+          className="h-8 rounded-md border border-[#E3E3E0] px-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary w-52"
         />
         <Button
           size="sm"
-          onClick={handleAdd}
+          onClick={() => void handleAdd()}
           disabled={!newTeamName.trim() || addPending}
           className="gap-1.5 h-8"
         >
           <Plus className="h-3.5 w-3.5" />
           팀 추가
         </Button>
+        <span className="ml-auto text-xs text-gray-400">총 {teamInfos.length}팀</span>
       </div>
 
-      {/* 테이블 */}
-      <div className="overflow-x-auto rounded-lg border border-[#E3E3E0]">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-[#F3F3EE]">
-              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">팀명</th>
-              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">지도교수</th>
-              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">주제</th>
-              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">멘토소속</th>
-              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">멘토</th>
-              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">보조멘토</th>
-              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">팀장</th>
-              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">팀원</th>
-              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">비고</th>
-              <th className="px-3 py-2.5 text-center font-medium text-[#6F6F6B]"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {teamInfos.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="py-10 text-center text-sm text-gray-400">
-                  팀 데이터가 없습니다. 팀을 추가해 주세요.
-                </td>
-              </tr>
-            ) : (
-              teamInfos.map((info, idx) => {
-                const isEditing = editingRowIndex === info.rowIndex;
-                const rowBg     = idx % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]';
+      {/* 지도교수별 아코디언 */}
+      {teamInfos.length === 0 ? (
+        <div className="rounded-lg border border-[#E3E3E0] bg-white px-4 py-8 text-center text-sm text-gray-400">
+          팀 데이터가 없습니다. 팀을 추가해 주세요.
+        </div>
+      ) : (
+        <div className="rounded-lg border border-[#E3E3E0] overflow-hidden divide-y divide-[#E3E3E0]">
+          {advisorGroups.map(({ advisor, teams }) => {
+            const isOpen = openAdvisors.has(advisor);
 
-                return (
-                  <tr key={info.rowIndex} className={rowBg}>
-                    <td className="px-3 py-2 font-medium text-[#131310] whitespace-nowrap">
-                      {info.teamName}
-                    </td>
+            return (
+              <div key={advisor}>
+                {/* 지도교수 그룹 헤더 */}
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-2 px-4 py-3 bg-[#EEF3F8] hover:bg-[#E5EDF5] transition-colors text-left"
+                  onClick={() => toggleAdvisor(advisor)}
+                >
+                  <ChevronRight className={`h-3.5 w-3.5 text-[#1F5C99] transition-transform duration-150 ${isOpen ? 'rotate-90' : ''}`} />
+                  <span className="font-semibold text-sm text-[#1F5C99]">{advisor}</span>
+                  <span className="ml-1 rounded-full bg-[#D6E4F0] px-1.5 py-0.5 text-[11px] font-medium text-[#1F5C99]">
+                    {teams.length}팀
+                  </span>
+                </button>
 
-                    {isEditing ? (
-                      <>
-                        <td className="px-2 py-1.5">{fieldInput('advisor', '지도교수')}</td>
-                        <td className="px-2 py-1.5">{fieldInput('topic', '주제')}</td>
-                        <td className="px-2 py-1.5">{fieldInput('mentorOrg', '멘토소속')}</td>
-                        <td className="px-2 py-1.5">{fieldInput('mentor', '멘토')}</td>
-                        <td className="px-2 py-1.5">{fieldInput('assistantMentor', '보조멘토')}</td>
-                        <td className="px-2 py-1.5">{fieldInput('teamLeader', '팀장')}</td>
-                        <td className="px-2 py-1.5">{fieldInput('teamMembers', '팀원')}</td>
-                        <td className="px-2 py-1.5">{fieldInput('remarks', '비고')}</td>
-                        <td className="px-2 py-1.5">
-                          <div className="flex items-center gap-1">
+                {/* 팀 목록 */}
+                {isOpen && (
+                  <div className="divide-y divide-[#F0F0EE]">
+                    {teams.map((info: WeMeetTeamInfo) => {
+                      const isEditing = openTeamRow === info.rowIndex;
+
+                      return (
+                        <div key={info.rowIndex}>
+                          {/* 팀 요약 행 */}
+                          <div
+                            className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-colors ${
+                              isEditing ? 'bg-primary-bg' : 'bg-white hover:bg-[#F5F9FC]'
+                            }`}
+                            onClick={() => openEdit(info)}
+                          >
+                            <ChevronRight className={`h-3 w-3 text-gray-400 shrink-0 transition-transform duration-150 ${isEditing ? 'rotate-90' : ''}`} />
+
+                            {/* 팀명 */}
+                            <span className={`font-medium text-sm w-28 shrink-0 ${isEditing ? 'text-primary' : 'text-[#131310]'}`}>
+                              {info.teamName}
+                            </span>
+
+                            {/* 간략 정보 */}
+                            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-[#6F6F6B] min-w-0">
+                              {info.teamLeader && (
+                                <span>팀장: <span className="text-[#131310]">{info.teamLeader}</span></span>
+                              )}
+                              {info.mentor && (
+                                <span>멘토: <span className="text-[#131310]">{info.mentor}</span></span>
+                              )}
+                              {info.topic && (
+                                <span className="truncate max-w-[200px]">주제: <span className="text-[#131310]">{info.topic}</span></span>
+                              )}
+                              {info.memberList && info.memberList.length > 0 && (
+                                <span>팀원 {info.memberList.length}명</span>
+                              )}
+                            </div>
+
+                            {/* 삭제 버튼 */}
                             <button
-                              onClick={() => handleSave(info)}
-                              disabled={savePending}
-                              title="저장"
-                              className="rounded p-1 text-white bg-primary hover:bg-primary-light transition-colors disabled:opacity-50"
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={cancelEdit}
-                              title="취소"
-                              className="rounded p-1 text-gray-500 hover:bg-gray-100 transition-colors"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td className="px-3 py-2 text-[#131310] whitespace-nowrap">{info.advisor || <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2 text-[#131310] max-w-[150px]">
-                          <div className="truncate">{info.topic || <span className="text-gray-300">—</span>}</div>
-                        </td>
-                        <td className="px-3 py-2 text-[#131310] whitespace-nowrap">{info.mentorOrg || <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2 text-[#131310] whitespace-nowrap">{info.mentor || <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2 text-[#131310] whitespace-nowrap">{info.assistantMentor || <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2 text-[#131310] whitespace-nowrap">{info.teamLeader || <span className="text-gray-300">—</span>}</td>
-                        <td className="px-3 py-2 text-[#131310] max-w-[150px]">
-                          <div className="truncate">{info.teamMembers || <span className="text-gray-300">—</span>}</div>
-                        </td>
-                        <td className="px-3 py-2 text-[#131310] max-w-[120px]">
-                          <div className="truncate">{info.remarks || <span className="text-gray-300">—</span>}</div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => startEdit(info)}
-                              title="수정"
-                              className="rounded p-1 text-gray-400 hover:bg-blue-50 hover:text-blue-500 transition-colors"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => { setDeleteTarget(info); setDeleteOpen(true); }}
-                              title="삭제"
-                              className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteTarget(info);
+                                setDeleteOpen(true);
+                              }}
+                              className="ml-auto shrink-0 rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-[#E3E3E0] bg-[#F3F3EE]">
-              <td colSpan={10} className="px-3 py-2 text-xs text-[#6F6F6B]">
-                총 {teamInfos.length}팀
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+
+                          {/* 편집 패널 */}
+                          {isEditing && (
+                            <div
+                              className="bg-[#F8FAFC] border-t border-[#E8EFF5] px-6 py-4 space-y-3"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <p className="text-xs font-semibold text-primary">{info.teamName} — 정보 수정</p>
+
+                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                                {inp('advisor', '지도교수')}
+                                {inp('teamLeader', '팀장')}
+                                {inp('mentorOrg', '멘토소속')}
+                                {inp('mentor', '멘토')}
+                                {inp('assistantMentor', '보조멘토')}
+                                {inp('teamMembers', '팀원(합산텍스트)')}
+                                {inp('topic', '주제', true)}
+                                {inp('remarks', '비고', true)}
+                              </div>
+
+                              {/* 팀원명단 (K열 이후) — 읽기 전용 안내 */}
+                              {info.memberList && info.memberList.length > 0 && (
+                                <div className="space-y-1">
+                                  <p className="text-[10px] text-[#6F6F6B]">팀원명단 (시트 K열 이후 — 읽기 전용)</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {info.memberList.map((m: string, mi: number) => (
+                                      <span key={mi} className="rounded-full bg-primary-bg px-2 py-0.5 text-[11px] text-primary">
+                                        {m}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleSave(info)}
+                                  disabled={savePending}
+                                  className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-light transition-colors disabled:opacity-50"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                  저장
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelEdit}
+                                  className="flex items-center gap-1.5 rounded-md border border-[#E3E3E0] bg-white px-3 py-1.5 text-xs text-[#6F6F6B] hover:bg-gray-50 transition-colors"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                  취소
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <ConfirmDialog
         open={deleteOpen}
         title="팀 삭제"
-        description={`"${deleteTarget?.teamName}" 팀을 삭제하시겠습니까? 팀 정보와 배정예산 정보가 함께 삭제됩니다.`}
+        description={`"${deleteTarget?.teamName}" 팀을 삭제하시겠습니까? 팀 정보가 함께 삭제됩니다.`}
         loading={isDeleting}
         onConfirm={() => {
-          if (deleteTarget) onDeleteTeam(deleteTarget.rowIndex);
+          if (deleteTarget) void onDeleteTeam(deleteTarget.rowIndex);
           setDeleteOpen(false);
           setDeleteTarget(null);
         }}

@@ -222,16 +222,17 @@ export interface WeMeetPageData {
 }
 
 export interface WeMeetTeamInfo {
-  rowIndex: number;      // 팀정보 시트 행 번호 (2~)
-  teamName: string;      // A: 팀명
-  advisor: string;       // B: 지도교수
-  topic: string;         // C: 주제
-  mentorOrg: string;     // D: 멘토소속
-  mentor: string;        // E: 멘토
-  teamLeader: string;    // F: 팀장
-  teamMembers: string;   // G: 팀원
-  assistantMentor: string; // H: 보조멘토
-  remarks: string;       // J: 비고
+  rowIndex: number;         // 팀정보 시트 행 번호 (2~)
+  teamName: string;         // A: 팀명
+  advisor: string;          // B: 지도교수
+  topic: string;            // C: 주제
+  mentorOrg: string;        // D: 멘토소속
+  mentor: string;           // E: 멘토
+  teamLeader: string;       // F: 팀장
+  teamMembers: string;      // G: 팀원(합산 텍스트)
+  assistantMentor: string;  // H: 보조멘토
+  remarks: string;          // J: 비고
+  memberList?: string[];    // K~: 팀원 명단(개별 셀, 시트에서만 읽음)
 }
 
 // 예산변경 확정 요청 payload
