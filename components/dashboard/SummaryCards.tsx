@@ -36,13 +36,13 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
             <p className="text-xs text-text-secondary mt-0.5">총예산(간접비 포함)</p>
           </div>
           <div className="border-t border-divider pt-2 space-y-1">
-            <div className="flex items-baseline justify-between">
-              <span className="text-xs text-text-secondary">본예산(간접비 제외)</span>
-              <span className="text-sm font-medium text-[#131310]">{formatKRW(summary.mainBudget)}</span>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-xs text-text-secondary shrink-0">본예산(간접비 제외)</span>
+              <span className="text-sm font-medium text-[#131310] tabular-nums text-right">{formatKRW(summary.mainBudget)}</span>
             </div>
-            <div className="flex items-baseline justify-between">
-              <span className="text-xs text-text-secondary">계획수립예산</span>
-              <span className="text-sm font-medium text-[#131310]">{formatKRW(summary.budgetPlanTarget)}</span>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-xs text-text-secondary shrink-0">계획수립예산</span>
+              <span className="text-sm font-medium text-[#131310] tabular-nums text-right">{formatKRW(summary.budgetPlanTarget)}</span>
             </div>
           </div>
         </div>
