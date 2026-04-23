@@ -10,7 +10,8 @@ import {
 } from '@/components/ui/table';
 import { formatKRW, cn } from '@/lib/utils';
 import type { ProgramRow } from '@/hooks/useDashboard';
-import { ChevronDown, ChevronRight, GripVertical, Trash2, CheckSquare, Square, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Trash2, CheckSquare, Square, Plus, ListChecks } from 'lucide-react';
+import { ProgramExpenditureSubTable } from './ProgramExpenditureSubTable';
 import { useSidebar } from '@/components/layout/SidebarContext';
 import {
   DndContext,
@@ -193,6 +194,7 @@ export function ProgramTable({
   );
   const openGroups = externalOpenGroups ?? internalOpenGroups;
   const [openRows, setOpenRows] = useState<Record<number, boolean>>({});
+  const [openExpenditureRows, setOpenExpenditureRows] = useState<Set<number>>(new Set());
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
   const [localStatus, setLocalStatus] = useState<Record<number, { isCompleted?: boolean; isOnHold?: boolean }>>({});
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
@@ -304,6 +306,16 @@ export function ProgramTable({
 
   function toggleRow(rowIndex: number) {
     setOpenRows((prev) => ({ ...prev, [rowIndex]: !prev[rowIndex] }));
+  }
+
+  function toggleExpenditureRow(rowIndex: number, e: React.MouseEvent) {
+    e.stopPropagation();
+    setOpenExpenditureRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowIndex)) next.delete(rowIndex);
+      else next.add(rowIndex);
+      return next;
+    });
   }
 
   function getRowOpen(rowIndex: number) {
@@ -789,6 +801,37 @@ export function ProgramTable({
                                     )}
                                   </div>
                                 </div>
+
+                                {/* 집행내역 서브 테이블 */}
+                                {getVal(row, 'budget') && (
+                                  <div className="mt-2">
+                                    <button
+                                      onClick={(e) => toggleExpenditureRow(row.rowIndex, e)}
+                                      className={cn(
+                                        'flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors',
+                                        openExpenditureRows.has(row.rowIndex)
+                                          ? 'bg-primary/10 text-primary'
+                                          : 'text-gray-400 hover:bg-[#F0F4F8] hover:text-primary',
+                                      )}
+                                    >
+                                      <ListChecks className="h-3.5 w-3.5" />
+                                      {openExpenditureRows.has(row.rowIndex) ? '집행내역 접기' : '집행내역 보기'}
+                                      {openExpenditureRows.has(row.rowIndex)
+                                        ? <ChevronDown className="h-3 w-3" />
+                                        : <ChevronRight className="h-3 w-3" />}
+                                    </button>
+
+                                    {openExpenditureRows.has(row.rowIndex) && (
+                                      <div className="mt-1.5">
+                                        <ProgramExpenditureSubTable
+                                          programName={String(getVal(row, 'programName'))}
+                                          budget={String(getVal(row, 'budget'))}
+                                          isLoggedIn={isLoggedIn}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>

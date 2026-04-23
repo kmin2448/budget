@@ -1,7 +1,7 @@
 // components/expenditure/ExpenditureTable.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -41,6 +41,7 @@ interface ExpenditureTableProps {
     row: ExpenditureDetailRow,
     changes: { programName?: string; description?: string; expenseDate?: string; monthlyAmounts?: number[] },
   ) => Promise<void>;
+  highlightRowIndex?: number;
 }
 
 interface MonthGroup {
@@ -86,6 +87,7 @@ function getActiveMonths(row: ExpenditureDetailRow): string[] {
 
 export function ExpenditureTable({
   rows, canWrite, category, onAdd, onEdit, onDelete, onUpload, onDeleteFile, onMoveMonth, onUpdate,
+  highlightRowIndex,
 }: ExpenditureTableProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(getDefaultCollapsedGroups);
@@ -108,6 +110,21 @@ export function ExpenditureTable({
   const showActions = canWrite && editMode; // 삭제/이동 등 파괴적 액션
   const colCount = isPersonnel ? (showActions ? 5 : 4) : (showActions ? 7 : 6);
   const groups = isPersonnel ? null : groupByMonthlyAmounts(rows);
+
+  // ── 하이라이트 행 자동 펼침 + 스크롤 ─────────────────────────────
+  useEffect(() => {
+    if (!highlightRowIndex || rows.length === 0) return;
+    // 모든 월 그룹 펼치기
+    setCollapsedGroups(new Set());
+    // DOM 업데이트 후 스크롤
+    const id = setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(`[data-row-index="${highlightRowIndex}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 150);
+    return () => clearTimeout(id);
+  }, [highlightRowIndex, rows.length]);
 
   // ── 인라인 편집 ────────────────────────────────────────────────
 
@@ -289,9 +306,12 @@ export function ExpenditureTable({
     const isEditingDate =
       editMode && inlineEdit?.rowIndex === row.rowIndex && inlineEdit?.field === 'expenseDate';
 
+    const isHighlighted = highlightRowIndex === row.rowIndex;
+
     return [
       <TableRow
         key={`row-${expandKey}`}
+        data-row-index={row.rowIndex}
         draggable={draggable}
         onDragStart={draggable ? (e) => handleDragStart(e, row, monthIdx!) : undefined}
         onDragEnd={draggable ? handleDragEnd : undefined}
@@ -303,6 +323,7 @@ export function ExpenditureTable({
           isExpanded && 'bg-gray-50/40',
           isDragging && 'opacity-40',
           isMoving && 'animate-pulse opacity-60',
+          isHighlighted && 'bg-primary/5 ring-1 ring-inset ring-primary/30 animate-pulse',
         )}
         // editMode일 때는 row 클릭으로 펼침/접힘 막음 (chevron cell에서 처리)
         onClick={editMode ? undefined : () => toggleExpand(expandKey)}

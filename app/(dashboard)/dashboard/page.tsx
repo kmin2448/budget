@@ -88,6 +88,12 @@ export default function DashboardPage() {
   }
 
   async function handleAutoSave(rowIndex: number, field: keyof ProgramRow, value: string | number) {
+    // programName 변경 시 cascade 대상 비목 파악 (서버 업데이트 전)
+    const affectedBudget = field === 'programName'
+      ? (queryClient.getQueryData<DashboardData>(['dashboard', budgetType])?.programRows
+          .find((r) => r.rowIndex === rowIndex)?.budget ?? '')
+      : '';
+
     // 즉시 UI 반영 (optimistic update)
     queryClient.setQueryData<DashboardData>(['dashboard', budgetType], (old) => {
       if (!old) return old;
@@ -106,6 +112,10 @@ export default function DashboardPage() {
       });
       if (!res.ok) throw new Error('자동 저장 실패');
       queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+      // programName 변경 시 해당 비목의 집행내역 캐시도 무효화
+      if (affectedBudget) {
+        queryClient.invalidateQueries({ queryKey: ['expenditure', affectedBudget, budgetType] });
+      }
     } catch (err) {
       console.error(err);
       // 실패 시 서버 데이터로 롤백
@@ -132,6 +142,15 @@ export default function DashboardPage() {
       return;
     }
 
+    // programName 변경 건들의 비목 파악 (cascade 후 캐시 무효화용)
+    const currentRows = queryClient.getQueryData<DashboardData>(['dashboard', budgetType])?.programRows ?? [];
+    const affectedBudgets = new Set(
+      updates
+        .filter((u) => u.field === 'programName')
+        .map((u) => currentRows.find((r) => r.rowIndex === u.rowIndex)?.budget ?? '')
+        .filter(Boolean),
+    );
+
     setIsSaving(true);
     try {
       const res = await fetch(`/api/sheets/program?sheetType=${budgetType}`, {
@@ -144,6 +163,10 @@ export default function DashboardPage() {
         throw new Error(body.error ?? '저장 실패');
       }
       await queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+      // 변경된 비목의 집행내역 캐시도 무효화
+      Array.from(affectedBudgets).forEach((budget) => {
+        queryClient.invalidateQueries({ queryKey: ['expenditure', budget, budgetType] });
+      });
       setChanges({});
       setEditMode(false);
     } catch (err) {

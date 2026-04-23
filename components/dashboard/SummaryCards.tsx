@@ -6,6 +6,18 @@ interface SummaryCardsProps {
   summary: DashboardSummary;
 }
 
+function AmountTooltip({ label, amount }: { label: string; amount: number }) {
+  return (
+    <span className="relative group/tip inline-block cursor-default">
+      <span className="border-b border-dashed border-current/40 leading-none">{label}</span>
+      <span className="pointer-events-none invisible group-hover/tip:visible absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg">
+        {formatKRW(amount)}원
+        <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+      </span>
+    </span>
+  );
+}
+
 export function SummaryCards({ summary }: SummaryCardsProps) {
   const balanceColor = summary.mainBudgetBalance >= 0 ? 'text-[#131310]' : 'text-red-500';
   const planBalanceColor = summary.balance >= 0 ? 'text-text-secondary' : 'text-red-400';
@@ -47,7 +59,16 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
               {formatKRW(summary.mainBudgetBalance)}
             </p>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <p className="text-xs text-text-secondary truncate">총예산 - (집행완료 + 집행예정 + 간접비)</p>
+              <p className="text-xs text-text-secondary">
+                <AmountTooltip label="총예산" amount={summary.totalBudget} />
+                {' - ('}
+                <AmountTooltip label="집행완료" amount={summary.executionComplete} />
+                {' + '}
+                <AmountTooltip label="집행예정" amount={summary.executionPlanned} />
+                {' + '}
+                <AmountTooltip label="간접비" amount={summary.indirectCost} />
+                {')'}
+              </p>
               <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-[#F3F3EE] px-1.5 py-px text-xs font-medium text-text-secondary">
                 <BarChart2 className="h-3 w-3" />
                 {(summary.mainBudgetExecutionRate ?? 0).toFixed(1)}%
@@ -58,7 +79,14 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
             <p className={`text-sm font-medium ${planBalanceColor}`}>
               {formatKRW(summary.balance)}
             </p>
-            <p className="text-xs text-text-secondary">예산계획 - (집행완료 + 집행예정)</p>
+            <p className="text-xs text-text-secondary">
+              <AmountTooltip label="예산계획" amount={summary.budgetPlan} />
+              {' - ('}
+              <AmountTooltip label="집행완료" amount={summary.executionComplete} />
+              {' + '}
+              <AmountTooltip label="집행예정" amount={summary.executionPlanned} />
+              {')'}
+            </p>
           </div>
         </div>
       </div>

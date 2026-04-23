@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getSheetsClient } from '@/lib/google/sheets';
-import { PERMISSIONS } from '@/types';
+import { PERMISSIONS, type BudgetType } from '@/types';
 import { checkPermission } from '@/lib/permissions';
 import { getSpreadsheetId } from '@/lib/google/getSheetId';
-import type { BudgetType } from '@/types';
+import {
+  CATEGORY_SHEETS,
+  CATEGORY_DATA_START_ROW,
+  CATEGORY_DATA_END_ROW_MAP,
+} from '@/constants/sheets';
+
+function isCategorySheet(val: string): val is typeof CATEGORY_SHEETS[number] {
+  return (CATEGORY_SHEETS as readonly string[]).includes(val);
+}
 
 const SHEET = "'집행내역 정리'";
 
@@ -330,7 +338,39 @@ export async function PATCH(req: NextRequest) {
 
     const sheets = getSheetsClient();
 
-    // additionalReflectionDate는 RAW로 저장 (USER_ENTERED 시 Sheets가 날짜 시리얼로 변환)
+    // ── Step 1: programName 변경 건의 기존값을 업데이트 전에 미리 읽기 ──
+    // (업데이트 후 읽으면 이미 새 이름으로 덮어써져 oldName 추출 불가)
+    type CascadeInfo = { newName: string; budget: string; oldName: string };
+    const cascadeInfos: CascadeInfo[] = [];
+
+    const programNameUpdates = updates.filter((u) => u.field === 'programName');
+    await Promise.all(
+      programNameUpdates.map(async ({ rowIndex, value: newName }) => {
+        // C와 H를 각각 읽어 열 인덱싱 오류 방지
+        const [cRes, hRes] = await Promise.all([
+          sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${SHEET}!C${rowIndex}`,
+            valueRenderOption: 'UNFORMATTED_VALUE',
+          }),
+          sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${SHEET}!H${rowIndex}`,
+            valueRenderOption: 'UNFORMATTED_VALUE',
+          }),
+        ]);
+        const budget = String(cRes.data.values?.[0]?.[0] ?? '').trim();
+        const oldName = String(hRes.data.values?.[0]?.[0] ?? '').trim();
+
+        console.log(`[cascade] row=${rowIndex} budget="${budget}" oldName="${oldName}" newName="${String(newName)}" isCategorySheet=${isCategorySheet(budget)}`);
+
+        if (budget && oldName && oldName !== String(newName) && isCategorySheet(budget)) {
+          cascadeInfos.push({ newName: String(newName), budget, oldName });
+        }
+      }),
+    );
+
+    // ── Step 2: 프로그램 시트 업데이트 ───────────────────────────────
     const RAW_FIELDS = new Set(['additionalReflectionDate']);
 
     const rawData = updates
@@ -358,6 +398,36 @@ export async function PATCH(req: NextRequest) {
       }),
     ]);
 
+    // ── Step 3: 비목 시트 cascade (미리 읽어둔 정보 사용) ────────────
+    let totalCascadeCount = 0;
+    for (const { newName, budget, oldName } of cascadeInfos) {
+      const endRow = CATEGORY_DATA_END_ROW_MAP[budget as keyof typeof CATEGORY_DATA_END_ROW_MAP];
+      console.log(`[cascade] 시트="${budget}" 검색범위=A${CATEGORY_DATA_START_ROW}:A${endRow} oldName="${oldName}" → newName="${newName}"`);
+
+      const catRes = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'${budget}'!A${CATEGORY_DATA_START_ROW}:A${endRow}`,
+        valueRenderOption: 'UNFORMATTED_VALUE',
+      });
+      const catRows = (catRes.data.values ?? []) as (string | number | null)[][];
+
+      const cascadeData = catRows
+        .map((row, idx) => ({ sheetRow: CATEGORY_DATA_START_ROW + idx, name: String(row[0] ?? '').trim() }))
+        .filter(({ name }) => name === oldName)
+        .map(({ sheetRow }) => ({ range: `'${budget}'!A${sheetRow}`, values: [[newName]] }));
+
+      console.log(`[cascade] 매칭 행 수=${cascadeData.length}`, cascadeData.map((d) => d.range));
+
+      if (cascadeData.length === 0) continue;
+
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: { valueInputOption: 'USER_ENTERED', data: cascadeData },
+      });
+      totalCascadeCount += cascadeData.length;
+    }
+
+    console.log(`[cascade] 완료: cascadeInfos=${cascadeInfos.length}건, 업데이트=${totalCascadeCount}행`);
     return NextResponse.json({ message: `${rawData.length + normalData.length}개 셀이 수정되었습니다.` });
   } catch (error) {
     console.error('Program PATCH error:', error);

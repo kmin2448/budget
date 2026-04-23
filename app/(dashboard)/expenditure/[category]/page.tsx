@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,8 @@ export default function ExpenditurePage({
   params: { category: string };
 }) {
   const category = decodeURIComponent(params.category);
+  const searchParams = useSearchParams();
+  const highlightRowIndex = searchParams.get('rowIndex') ? Number(searchParams.get('rowIndex')) : undefined;
   const { data: session } = useSession();
   const { data, isLoading, isError, error, refetch } = useExpenditure(category);
   const { budgetType } = useBudgetType();
@@ -264,6 +267,7 @@ export default function ExpenditurePage({
           onDeleteFile={handleDeleteFileClick}
           onMoveMonth={handleMoveMonth}
           onUpdate={handleInlineUpdate}
+          highlightRowIndex={highlightRowIndex}
         />
       )}
 
