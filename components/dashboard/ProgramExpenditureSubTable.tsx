@@ -6,7 +6,7 @@ import { useExpenditure, useUpdateExpenditureRow } from '@/hooks/useExpenditure'
 import { formatKRW, parseKRW, cn } from '@/lib/utils';
 import { MONTH_COLUMNS, PERSONNEL_CATEGORY } from '@/constants/sheets';
 import type { ExpenditureDetailRow } from '@/types';
-import { Loader2, ArrowUpRight } from 'lucide-react';
+import { Loader2, ArrowUpRight, ChevronRight, ChevronDown } from 'lucide-react';
 
 interface Props {
   programName: string;
@@ -22,6 +22,7 @@ export function ProgramExpenditureSubTable({ programName, budget, isLoggedIn }: 
   const { data, isLoading, isError } = useExpenditure(budget);
   const updateRow = useUpdateExpenditureRow(budget);
   const [editState, setEditState] = useState<EditState | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const committedRef = useRef(false);
   const isPersonnel = budget === PERSONNEL_CATEGORY;
 
@@ -51,6 +52,15 @@ export function ProgramExpenditureSubTable({ programName, budget, isLoggedIn }: 
 
   if (rows.length === 0) {
     return <p className="text-xs text-gray-400 py-1 italic">이 프로그램의 집행내역이 없습니다.</p>;
+  }
+
+  function toggleRow(rowIndex: number) {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowIndex)) next.delete(rowIndex);
+      else next.add(rowIndex);
+      return next;
+    });
   }
 
   function startEdit(state: EditState) {
@@ -105,6 +115,88 @@ export function ProgramExpenditureSubTable({ programName, budget, isLoggedIn }: 
 
   const inputCls =
     'w-full rounded border border-primary/40 bg-white px-1.5 py-0.5 text-xs outline-none focus:border-primary';
+
+  // 인건비 전용 테이블 (내용 | 집행금액 | 청구서 + 월별 펼침)
+  if (isPersonnel) {
+    return (
+      <div className="overflow-x-auto rounded border border-[#E3E3E0] bg-[#FAFAF8]">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-[#E3E3E0] bg-[#F3F3EE]">
+              <th className="w-6" />
+              <th className="px-2 py-1.5 text-left font-medium text-text-secondary">내용</th>
+              <th className="px-2 py-1.5 text-right font-medium text-text-secondary w-28">집행금액</th>
+              <th className="px-2 py-1.5 text-center font-medium text-text-secondary w-14">청구서</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.flatMap((row) => {
+              const isExpanded = expandedRows.has(row.rowIndex);
+              const mainRow = (
+                <tr
+                  key={row.rowIndex}
+                  className="border-b border-[#E3E3E0] hover:bg-white transition-colors cursor-pointer"
+                  onClick={() => toggleRow(row.rowIndex)}
+                >
+                  <td className="px-2 py-1.5 text-gray-300 w-6">
+                    {isExpanded
+                      ? <ChevronDown className="h-3.5 w-3.5" />
+                      : <ChevronRight className="h-3.5 w-3.5" />}
+                  </td>
+                  <td className="px-2 py-1.5 text-gray-700">{row.programName || '-'}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums font-medium text-gray-800 w-28">
+                    {formatKRW(row.totalAmount)}
+                  </td>
+                  <td className="px-2 py-1.5 text-center w-14" onClick={(e) => e.stopPropagation()}>
+                    {row.hasFile ? (
+                      <a
+                        href={row.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="청구서 열기"
+                        className="inline-flex items-center justify-center"
+                      >
+                        <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
+                      </a>
+                    ) : (
+                      <span className="text-gray-300">-</span>
+                    )}
+                  </td>
+                </tr>
+              );
+              if (!isExpanded) return [mainRow];
+              const detailRow = (
+                <tr key={`detail-${row.rowIndex}`} className="border-b border-[#E3E3E0]">
+                  <td colSpan={4} className="px-4 py-3 bg-[#F8F8F5]">
+                    <div className="grid grid-cols-6 gap-2 text-xs">
+                      {MONTH_COLUMNS.map((month, i) => (
+                        <div key={month} className="text-center">
+                          <div className="mb-0.5 text-gray-400">{month}</div>
+                          <div
+                            className={cn(
+                              'tabular-nums font-medium',
+                              row.monthlyAmounts[i] > 0 ? 'text-gray-800' : 'text-gray-300',
+                            )}
+                          >
+                            {row.monthlyAmounts[i] > 0 ? formatKRW(row.monthlyAmounts[i]) : '0'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              );
+              return [mainRow, detailRow];
+            })}
+          </tbody>
+        </table>
+        <div className="px-2 py-1 flex items-center gap-1.5 text-[10px] text-gray-400 border-t border-[#E3E3E0]">
+          <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-green-500" />
+          청구서가 업로드된 집행항목입니다. 동그라미를 클릭하면 파일을 열 수 있습니다.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto rounded border border-[#E3E3E0] bg-[#FAFAF8]">
