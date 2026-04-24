@@ -44,7 +44,10 @@ export function ProgramExpenditureSubTable({ programName, budget, isLoggedIn }: 
     return <p className="text-xs text-red-400 py-1">집행내역을 불러오지 못했습니다.</p>;
   }
 
-  const rows = (data?.rows ?? []).filter((r) => r.programName === programName);
+  // 인건비는 A열이 담당자/항목명으로 programName 매칭 불가 → 전체 표시
+  const rows = (data?.rows ?? []).filter(
+    (r) => isPersonnel || r.programName === programName,
+  );
 
   if (rows.length === 0) {
     return <p className="text-xs text-gray-400 py-1 italic">이 프로그램의 집행내역이 없습니다.</p>;
