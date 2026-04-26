@@ -205,11 +205,9 @@ export function WeMeetSummaryTable({
           <thead>
             <tr className="bg-[#F3F3EE]">
               <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">팀명</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">배정예산</th>
               <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">기안금액</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정금액</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">미청구금액</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">잔액</th>
+              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정청구</th>
+              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정미청구</th>
             </tr>
           </thead>
 
@@ -233,18 +231,14 @@ export function WeMeetSummaryTable({
                       </span>
                     </span>
                   </td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-[#131310]">{formatKRW(gt.totalBudget)}</td>
                   <td className="px-3 py-2.5 text-right text-gray-500">
                     {gt.draft > 0 ? formatKRW(gt.draft) : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-right text-[#131310]">
-                    {gt.confirmed > 0 ? formatKRW(gt.confirmed) : <span className="text-gray-300">—</span>}
+                    {(gt.confirmed - gt.claimed) > 0 ? formatKRW(gt.confirmed - gt.claimed) : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-right text-[#131310]">
                     {gt.claimed > 0 ? formatKRW(gt.claimed) : <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className={`px-3 py-2.5 text-right font-semibold ${gt.balance < 0 ? 'text-red-500' : 'text-complete'}`}>
-                    {formatKRW(gt.balance)}
                   </td>
                 </tr>,
 
@@ -253,7 +247,6 @@ export function WeMeetSummaryTable({
                   : teams.flatMap((s: WeMeetTeamSummary, idx: number) => {
                       const isOpen    = openTeam === s.teamName;
                       const totals    = usageTotals(s);
-                      const isOver    = s.balance < 0;
                       const info      = teamInfoMap.get(s.teamName) ?? null;
                       const execs     = executionsByTeam.get(s.teamName) ?? [];
                       const isEditing = info !== null && editingRow === info.rowIndex;
@@ -271,25 +264,21 @@ export function WeMeetSummaryTable({
                               {s.teamName}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(s.totalBudget)}</td>
                           <td className="px-3 py-2 text-right text-gray-500">
                             {totals.draft > 0 ? formatKRW(totals.draft) : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="px-3 py-2 text-right text-[#131310]">
-                            {totals.confirmed > 0 ? formatKRW(totals.confirmed) : <span className="text-gray-300">—</span>}
+                            {(totals.confirmed - totals.claimed) > 0 ? formatKRW(totals.confirmed - totals.claimed) : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="px-3 py-2 text-right text-[#131310]">
                             {totals.claimed > 0 ? formatKRW(totals.claimed) : <span className="text-gray-300">—</span>}
-                          </td>
-                          <td className={`px-3 py-2 text-right font-medium ${isOver ? 'text-red-500' : 'text-complete'}`}>
-                            {formatKRW(s.balance)}
                           </td>
                         </tr>,
 
                         ...(isOpen
                           ? [
                               <tr key={`${s.teamName}-panel`}>
-                                <td colSpan={6} className="p-0 border-t border-[#E8EFF5]">
+                                <td colSpan={4} className="p-0 border-t border-[#E8EFF5]">
                                   <div className="bg-[#F8FAFC] px-5 py-4 space-y-4">
 
                                     {/* 사용구분별 요약 (집행 데이터 기반 동적 계산) */}
@@ -299,31 +288,34 @@ export function WeMeetSummaryTable({
                                         <p className="text-xs text-gray-400">집행내역이 없습니다.</p>
                                       ) : (
                                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                          {calcUsageBreakdown(execs).map(({ usageType, draft, confirmed, unclaimed }) => (
-                                            <div key={usageType} className="rounded-md border border-[#E3E3E0] bg-white p-2.5">
-                                              <p className="mb-1.5 text-[11px] font-medium text-[#6F6F6B]">{usageType}</p>
-                                              <div className="space-y-0.5 text-[11px]">
-                                                <div className="flex justify-between">
-                                                  <span className="text-gray-400">기안</span>
-                                                  <span className={draft > 0 ? 'text-gray-600' : 'text-gray-300'}>
-                                                    {draft > 0 ? formatKRW(draft) : '—'}
-                                                  </span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                  <span className="text-gray-400">확정</span>
-                                                  <span className={confirmed > 0 ? 'font-medium text-[#131310]' : 'text-gray-300'}>
-                                                    {confirmed > 0 ? formatKRW(confirmed) : '—'}
-                                                  </span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                  <span className="text-gray-400">미청구</span>
-                                                  <span className={unclaimed > 0 ? 'text-primary' : 'text-gray-300'}>
-                                                    {unclaimed > 0 ? formatKRW(unclaimed) : '—'}
-                                                  </span>
+                                          {calcUsageBreakdown(execs).map(({ usageType, draft, confirmed, unclaimed }) => {
+                                            const claimedAmt = confirmed - unclaimed;
+                                            return (
+                                              <div key={usageType} className="rounded-md border border-[#E3E3E0] bg-white p-2.5">
+                                                <p className="mb-1.5 text-[11px] font-medium text-[#6F6F6B]">{usageType}</p>
+                                                <div className="space-y-0.5 text-[11px]">
+                                                  <div className="flex justify-between">
+                                                    <span className="text-gray-400">기안금액</span>
+                                                    <span className={draft > 0 ? 'text-gray-600' : 'text-gray-300'}>
+                                                      {draft > 0 ? formatKRW(draft) : '—'}
+                                                    </span>
+                                                  </div>
+                                                  <div className="flex justify-between">
+                                                    <span className="text-gray-400">확정청구</span>
+                                                    <span className={claimedAmt > 0 ? 'font-medium text-[#131310]' : 'text-gray-300'}>
+                                                      {claimedAmt > 0 ? formatKRW(claimedAmt) : '—'}
+                                                    </span>
+                                                  </div>
+                                                  <div className="flex justify-between">
+                                                    <span className="text-gray-400">확정미청구</span>
+                                                    <span className={unclaimed > 0 ? 'text-primary' : 'text-gray-300'}>
+                                                      {unclaimed > 0 ? formatKRW(unclaimed) : '—'}
+                                                    </span>
+                                                  </div>
                                                 </div>
                                               </div>
-                                            </div>
-                                          ))}
+                                            );
+                                          })}
                                         </div>
                                       )}
                                     </div>
@@ -613,13 +605,9 @@ export function WeMeetSummaryTable({
           <tfoot>
             <tr className="border-t-2 border-[#E3E3E0] bg-[#F3F3EE] font-semibold">
               <td className="px-3 py-2 text-[#6F6F6B]">합계 ({summaries.length}팀)</td>
-              <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.totalBudget)}</td>
               <td className="px-3 py-2 text-right text-gray-500">{formatKRW(grandTotal.draft)}</td>
-              <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.confirmed)}</td>
+              <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.confirmed - grandTotal.claimed)}</td>
               <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.claimed)}</td>
-              <td className={`px-3 py-2 text-right ${grandTotal.balance < 0 ? 'text-red-500' : 'text-[#131310]'}`}>
-                {formatKRW(grandTotal.balance)}
-              </td>
             </tr>
           </tfoot>
         </table>
