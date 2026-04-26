@@ -140,7 +140,7 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
-      <DialogContent className="max-w-5xl w-full rounded-xl" showCloseButton={false}>
+      <DialogContent className="!w-[min(1000px,calc(100vw-2rem))] !max-w-[min(1000px,calc(100vw-2rem))] rounded-[2px]" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>집행내역 일괄 추가</DialogTitle>
         </DialogHeader>
@@ -188,14 +188,20 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
             <input
               type="text"
               value={bulkDraftStr}
-              onChange={(e) => setBulkDraftStr(e.target.value)}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9]/g, '');
+                setBulkDraftStr(raw === '' ? '' : Number(raw).toLocaleString('ko-KR'));
+              }}
               placeholder="기안금액"
               className="w-28 rounded border border-[#E3E3E0] bg-white px-2 py-1 text-right text-xs focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <input
               type="text"
               value={bulkConfStr}
-              onChange={(e) => setBulkConfStr(e.target.value)}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9]/g, '');
+                setBulkConfStr(raw === '' ? '' : Number(raw).toLocaleString('ko-KR'));
+              }}
               placeholder="확정금액"
               className="w-28 rounded border border-[#E3E3E0] bg-white px-2 py-1 text-right text-xs focus:outline-none focus:ring-1 focus:ring-primary"
             />
@@ -253,7 +259,10 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
                         <input
                           type="text"
                           value={row.draftStr}
-                          onChange={(e) => updateRow(row.id, { draftStr: e.target.value })}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            updateRow(row.id, { draftStr: raw === '' ? '' : Number(raw).toLocaleString('ko-KR') });
+                          }}
                           placeholder="0"
                           className={`${fi} text-right`}
                         />
@@ -264,10 +273,11 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
                           type="text"
                           value={row.confirmedStr}
                           onChange={(e) => {
-                            const v = e.target.value;
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            const fmt = raw === '' ? '' : Number(raw).toLocaleString('ko-KR');
                             updateRow(row.id, {
-                              confirmedStr: v,
-                              claimed: (parseKRW(v) || 0) === 0 ? false : row.claimed,
+                              confirmedStr: fmt,
+                              claimed: Number(raw) === 0 ? false : row.claimed,
                             });
                           }}
                           placeholder="0=미확정"

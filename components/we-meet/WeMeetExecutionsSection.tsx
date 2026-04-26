@@ -69,17 +69,25 @@ const DEFAULT_NEW_GROUP: NewGroupForm = {
 function AmountInput({ value, onSave, disabled = false, placeholder = '0' }: {
   value: number; onSave: (v: number) => void; disabled?: boolean; placeholder?: string;
 }) {
+  const [inputVal, setInputVal] = useState(value > 0 ? formatKRW(value) : '');
+
+  useEffect(() => {
+    setInputVal(value > 0 ? formatKRW(value) : '');
+  }, [value]);
+
   return (
     <input
-      key={`amt-${value}`}
       type="text"
-      defaultValue={value > 0 ? formatKRW(value) : ''}
+      value={inputVal}
       disabled={disabled}
       placeholder={placeholder}
-      onFocus={(e) => { e.target.value = value > 0 ? String(value) : ''; e.target.select(); }}
-      onBlur={(e) => {
-        const next = parseKRW(e.target.value) || 0;
-        e.target.value = next > 0 ? formatKRW(next) : '';
+      onChange={(e) => {
+        const raw = e.target.value.replace(/[^0-9]/g, '');
+        setInputVal(raw === '' ? '' : Number(raw).toLocaleString('ko-KR'));
+      }}
+      onBlur={() => {
+        const next = parseKRW(inputVal) || 0;
+        setInputVal(next > 0 ? formatKRW(next) : '');
         if (next !== value) onSave(next);
       }}
       onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
@@ -262,9 +270,12 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
           <td className="px-3 py-2 text-right text-xs tabular-nums text-[#131310]">
             {totalConf > 0 ? formatKRW(totalConf) : <span className="text-gray-300">—</span>}
           </td>
-          <td className="px-3 py-2 text-right text-xs tabular-nums">
+          <td className="px-3 py-2 text-right text-xs">
             {unclaimedAmt > 0
-              ? <span className="text-red-400"><span className="mr-1 text-[10px]">(미청구)</span>{formatKRW(unclaimedAmt)}</span>
+              ? <span className="inline-flex w-36 items-center justify-between text-red-400">
+                  <span className="text-[10px]">(미청구)</span>
+                  <span className="tabular-nums">{formatKRW(unclaimedAmt)}</span>
+                </span>
               : <span className="text-gray-300">—</span>}
           </td>
           <td className="px-3 py-2 text-center text-xs">
@@ -400,13 +411,20 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               {/* 기안금액 */}
               <td className="px-3 py-1.5">
                 <input type="text" value={newTeam.draftStr}
-                  onChange={(e) => setNewTeam((t) => ({ ...t, draftStr: e.target.value }))}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^0-9]/g, '');
+                    setNewTeam((t) => ({ ...t, draftStr: raw === '' ? '' : Number(raw).toLocaleString('ko-KR') }));
+                  }}
                   placeholder="0" className={`${fi} text-right`} />
               </td>
               {/* 확정금액 */}
               <td className="px-3 py-1.5">
                 <input type="text" value={newTeam.confirmedStr}
-                  onChange={(e) => setNewTeam((t) => ({ ...t, confirmedStr: e.target.value, claimed: (parseKRW(e.target.value) || 0) === 0 ? false : t.claimed }))}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^0-9]/g, '');
+                    const fmt = raw === '' ? '' : Number(raw).toLocaleString('ko-KR');
+                    setNewTeam((t) => ({ ...t, confirmedStr: fmt, claimed: Number(raw) === 0 ? false : t.claimed }));
+                  }}
                   placeholder="0=미확정" className={`${fi} text-right placeholder:text-gray-300`} />
               </td>
               {/* 청구 */}
@@ -562,16 +580,20 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                         {/* 기안금액 */}
                         <td className="px-3 py-1.5">
                           <input type="text" value={team.draftStr}
-                            onChange={(e) => updateNewGroupTeam(ti, { draftStr: e.target.value })}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^0-9]/g, '');
+                              updateNewGroupTeam(ti, { draftStr: raw === '' ? '' : Number(raw).toLocaleString('ko-KR') });
+                            }}
                             placeholder="0" className={`${fi} text-right`} />
                         </td>
                         {/* 확정금액 */}
                         <td className="px-3 py-1.5">
                           <input type="text" value={team.confirmedStr}
-                            onChange={(e) => updateNewGroupTeam(ti, {
-                              confirmedStr: e.target.value,
-                              claimed: (parseKRW(e.target.value) || 0) === 0 ? false : team.claimed,
-                            })}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/[^0-9]/g, '');
+                              const fmt = raw === '' ? '' : Number(raw).toLocaleString('ko-KR');
+                              updateNewGroupTeam(ti, { confirmedStr: fmt, claimed: Number(raw) === 0 ? false : team.claimed });
+                            }}
                             placeholder="0=미확정" className={`${fi} text-right placeholder:text-gray-300`} />
                         </td>
                         {/* 청구 */}
