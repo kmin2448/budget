@@ -343,17 +343,22 @@ export async function DELETE(
     try {
       const { unmarkWeMeetExecutionsSent } = await import('@/lib/google/wemeet-sheets');
       const supabase = createServerSupabaseClient();
-      const { data: batch } = await supabase
+      const { data: batches } = await supabase
         .from('wemeet_send_batches')
         .select('id, wemeet_row_indexes')
         .eq('category', category)
         .eq('budget_type', sheetType)
-        .eq('expenditure_row_index', rowIndex)
-        .maybeSingle();
+        .eq('expenditure_row_index', rowIndex);
 
-      if (batch) {
-        await unmarkWeMeetExecutionsSent(batch.wemeet_row_indexes as number[]);
-        await supabase.from('wemeet_send_batches').delete().eq('id', batch.id);
+      if (batches && batches.length > 0) {
+        const allRowIndexes = Array.from(new Set(batches.flatMap((b) => b.wemeet_row_indexes as number[])));
+        await unmarkWeMeetExecutionsSent(allRowIndexes);
+        await supabase
+          .from('wemeet_send_batches')
+          .delete()
+          .eq('category', category)
+          .eq('budget_type', sheetType)
+          .eq('expenditure_row_index', rowIndex);
       }
     } catch {
       // 배치 취소 실패는 무시 (집행내역 삭제는 이미 완료)

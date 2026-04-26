@@ -20,6 +20,7 @@ import { formatKRW, parseKRW } from '@/lib/utils';
 import { WeMeetBulkAddModal } from '@/components/we-meet/WeMeetBulkAddModal';
 import { WeMeetGroupSendModal } from '@/components/we-meet/WeMeetGroupSendModal';
 import { WeMeetSendSettingsModal } from '@/components/we-meet/WeMeetSendSettingsModal';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useWeMeetExecutions,
   useAddWeMeetExecution,
@@ -27,7 +28,6 @@ import {
   useDeleteWeMeetExecution,
   useAddBulkWeMeetExecutions,
   useReorderWeMeetExecutions,
-  useMarkWeMeetSent,
   useWeMeetSendBatches,
   useUndoWeMeetBatch,
   type ExecutionPayload,
@@ -193,13 +193,13 @@ interface Props {
 }
 
 export function WeMeetExecutionsSection({ canWrite }: Props) {
+  const queryClient = useQueryClient();
   const { data, isLoading, isError, error, refetch } = useWeMeetExecutions();
   const addMutation       = useAddWeMeetExecution();
   const updateMutation    = useUpdateWeMeetExecution();
   const deleteMutation    = useDeleteWeMeetExecution();
   const bulkMutation      = useAddBulkWeMeetExecutions();
   const reorderMutation   = useReorderWeMeetExecutions();
-  const markSentMutation  = useMarkWeMeetSent();
   const undoBatchMutation = useUndoWeMeetBatch();
   const { data: batchData } = useWeMeetSendBatches();
 
@@ -1197,8 +1197,9 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
         group={sendGroup}
         initialSelectedIndexes={sendInitialSelection}
         onClose={() => setSendGroup(null)}
-        onSent={(payload) => {
-          markSentMutation.mutate(payload);
+        onSent={() => {
+          void queryClient.invalidateQueries({ queryKey: ['wemeet'] });
+          void queryClient.invalidateQueries({ queryKey: ['wemeet-send-batches'] });
           setSendGroup(null);
         }}
       />
