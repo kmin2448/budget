@@ -118,6 +118,29 @@ export function useDeleteWeMeetExecution() {
   });
 }
 
+// ── 집행현황 순서 변경 ────────────────────────────────────────────────
+
+export function useReorderWeMeetExecutions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (rows: WeMeetExecution[]) => {
+      const res = await fetch('/api/we-meet/executions/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows }),
+      });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '순서 변경 실패');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [SUMMARY_KEY] });
+    },
+  });
+}
+
 // ── 다중 행 일괄 추가 (팀별 개별 금액 지원) ──────────────────────────
 
 export function useAddBulkWeMeetExecutions() {

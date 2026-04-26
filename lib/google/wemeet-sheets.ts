@@ -372,6 +372,47 @@ export async function deleteWeMeetTeamInfo(rowIndex: number): Promise<void> {
   }
 }
 
+// ── 집행현황 전체 순서 재정렬 ─────────────────────────────────────────
+
+export async function reorderWeMeetExecutions(
+  orderedRows: WeMeetExecution[],
+): Promise<void> {
+  if (orderedRows.length === 0) return;
+
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEETS_ID(),
+    range: WEMEET_EXECUTION_RANGE,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  });
+
+  const currentRows = res.data.values ?? [];
+  const clearEnd = Math.max(currentRows.length + 1, orderedRows.length + 1);
+
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: SHEETS_ID(),
+    range: `집행현황!A2:H${clearEnd}`,
+  });
+
+  const values = orderedRows.map((data) => [
+    data.usageType,
+    data.description,
+    data.teamName,
+    data.draftAmount,
+    data.confirmedAmount,
+    data.claimed,
+    data.usageDate ?? '',
+    data.evidenceSubmitted,
+  ]);
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEETS_ID(),
+    range: `집행현황!A2:H${orderedRows.length + 1}`,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  });
+}
+
 // ── 다중 행 일괄 추가 ─────────────────────────────────────────────────
 
 export async function bulkAppendWeMeetExecutions(

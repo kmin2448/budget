@@ -1,7 +1,18 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, RefreshCw, Check, X, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  Plus, Trash2, RefreshCw, Check, X,
+  ChevronDown, ChevronRight, Search, GripVertical,
+} from 'lucide-react';
+import {
+  DndContext, type DragEndEvent, DragOverlay, type DragStartEvent,
+  PointerSensor, useSensor, useSensors, closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { formatKRW, parseKRW } from '@/lib/utils';
@@ -12,6 +23,7 @@ import {
   useUpdateWeMeetExecution,
   useDeleteWeMeetExecution,
   useAddBulkWeMeetExecutions,
+  useReorderWeMeetExecutions,
   type ExecutionPayload,
 } from '@/hooks/useWeMeet';
 import type { WeMeetExecution } from '@/types';
@@ -131,6 +143,43 @@ function UsageTypeSelect({ value, usageTypes, onSave, disabled = false }: {
 const fi  = 'w-full rounded border border-[#E3E3E0] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary';
 const fis = 'w-full rounded border border-[#E3E3E0] bg-white px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary';
 
+// ── DnD 드래그 핸들 래퍼 ─────────────────────────────────────────────
+
+function SortableGroupBody({ id, disabled, children }: {
+  id: string;
+  disabled?: boolean;
+  children: (dragHandle: React.ReactNode) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    disabled: disabled ?? false,
+  });
+
+  const dragHandle = !disabled ? (
+    <span
+      {...listeners}
+      className="cursor-grab active:cursor-grabbing touch-none select-none shrink-0 text-gray-300 hover:text-gray-500 transition-colors"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <GripVertical className="h-3.5 w-3.5" />
+    </span>
+  ) : null;
+
+  return (
+    <tbody
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      {...attributes}
+    >
+      {children(dragHandle)}
+    </tbody>
+  );
+}
+
 // ── 컴포넌트 ─────────────────────────────────────────────────────────
 
 interface Props {
@@ -139,10 +188,11 @@ interface Props {
 
 export function WeMeetExecutionsSection({ canWrite }: Props) {
   const { data, isLoading, isError, error, refetch } = useWeMeetExecutions();
-  const addMutation    = useAddWeMeetExecution();
-  const updateMutation = useUpdateWeMeetExecution();
-  const deleteMutation = useDeleteWeMeetExecution();
-  const bulkMutation   = useAddBulkWeMeetExecutions();
+  const addMutation      = useAddWeMeetExecution();
+  const updateMutation   = useUpdateWeMeetExecution();
+  const deleteMutation   = useDeleteWeMeetExecution();
+  const bulkMutation     = useAddBulkWeMeetExecutions();
+  const reorderMutation  = useReorderWeMeetExecutions();
 
   const executions = useMemo(() => data?.executions ?? [], [data]);
   const teams      = data?.teams ?? [];
@@ -157,6 +207,75 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
   const [deleteTarget, setDeleteTarget]       = useState<WeMeetExecution | null>(null);
   const [showBulkModal, setShowBulkModal]     = useState(false);
   const [expandedKeys, setExpandedKeys]       = useState<Set<string>>(new Set());
+
+  // 검색 + 사용구분 필터
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeType, setActiveType]   = useState('전체');
+
+  // DnD 그룹 순서
+  const [groupOrder, setGroupOrder]     = useState<string[]>([]);
+  const [activeDragKey, setActiveDragKey] = useState<string | null>(null);
+
+  // groupOrder를 groups 변경에 동기화
+  useEffect(() => {
+    setGroupOrder((prev) => {
+      const existingKeys = new Set(groups.map((g) => g.key));
+      const filtered = prev.filter((k) => existingKeys.has(k));
+      const newKeys = groups.filter((g) => !prev.includes(g.key)).map((g) => g.key);
+      return [...filtered, ...newKeys];
+    });
+  }, [groups]);
+
+  // 순서 적용된 그룹
+  const orderedGroups = useMemo(() => {
+    const map = new Map(groups.map((g) => [g.key, g]));
+    return groupOrder.map((k) => map.get(k)).filter((g): g is ExecGroup => g !== undefined);
+  }, [groups, groupOrder]);
+
+  // 검색·필터가 없을 때만 DnD 활성
+  const isDndEnabled = canWrite && !searchQuery && activeType === '전체';
+
+  // 필터링된 그룹
+  const filteredGroups = useMemo(() => {
+    let result = orderedGroups;
+    if (activeType !== '전체') result = result.filter((g) => g.usageType === activeType);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (g) =>
+          g.usageType.toLowerCase().includes(q) ||
+          g.description.toLowerCase().includes(q) ||
+          g.rows.some((r) => r.teamName.toLowerCase().includes(q)),
+      );
+    }
+    return result;
+  }, [orderedGroups, activeType, searchQuery]);
+
+  // DnD 센서
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  );
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveDragKey(event.active.id as string);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveDragKey(null);
+    if (!over || active.id === over.id) return;
+
+    const oldIdx = groupOrder.indexOf(active.id as string);
+    const newIdx = groupOrder.indexOf(over.id as string);
+    if (oldIdx === -1 || newIdx === -1) return;
+
+    const newOrder = arrayMove(groupOrder, oldIdx, newIdx);
+    setGroupOrder(newOrder);
+
+    const map = new Map(groups.map((g) => [g.key, g]));
+    const orderedExecs = newOrder.flatMap((k) => map.get(k)?.rows ?? []);
+    reorderMutation.mutate(orderedExecs);
+  }
 
   // ── 저장 ─────────────────────────────────────────────────────────────
 
@@ -231,18 +350,17 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
   }
 
   // ── 테이블 ───────────────────────────────────────────────────────────
-  // 컬럼: 사용구분 | 지출건명 | 팀명 | 사용일자 | 기안금액 | 확정금액 | 청구여부 | 증빙제출 | (삭제)
 
   const colCount = canWrite ? 9 : 8;
 
-  function renderGroupRows(group: ExecGroup, gi: number) {
+  function renderGroupRows(group: ExecGroup, gi: number, dragHandle: React.ReactNode) {
     const result: React.ReactNode[] = [];
-    const isExpanded    = expandedKeys.has(group.key);
-    const topBorder     = gi > 0 ? 'border-t-2 border-[#D6E4F0]' : '';
-    const totalDraft    = group.rows.reduce((s, r) => s + r.draftAmount, 0);
-    const totalConf     = group.rows.reduce((s, r) => s + r.confirmedAmount, 0);
-    const unclaimedAmt  = group.rows.filter((r) => r.confirmedAmount > 0 && !r.claimed).reduce((s, r) => s + r.confirmedAmount, 0);
-    const evidenceCnt   = group.rows.filter((r) => r.evidenceSubmitted).length;
+    const isExpanded   = expandedKeys.has(group.key);
+    const topBorder    = gi > 0 ? 'border-t-2 border-[#D6E4F0]' : '';
+    const totalDraft   = group.rows.reduce((s, r) => s + r.draftAmount, 0);
+    const totalConf    = group.rows.reduce((s, r) => s + r.confirmedAmount, 0);
+    const unclaimedAmt = group.rows.filter((r) => r.confirmedAmount > 0 && !r.claimed).reduce((s, r) => s + r.confirmedAmount, 0);
+    const evidenceCnt  = group.rows.filter((r) => r.evidenceSubmitted).length;
 
     if (!isExpanded) {
       result.push(
@@ -253,6 +371,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
         >
           <td className="px-3 py-2">
             <div className="flex items-center gap-1.5">
+              {dragHandle}
               <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
               <span className="text-xs text-[#131310]">{group.usageType}</span>
             </div>
@@ -298,10 +417,11 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
 
       result.push(
         <tr key={row.rowIndex} className={`${bg} ${topBorderRow}`}>
-          {/* 사용구분 (group) */}
+          {/* 사용구분 */}
           <td className="px-3 py-1.5">
             {isFirst ? (
               <div className="flex items-center gap-1">
+                {dragHandle}
                 <button
                   onClick={() => toggleGroup(group.key)}
                   className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-[#D6E4F0] hover:text-primary transition-colors"
@@ -316,7 +436,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
             )}
           </td>
 
-          {/* 지출건명 (group) */}
+          {/* 지출건명 */}
           <td className="px-3 py-1.5">
             {isFirst ? (
               <input key={`${row.rowIndex}-desc`} type="text" defaultValue={row.description}
@@ -330,13 +450,13 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
             )}
           </td>
 
-          {/* 팀명 (per row) */}
+          {/* 팀명 */}
           <td className="px-3 py-1.5">
             <TeamSelect value={row.teamName} teams={teams} disabled={!canWrite}
               onSave={(v) => saveRow(row, { teamName: v })} />
           </td>
 
-          {/* 사용일자 (per row) */}
+          {/* 사용일자 */}
           <td className="px-3 py-1.5">
             <input key={`${row.rowIndex}-date`} type="date" defaultValue={row.usageDate}
               disabled={!canWrite}
@@ -395,20 +515,17 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
             <tr key={`add-team-${group.key}`} className="bg-[#F8FAFF] border-t border-dashed border-[#C8DCF0]">
               <td className="px-3 py-1.5 text-[10px] text-gray-300 pl-5">↑</td>
               <td className="px-3 py-1.5 text-[10px] text-gray-300">↑</td>
-              {/* 팀 선택 */}
               <td className="px-3 py-1.5">
                 <select value={newTeam.teamName} onChange={(e) => setNewTeam((t) => ({ ...t, teamName: e.target.value }))} className={fis}>
                   <option value="">팀 선택</option>
                   {teams.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </td>
-              {/* 사용일자 */}
               <td className="px-3 py-1.5">
                 <input type="date" value={newTeam.usageDate}
                   onChange={(e) => setNewTeam((t) => ({ ...t, usageDate: e.target.value }))}
                   className={fi} />
               </td>
-              {/* 기안금액 */}
               <td className="px-3 py-1.5">
                 <input type="text" value={newTeam.draftStr}
                   onChange={(e) => {
@@ -417,7 +534,6 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                   }}
                   placeholder="0" className={`${fi} text-right`} />
               </td>
-              {/* 확정금액 */}
               <td className="px-3 py-1.5">
                 <input type="text" value={newTeam.confirmedStr}
                   onChange={(e) => {
@@ -427,19 +543,16 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                   }}
                   placeholder="0=미확정" className={`${fi} text-right placeholder:text-gray-300`} />
               </td>
-              {/* 청구 */}
               <td className="px-3 py-1.5 text-center">
                 <input type="checkbox" checked={newTeam.claimed} disabled={newConf === 0}
                   onChange={(e) => setNewTeam((t) => ({ ...t, claimed: e.target.checked }))}
                   className="h-3.5 w-3.5 accent-primary disabled:opacity-40 disabled:cursor-default" />
               </td>
-              {/* 증빙 */}
               <td className="px-3 py-1.5 text-center">
                 <input type="checkbox" checked={newTeam.evidenceSubmitted}
                   onChange={(e) => setNewTeam((t) => ({ ...t, evidenceSubmitted: e.target.checked }))}
                   className="h-3.5 w-3.5 accent-primary" />
               </td>
-              {/* 저장/취소 */}
               <td className="px-2 py-1.5">
                 <div className="flex items-center gap-1">
                   <button onClick={() => { void handleAddTeamToGroup(group); }}
@@ -492,6 +605,36 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
         </Button>
       </div>
 
+      {/* 검색 + 사용구분 필터 */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="검색 (사용구분, 건명, 팀명)"
+            className="h-8 w-52 rounded-md border border-[#E3E3E0] bg-white pl-8 pr-3 text-xs text-[#131310] placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <div className="flex items-center gap-1 flex-wrap">
+          {['전체', ...usageTypes].map((type) => (
+            <button
+              key={type}
+              onClick={() => setActiveType(type)}
+              className={[
+                'rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors whitespace-nowrap',
+                activeType === type
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-[#D6E4F0] hover:text-primary',
+              ].join(' ')}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {isError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error instanceof Error ? error.message : '데이터를 불러오지 못했습니다.'}
@@ -501,39 +644,53 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
       {isLoading ? (
         <div className="h-64 animate-pulse rounded-lg bg-[#F3F3EE]" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-[#E3E3E0]">
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr className="bg-[#F3F3EE]">
-                <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">사용구분</th>
-                <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">지출건명</th>
-                <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">팀명</th>
-                <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">사용일자</th>
-                <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">기안금액</th>
-                <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정금액</th>
-                <th className="px-3 py-2.5 text-center font-medium text-[#6F6F6B] whitespace-nowrap">청구여부</th>
-                <th className="px-3 py-2.5 text-center font-medium text-[#6F6F6B] whitespace-nowrap">증빙제출</th>
-                {canWrite && <th className="px-2 py-2.5 font-medium text-[#6F6F6B]"></th>}
-              </tr>
-            </thead>
-
-            <tbody>
-              {groups.length === 0 && !showNewGroup && (
-                <tr>
-                  <td colSpan={colCount} className="px-3 py-10 text-center text-gray-400">
-                    집행내역이 없습니다. &quot;건 추가&quot; 버튼으로 새 항목을 입력하세요.
-                  </td>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="overflow-x-auto rounded-lg border border-[#E3E3E0]">
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="bg-[#F3F3EE]">
+                  <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">사용구분</th>
+                  <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">지출건명</th>
+                  <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">팀명</th>
+                  <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">사용일자</th>
+                  <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">기안금액</th>
+                  <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정금액</th>
+                  <th className="px-3 py-2.5 text-center font-medium text-[#6F6F6B] whitespace-nowrap">청구여부</th>
+                  <th className="px-3 py-2.5 text-center font-medium text-[#6F6F6B] whitespace-nowrap">증빙제출</th>
+                  {canWrite && <th className="px-2 py-2.5 font-medium text-[#6F6F6B]"></th>}
                 </tr>
-              )}
+              </thead>
 
-              {groups.flatMap((group, gi) => renderGroupRows(group, gi))}
+              <SortableContext items={groupOrder} strategy={verticalListSortingStrategy}>
+                {filteredGroups.map((group, gi) => (
+                  <SortableGroupBody key={group.key} id={group.key} disabled={!isDndEnabled}>
+                    {(dragHandle) => renderGroupRows(group, gi, dragHandle)}
+                  </SortableGroupBody>
+                ))}
+              </SortableContext>
+
+              {filteredGroups.length === 0 && !showNewGroup && (
+                <tbody>
+                  <tr>
+                    <td colSpan={colCount} className="px-3 py-10 text-center text-gray-400">
+                      {searchQuery || activeType !== '전체'
+                        ? '검색 결과가 없습니다.'
+                        : '집행내역이 없습니다. "건 추가" 버튼으로 새 항목을 입력하세요.'}
+                    </td>
+                  </tr>
+                </tbody>
+              )}
 
               {/* 새 건 추가 폼 */}
               {showNewGroup && (
-                <>
+                <tbody>
                   <tr><td colSpan={colCount} className="p-0"><div className="border-t-2 border-dashed border-primary/25" /></td></tr>
 
-                  {/* 공통 필드: 사용구분 + 지출건명 */}
                   <tr className="bg-[#F0F5FF]">
                     <td className="px-3 py-2">
                       <select value={newGroupForm.usageType}
@@ -555,14 +712,12 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                     </td>
                   </tr>
 
-                  {/* 팀 행들 */}
                   {newGroupForm.teams.map((team, ti) => {
                     const teamConf = parseKRW(team.confirmedStr) || 0;
                     return (
                       <tr key={ti} className="bg-[#F5F8FF]">
                         <td className="px-3 py-1.5 text-[10px] text-gray-300 pl-6">↑</td>
                         <td className="px-3 py-1.5 text-[10px] text-gray-300">↑</td>
-                        {/* 팀 선택 */}
                         <td className="px-3 py-1.5">
                           <select value={team.teamName}
                             onChange={(e) => updateNewGroupTeam(ti, { teamName: e.target.value })}
@@ -571,13 +726,11 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                             {teams.map((t) => <option key={t} value={t}>{t}</option>)}
                           </select>
                         </td>
-                        {/* 사용일자 */}
                         <td className="px-3 py-1.5">
                           <input type="date" value={team.usageDate}
                             onChange={(e) => updateNewGroupTeam(ti, { usageDate: e.target.value })}
                             className={fi} />
                         </td>
-                        {/* 기안금액 */}
                         <td className="px-3 py-1.5">
                           <input type="text" value={team.draftStr}
                             onChange={(e) => {
@@ -586,7 +739,6 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                             }}
                             placeholder="0" className={`${fi} text-right`} />
                         </td>
-                        {/* 확정금액 */}
                         <td className="px-3 py-1.5">
                           <input type="text" value={team.confirmedStr}
                             onChange={(e) => {
@@ -596,13 +748,11 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                             }}
                             placeholder="0=미확정" className={`${fi} text-right placeholder:text-gray-300`} />
                         </td>
-                        {/* 청구 */}
                         <td className="px-3 py-1.5 text-center">
                           <input type="checkbox" checked={team.claimed} disabled={teamConf === 0}
                             onChange={(e) => updateNewGroupTeam(ti, { claimed: e.target.checked })}
                             className="h-3.5 w-3.5 accent-primary disabled:opacity-40 disabled:cursor-default" />
                         </td>
-                        {/* 증빙 */}
                         <td className="px-3 py-1.5 text-center">
                           <input type="checkbox" checked={team.evidenceSubmitted}
                             onChange={(e) => updateNewGroupTeam(ti, { evidenceSubmitted: e.target.checked })}
@@ -622,7 +772,6 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                     );
                   })}
 
-                  {/* 팀 추가 + 저장/취소 */}
                   <tr className="bg-[#EEF3FF]">
                     <td colSpan={2} className="px-4 py-2">
                       <button onClick={() => setNewGroupForm((f) => ({ ...f, teams: [...f.teams, { ...DEFAULT_TEAM }] }))}
@@ -644,15 +793,33 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                       </div>
                     </td>
                   </tr>
-                </>
+                </tbody>
               )}
-            </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+
+          <DragOverlay>
+            {activeDragKey ? (() => {
+              const g = groups.find((grp) => grp.key === activeDragKey);
+              if (!g) return null;
+              return (
+                <div className="rounded-md border border-[#D6E4F0] bg-white px-4 py-2.5 text-xs shadow-xl">
+                  <span className="font-medium text-[#131310]">{g.usageType}</span>
+                  <span className="mx-1.5 text-gray-400">—</span>
+                  <span className="text-[#131310]">{g.description}</span>
+                  <span className="ml-2 text-[11px] text-primary">({g.rows.length}팀)</span>
+                </div>
+              );
+            })() : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {!isLoading && executions.length > 0 && (
-        <p className="text-xs text-gray-400">총 {groups.length}건 / {executions.length}개 팀 행</p>
+        <p className="text-xs text-gray-400">
+          총 {groups.length}건 / {executions.length}개 팀 행
+          {isDndEnabled && <span className="ml-2 text-gray-300">· 핸들 드래그로 건 순서 변경 가능</span>}
+        </p>
       )}
 
       <WeMeetBulkAddModal
