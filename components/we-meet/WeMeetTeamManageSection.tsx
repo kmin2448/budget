@@ -12,9 +12,10 @@ import {
 
 interface Props {
   canWrite: boolean;
+  advisorOrder?: string[];
 }
 
-export function WeMeetTeamManageSection({ canWrite }: Props) {
+export function WeMeetTeamManageSection({ canWrite, advisorOrder }: Props) {
   const { data: teamInfoData, isLoading, isError, error, refetch } = useWeMeetTeamInfos();
   const addTeamInfoMutation    = useAddWeMeetTeamInfo();
   const updateTeamInfoMutation = useUpdateWeMeetTeamInfo();
@@ -57,6 +58,7 @@ export function WeMeetTeamManageSection({ canWrite }: Props) {
           onUpdateTeam={updateTeamInfoMutation.mutateAsync}
           onDeleteTeam={deleteTeamInfoMutation.mutateAsync}
           isDeleting={deleteTeamInfoMutation.isPending}
+          advisorOrder={advisorOrder ?? []}
         />
       )}
     </div>

@@ -31,6 +31,7 @@ interface Props {
   onUpdateTeam: (info: WeMeetTeamInfo) => Promise<void>;
   onDeleteTeam: (rowIndex: number) => Promise<void>;
   isDeleting: boolean;
+  advisorOrder?: string[];
 }
 
 // ── 유틸 ────────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ function toEditState(info: WeMeetTeamInfo): EditState {
 // ── 컴포넌트 ─────────────────────────────────────────────────────────────
 
 export function WeMeetTeamManageTable({
-  teamInfos, onAddTeam, onUpdateTeam, onDeleteTeam, isDeleting,
+  teamInfos, onAddTeam, onUpdateTeam, onDeleteTeam, isDeleting, advisorOrder = [],
 }: Props) {
   // 지도교수 그룹 펼침 상태
   const [openAdvisors, setOpenAdvisors] = useState<Set<string>>(new Set());
@@ -85,6 +86,16 @@ export function WeMeetTeamManageTable({
       })
       .map(([advisor, teams]: [string, WeMeetTeamInfo[]]) => ({ advisor, teams }));
   }, [teamInfos]);
+
+  // 팀별현황 드래그 순서 적용
+  const orderedAdvisorGroups = useMemo(() => {
+    if (advisorOrder.length === 0) return advisorGroups;
+    const map = new Map(advisorGroups.map((g) => [g.advisor, g]));
+    const ordered = advisorOrder.flatMap((a) => { const g = map.get(a); return g ? [g] : []; });
+    const orderedSet = new Set(advisorOrder);
+    const remaining = advisorGroups.filter((g) => !orderedSet.has(g.advisor));
+    return [...ordered, ...remaining];
+  }, [advisorGroups, advisorOrder]);
 
   // ── 핸들러 ───────────────────────────────────────────────────────────
 
@@ -209,7 +220,7 @@ export function WeMeetTeamManageTable({
         </div>
       ) : (
         <div className="rounded-lg border border-[#E3E3E0] overflow-hidden divide-y divide-[#E3E3E0]">
-          {advisorGroups.map(({ advisor, teams }) => {
+          {orderedAdvisorGroups.map(({ advisor, teams }) => {
             const isOpen = openAdvisors.has(advisor);
 
             return (

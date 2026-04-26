@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { BarChart3, ClipboardList, Users, ExternalLink, Pencil, Check, X } from 'lucide-react';
 import { WeMeetTeamsSection } from '@/components/we-meet/WeMeetTeamsSection';
@@ -24,6 +24,8 @@ export default function WeMeetPage() {
   const canWrite = userRole === 'super_admin' || userRole === 'admin';
 
   const [activeTab, setActiveTab] = useState<TabId>('executions');
+  const [sharedAdvisorOrder, setSharedAdvisorOrder] = useState<string[]>([]);
+  const handleAdvisorOrderChange = useCallback((order: string[]) => setSharedAdvisorOrder(order), []);
 
   const [referenceUrl, setReferenceUrl] = useState(DEFAULT_REF_URL);
   const [isEditingUrl, setIsEditingUrl] = useState(false);
@@ -147,13 +149,13 @@ export default function WeMeetPage() {
 
       {/* 탭 콘텐츠 */}
       {activeTab === 'teams' && (
-        <WeMeetTeamsSection canWrite={canWrite} />
+        <WeMeetTeamsSection canWrite={canWrite} onAdvisorOrderChange={handleAdvisorOrderChange} />
       )}
       {activeTab === 'executions' && (
         <WeMeetExecutionsSection canWrite={canWrite} />
       )}
       {activeTab === 'team-manage' && (
-        <WeMeetTeamManageSection canWrite={canWrite} />
+        <WeMeetTeamManageSection canWrite={canWrite} advisorOrder={sharedAdvisorOrder} />
       )}
     </div>
   );

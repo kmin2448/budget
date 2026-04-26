@@ -21,9 +21,10 @@ import type { WeMeetExecution } from '@/types';
 
 interface Props {
   canWrite: boolean;
+  onAdvisorOrderChange?: (order: string[]) => void;
 }
 
-export function WeMeetTeamsSection({ canWrite }: Props) {
+export function WeMeetTeamsSection({ canWrite, onAdvisorOrderChange }: Props) {
   const { data, isLoading, isError, error, refetch }                                             = useWeMeetExecutions();
   const { data: summaries = [], isLoading: isSummaryLoading, refetch: refetchSummary }           = useWeMeetSummary();
   const { data: teamInfoData, isError: isTeamInfoError, error: teamInfoError, refetch: refetchTeamInfos } = useWeMeetTeamInfos();
@@ -166,6 +167,7 @@ export function WeMeetTeamsSection({ canWrite }: Props) {
           onDeleteExecution={handleDeleteExecution}
           onUpdateExecution={handleUpdateExecution}
           isToggling={updateMutation.isPending}
+          onAdvisorOrderChange={onAdvisorOrderChange}
         />
       )}
 

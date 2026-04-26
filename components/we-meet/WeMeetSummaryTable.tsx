@@ -84,6 +84,7 @@ interface Props {
   onDeleteExecution: (row: WeMeetExecution) => void;
   onUpdateExecution: (row: WeMeetExecution) => void;
   isToggling: boolean;
+  onAdvisorOrderChange?: (order: string[]) => void;
 }
 
 // ── 유틸 ────────────────────────────────────────────────────────────────
@@ -129,6 +130,7 @@ export function WeMeetSummaryTable({
   summaries, teamInfos, executions, canWrite,
   onSelectTeam, onUpdateTeamInfo,
   onAddExecution, onEditExecution, onDeleteExecution, onUpdateExecution, isToggling,
+  onAdvisorOrderChange,
 }: Props) {
   const [openAdvisors, setOpenAdvisors] = useState<Set<string>>(new Set());
   const [openTeam, setOpenTeam]         = useState<string | null>(null);
@@ -183,6 +185,12 @@ export function WeMeetSummaryTable({
       return [...filtered, ...added];
     });
   }, [advisorGroups]);
+
+  // 순서 변경 시 부모로 전파
+  useEffect(() => {
+    if (advisorOrder.length > 0) onAdvisorOrderChange?.(advisorOrder);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advisorOrder]);
 
   const orderedAdvisorGroups = useMemo(() => {
     const map = new Map(advisorGroups.map((g) => [g.advisor, g]));
