@@ -7,20 +7,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { CATEGORY_SHEETS } from '@/constants/sheets';
 
-export const SEND_SETTINGS_KEY = 'wemeet_send_settings_v2';
+export const SEND_SETTINGS_KEY = 'wemeet_send_settings_v3';
 
 export interface WeMeetSendSettings {
   budgetType: 'main' | 'carryover';
   category: string;
-  subCat: string;    // 구분/프로그램 (보조비목)
-  subDetail: string; // 세목 (선택)
 }
 
 const DEFAULT_SETTINGS: WeMeetSendSettings = {
   budgetType: 'main',
   category: CATEGORY_SHEETS[2] ?? CATEGORY_SHEETS[0],
-  subCat: '',
-  subDetail: '',
 };
 
 export function loadSendSettings(): WeMeetSendSettings {
@@ -70,13 +66,14 @@ export function WeMeetSendSettingsModal({ open, onClose }: Props) {
 
         <div className="space-y-4 py-1">
           <p className="text-xs text-gray-400">
-            집행현황 → 비목별 집행내역 전송 시 기본으로 사용할 값을 설정합니다. 보낼 때 수정 가능합니다.
+            집행현황 → 비목별 집행내역 전송 시 기본으로 사용할 예산구분과 비목을 설정합니다.
+            보낼 때 변경 가능합니다.
           </p>
 
           {/* 예산구분 */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-[#131310]">예산구분</label>
-            <div className="flex gap-3">
+            <div className="flex gap-4">
               {(['main', 'carryover'] as const).map((t) => (
                 <label key={t} className="flex items-center gap-1.5 cursor-pointer">
                   <input
@@ -99,43 +96,10 @@ export function WeMeetSendSettingsModal({ open, onClose }: Props) {
             <select value={settings.category} onChange={(e) => set('category', e.target.value)} className={fi}>
               {CATEGORY_SHEETS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
+            <p className="text-[11px] text-gray-400">
+              보낼 때 이 비목의 구분/프로그램 목록을 불러옵니다.
+            </p>
           </div>
-
-          {/* 구분/프로그램 (보조비목) */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[#131310]">
-              구분/프로그램 <span className="text-[11px] text-gray-400 font-normal">(비목별 집행내역 A열)</span>
-            </label>
-            <input
-              type="text"
-              value={settings.subCat}
-              onChange={(e) => set('subCat', e.target.value)}
-              placeholder="예: WE-Meet 지원비"
-              className={fi}
-            />
-          </div>
-
-          {/* 세목 */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-[#131310]">
-              세목 <span className="text-[11px] text-gray-400 font-normal">(선택 — 구분/프로그램 뒤에 '/ 세목' 형태로 붙음)</span>
-            </label>
-            <input
-              type="text"
-              value={settings.subDetail}
-              onChange={(e) => set('subDetail', e.target.value)}
-              placeholder="예: WE-Meet"
-              className={fi}
-            />
-          </div>
-
-          {/* 미리보기 */}
-          {settings.subCat && (
-            <div className="rounded-md bg-[#F5F9FC] px-3 py-2 text-xs text-[#6F6F6B]">
-              <span className="font-medium text-primary">구분/프로그램 미리보기: </span>
-              {settings.subDetail ? `${settings.subCat} / ${settings.subDetail}` : settings.subCat}
-            </div>
-          )}
         </div>
 
         <DialogFooter>
