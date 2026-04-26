@@ -152,8 +152,6 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [Array.from(selectedIdxSet).sort().join(','), group],
   );
-  const selectedTeams = selectedRows.map((r) => r.teamName).filter(Boolean);
-
   // 건명 자동 생성
   useEffect(() => {
     if (!group) return;
