@@ -55,11 +55,6 @@ function buildMonthlyAmounts(rows: WeMeetExecution[]): number[] {
   return amounts;
 }
 
-function defaultExpenseDate(rows: WeMeetExecution[]): string {
-  const dates = rows.map((r) => r.usageDate).filter(Boolean).sort();
-  return dates[0] ?? new Date().toISOString().slice(0, 10);
-}
-
 const LAST_PROGRAM_KEY = 'wemeet_send_last_program';
 
 // ── KRW 입력 ──────────────────────────────────────────────────────────
@@ -99,7 +94,6 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
 
   // 집행 정보
   const [description, setDescription] = useState('');
-  const [expenseDate, setExpenseDate] = useState('');
   const [monthAmts, setMonthAmts]     = useState<string[]>(Array(12).fill(''));
 
   // 상태
@@ -120,7 +114,6 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
           ? new Set(initialSelectedIndexes)
           : new Set(group.rows.map((r) => r.rowIndex)),
       );
-      setExpenseDate(defaultExpenseDate(group.rows));
       setError('');
       setSuccess(false);
     }
@@ -227,7 +220,7 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             programName: selectedProgram,
-            expenseDate,
+            expenseDate: '',
             description,
             monthlyAmounts,
           }),
@@ -420,17 +413,6 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full rounded-md border border-[#E3E3E0] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-
-            {/* 지출일자 */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-[#6F6F6B]">지출일자</label>
-              <input
-                type="date"
-                value={expenseDate}
-                onChange={(e) => setExpenseDate(e.target.value)}
-                className="h-9 rounded-md border border-[#E3E3E0] bg-white px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary w-44"
               />
             </div>
 

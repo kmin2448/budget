@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Search } from 'lucide-react';
 import { WeMeetSummaryTable } from '@/components/we-meet/WeMeetSummaryTable';
 import { WeMeetRowForm } from '@/components/we-meet/WeMeetRowForm';
 import { WeMeetAllPdfReport } from '@/components/we-meet/WeMeetPdfReport';
@@ -33,6 +33,7 @@ export function WeMeetTeamsSection({ canWrite }: Props) {
   const deleteMutation         = useDeleteWeMeetExecution();
   const updateTeamInfoMutation = useUpdateWeMeetTeamInfo();
 
+  const [searchQuery, setSearchQuery] = useState('');
   const [formOpen, setFormOpen]       = useState(false);
   const [formMode, setFormMode]       = useState<'add' | 'edit'>('add');
   const [editTarget, setEditTarget]   = useState<WeMeetExecution | undefined>();
@@ -43,6 +44,22 @@ export function WeMeetTeamsSection({ canWrite }: Props) {
   const teams      = data?.teams ?? [];
   const usageTypes = data?.usageTypes ?? [];
   const teamInfos  = teamInfoData?.teamInfos ?? [];
+
+  const filteredSummaries = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return summaries;
+    return summaries.filter((s) => {
+      if (s.teamName.toLowerCase().includes(q)) return true;
+      const info = teamInfos.find((t) => t.teamName === s.teamName);
+      if (info) {
+        if (info.advisor.toLowerCase().includes(q)) return true;
+        if (info.topic.toLowerCase().includes(q)) return true;
+        if (info.mentor.toLowerCase().includes(q)) return true;
+        if (info.teamLeader.toLowerCase().includes(q)) return true;
+      }
+      return false;
+    });
+  }, [summaries, searchQuery, teamInfos]);
 
   function handleAddExecution(teamName: string) {
     setFormMode('add');
@@ -93,9 +110,18 @@ export function WeMeetTeamsSection({ canWrite }: Props) {
   return (
     <div className="space-y-4">
       {/* 툴바 */}
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-400">지도교수 행 클릭으로 팀 목록 펼치기 · 팀 클릭으로 상세 확인</span>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:w-64">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="팀명, 지도교수, 멘토, 주제 검색…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 w-full rounded-md border border-[#E3E3E0] bg-white pl-8 pr-3 text-sm placeholder:text-gray-300 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
           {!isSummaryLoading && (
             <WeMeetAllPdfReport summaries={summaries} />
           )}
@@ -129,7 +155,7 @@ export function WeMeetTeamsSection({ canWrite }: Props) {
         <div className="h-40 animate-pulse rounded-lg bg-[#F3F3EE]" />
       ) : (
         <WeMeetSummaryTable
-          summaries={summaries}
+          summaries={filteredSummaries}
           teamInfos={teamInfos}
           executions={executions}
           canWrite={canWrite}
