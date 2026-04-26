@@ -1,15 +1,50 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { formatKRW, parseKRW } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { ChevronRight, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { ChevronRight, Plus, Pencil, Trash2, Check, X, GripVertical } from 'lucide-react';
+import {
+  DndContext, type DragEndEvent, DragOverlay, type DragStartEvent,
+  PointerSensor, useSensor, useSensors, closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { WeMeetTeamPdfReport } from '@/components/we-meet/WeMeetPdfReport';
 import type { WeMeetTeamSummary, WeMeetUsageSummary, WeMeetTeamInfo, WeMeetExecution } from '@/types';
 
 // ── 상수 ────────────────────────────────────────────────────────────────
 
 const NO_ADVISOR = '지도교수 미배정';
+
+// ── DnD 지도교수 그룹 tbody 래퍼 ─────────────────────────────────────────
+
+function SortableAdvisorBody({ id, children }: {
+  id: string;
+  children: (dragHandle: React.ReactNode) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const dragHandle = (
+    <span
+      {...listeners}
+      className="cursor-grab active:cursor-grabbing touch-none select-none shrink-0 text-[#1F5C99]/40 hover:text-[#1F5C99] transition-colors"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <GripVertical className="h-3.5 w-3.5" />
+    </span>
+  );
+  return (
+    <tbody
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      {...attributes}
+    >
+      {children(dragHandle)}
+    </tbody>
+  );
+}
 
 // 집행 데이터에서 사용구분별 집계 (시트 사용구분목록 변경 시 자동 반영)
 function calcUsageBreakdown(execs: WeMeetExecution[]): Array<{
@@ -135,6 +170,41 @@ export function WeMeetSummaryTable({
 
   const grandTotal = useMemo(() => sumGroups(summaries), [summaries]);
 
+  // ── DnD 지도교수 순서 ──────────────────────────────────────────────────
+
+  const [advisorOrder, setAdvisorOrder]           = useState<string[]>([]);
+  const [activeDragAdvisor, setActiveDragAdvisor] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAdvisorOrder((prev) => {
+      const existing = new Set(advisorGroups.map((g) => g.advisor));
+      const filtered = prev.filter((a) => existing.has(a));
+      const added    = advisorGroups.filter((g) => !prev.includes(g.advisor)).map((g) => g.advisor);
+      return [...filtered, ...added];
+    });
+  }, [advisorGroups]);
+
+  const orderedAdvisorGroups = useMemo(() => {
+    const map = new Map(advisorGroups.map((g) => [g.advisor, g]));
+    return advisorOrder.flatMap((a) => { const g = map.get(a); return g ? [g] : []; });
+  }, [advisorGroups, advisorOrder]);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  function handleAdvisorDragStart(event: DragStartEvent) {
+    setActiveDragAdvisor(event.active.id as string);
+  }
+
+  function handleAdvisorDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveDragAdvisor(null);
+    if (!over || active.id === over.id) return;
+    const oldIdx = advisorOrder.indexOf(active.id as string);
+    const newIdx = advisorOrder.indexOf(over.id as string);
+    if (oldIdx === -1 || newIdx === -1) return;
+    setAdvisorOrder(arrayMove(advisorOrder, oldIdx, newIdx));
+  }
+
   function toggleAdvisor(advisor: string) {
     setOpenAdvisors((prev) => {
       const next = new Set(prev);
@@ -200,49 +270,53 @@ export function WeMeetSummaryTable({
 
   return (
     <div>
-      <div className="overflow-x-auto rounded-lg border border-[#E3E3E0]">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-[#F3F3EE]">
-              <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">팀명</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">기안금액</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정청구</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정미청구</th>
-            </tr>
-          </thead>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleAdvisorDragStart} onDragEnd={handleAdvisorDragEnd}>
+        <SortableContext items={advisorOrder} strategy={verticalListSortingStrategy}>
+          <div className="overflow-x-auto rounded-lg border border-[#E3E3E0]">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-[#F3F3EE]">
+                  <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">팀명</th>
+                  <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">기안금액</th>
+                  <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정청구</th>
+                  <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정미청구</th>
+                </tr>
+              </thead>
 
-          <tbody>
-            {advisorGroups.map(({ advisor, teams }) => {
-              const isAdvisorOpen = openAdvisors.has(advisor);
-              const gt = sumGroups(teams);
+              {orderedAdvisorGroups.map(({ advisor, teams }) => (
+                <SortableAdvisorBody key={advisor} id={advisor}>
+                  {(dragHandle) => {
+                    const isAdvisorOpen = openAdvisors.has(advisor);
+                    const gt = sumGroups(teams);
 
-              return [
-                <tr
-                  key={`adv-${advisor}`}
-                  className="cursor-pointer bg-[#EEF3F8] hover:bg-[#E5EDF5] transition-colors border-t border-[#D6E4F0]"
-                  onClick={() => toggleAdvisor(advisor)}
-                >
-                  <td className="px-3 py-2.5 font-semibold text-[#1F5C99]">
-                    <span className="flex items-center gap-1.5">
-                      <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-150 ${isAdvisorOpen ? 'rotate-90' : ''}`} />
-                      {advisor}
-                      <span className="ml-1 rounded-full bg-[#D6E4F0] px-1.5 py-0.5 text-[11px] font-medium text-[#1F5C99]">
-                        {teams.length}팀
-                      </span>
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-gray-500">
-                    {gt.draft > 0 ? formatKRW(gt.draft) : <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[#131310]">
-                    {(gt.confirmed - gt.claimed) > 0 ? formatKRW(gt.confirmed - gt.claimed) : <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5 text-right text-[#131310]">
-                    {gt.claimed > 0 ? formatKRW(gt.claimed) : <span className="text-gray-300">—</span>}
-                  </td>
-                </tr>,
+                    return [
+                      <tr
+                        key={`adv-${advisor}`}
+                        className="cursor-pointer bg-[#EEF3F8] hover:bg-[#E5EDF5] transition-colors border-t border-[#D6E4F0]"
+                        onClick={() => toggleAdvisor(advisor)}
+                      >
+                        <td className="px-3 py-2.5 font-semibold text-[#1F5C99]">
+                          <span className="flex items-center gap-1.5">
+                            {dragHandle}
+                            <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-150 ${isAdvisorOpen ? 'rotate-90' : ''}`} />
+                            {advisor}
+                            <span className="ml-1 rounded-full bg-[#D6E4F0] px-1.5 py-0.5 text-[11px] font-medium text-[#1F5C99]">
+                              {teams.length}팀
+                            </span>
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-gray-500">
+                          {gt.draft > 0 ? formatKRW(gt.draft) : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-[#131310]">
+                          {(gt.confirmed - gt.claimed) > 0 ? formatKRW(gt.confirmed - gt.claimed) : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-[#131310]">
+                          {gt.claimed > 0 ? formatKRW(gt.claimed) : <span className="text-gray-300">—</span>}
+                        </td>
+                      </tr>,
 
-                ...(!isAdvisorOpen
+                      ...(!isAdvisorOpen
                   ? []
                   : teams.flatMap((s: WeMeetTeamSummary, idx: number) => {
                       const isOpen    = openTeam === s.teamName;
@@ -598,20 +672,35 @@ export function WeMeetSummaryTable({
                           : []),
                       ];
                     })),
-              ];
-            })}
-          </tbody>
+                    ];
+                  }}
+                </SortableAdvisorBody>
+              ))}
 
-          <tfoot>
-            <tr className="border-t-2 border-[#E3E3E0] bg-[#F3F3EE] font-semibold">
-              <td className="px-3 py-2 text-[#6F6F6B]">합계 ({summaries.length}팀)</td>
-              <td className="px-3 py-2 text-right text-gray-500">{formatKRW(grandTotal.draft)}</td>
-              <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.confirmed - grandTotal.claimed)}</td>
-              <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.claimed)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+              <tfoot>
+                <tr className="border-t-2 border-[#E3E3E0] bg-[#F3F3EE] font-semibold">
+                  <td className="px-3 py-2 text-[#6F6F6B]">합계 ({summaries.length}팀)</td>
+                  <td className="px-3 py-2 text-right text-gray-500">{formatKRW(grandTotal.draft)}</td>
+                  <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.confirmed - grandTotal.claimed)}</td>
+                  <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.claimed)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </SortableContext>
+
+        <DragOverlay>
+          {activeDragAdvisor && (
+            <table className="w-full border-collapse text-sm opacity-90">
+              <tbody>
+                <tr className="bg-[#EEF3F8] shadow-lg border border-[#D6E4F0]">
+                  <td className="px-3 py-2.5 font-semibold text-[#1F5C99]">{activeDragAdvisor}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       <ConfirmDialog
         open={deleteOpen}
