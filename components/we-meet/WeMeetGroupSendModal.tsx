@@ -23,6 +23,7 @@ interface ExecGroup {
 interface Props {
   open: boolean;
   group: ExecGroup | null;
+  initialSelectedIndexes?: number[];
   onClose: () => void;
   onSent: (rowIndexes: number[]) => void;
 }
@@ -70,7 +71,7 @@ function KRWCell({ value, onChange }: { value: string; onChange: (v: string) => 
 
 // ── 컴포넌트 ─────────────────────────────────────────────────────────
 
-export function WeMeetGroupSendModal({ open, group, onClose, onSent }: Props) {
+export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onClose, onSent }: Props) {
   // 전송 설정 (settings 기반)
   const [budgetType, setBudgetType]   = useState<'main' | 'carryover'>('main');
   const [category, setCategory]       = useState('');
@@ -100,11 +101,19 @@ export function WeMeetGroupSendModal({ open, group, onClose, onSent }: Props) {
       const s = loadSendSettings();
       setBudgetType(s.budgetType);
       setCategory(s.category);
-      setSelectedIdxSet(new Set(group.rows.map((r) => r.rowIndex)));
+      // initialSelectedIndexes가 있으면 해당 팀만, 없으면 전체 선택
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      setSelectedIdxSet(
+        initialSelectedIndexes && initialSelectedIndexes.length > 0
+          ? new Set(initialSelectedIndexes)
+          : new Set(group.rows.map((r) => r.rowIndex)),
+      );
       setExpenseDate(defaultExpenseDate(group.rows));
       setError('');
       setSuccess(false);
     }
+  // initialSelectedIndexes는 open 시점 스냅샷을 사용하므로 의도적으로 dep에서 제외
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, group]);
 
   // ── 프로그램 목록 로드 ───────────────────────────────────────────────

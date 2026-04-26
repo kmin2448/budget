@@ -213,7 +213,9 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
   const [showBulkModal, setShowBulkModal]         = useState(false);
   const [expandedKeys, setExpandedKeys]           = useState<Set<string>>(new Set());
   const [sendGroup, setSendGroup]                 = useState<ExecGroup | null>(null);
+  const [sendInitialSelection, setSendInitialSelection] = useState<number[]>([]);
   const [showSendSettings, setShowSendSettings]   = useState(false);
+  const [groupSelections, setGroupSelections]     = useState<Map<string, Set<number>>>(new Map());
 
   // 검색 + 사용구분 필터
   const [searchQuery, setSearchQuery] = useState('');
@@ -356,6 +358,31 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
     });
   }
 
+  function getGroupSelection(groupKey: string, groupRows: WeMeetExecution[]): Set<number> {
+    return groupSelections.get(groupKey) ?? new Set(groupRows.map((r) => r.rowIndex));
+  }
+
+  function toggleTeamSelection(groupKey: string, rowIndex: number, groupRows: WeMeetExecution[]) {
+    setGroupSelections((prev) => {
+      const current = prev.get(groupKey) ?? new Set(groupRows.map((r) => r.rowIndex));
+      const next = new Set(current);
+      if (next.has(rowIndex)) next.delete(rowIndex);
+      else next.add(rowIndex);
+      const newMap = new Map(prev);
+      newMap.set(groupKey, next);
+      return newMap;
+    });
+  }
+
+  function toggleAllTeamSelection(groupKey: string, groupRows: WeMeetExecution[]) {
+    setGroupSelections((prev) => {
+      const current = prev.get(groupKey) ?? new Set(groupRows.map((r) => r.rowIndex));
+      const newMap = new Map(prev);
+      newMap.set(groupKey, current.size === groupRows.length ? new Set<number>() : new Set(groupRows.map((r) => r.rowIndex)));
+      return newMap;
+    });
+  }
+
   // ── 테이블 ───────────────────────────────────────────────────────────
 
   const colCount = canWrite ? 9 : 8;
@@ -426,8 +453,8 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
           {canWrite && (
             <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
               <button
-                onClick={() => setSendGroup(group)}
-                title="비목별 집행내역으로 전송"
+                onClick={() => { setSendGroup(group); setSendInitialSelection(group.rows.map((r) => r.rowIndex)); }}
+                title="비목별 집행내역으로 전송 (전체 팀)"
                 className="rounded p-1 text-gray-300 hover:bg-[#D6E4F0] hover:text-primary transition-colors"
               >
                 <Send className="h-3.5 w-3.5" />
@@ -439,46 +466,135 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
       return result;
     }
 
+    // ── 확장 상태 ────────────────────────────────────────────────────────
+    const currentSelection  = getGroupSelection(group.key, group.rows);
+    const allTeamsSelected  = currentSelection.size === group.rows.length;
+
+    // 첫 행: 취합 정보 + 보내기 버튼
+    result.push(
+      <tr key={`summary-${group.key}`} className={`bg-[#EEF4FB] ${topBorder}`}>
+        {/* 사용구분: drag + collapse + usageType */}
+        <td className="px-3 py-2">
+          <div className="flex items-center gap-1">
+            {dragHandle}
+            <button
+              onClick={() => toggleGroup(group.key)}
+              className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-[#D6E4F0] hover:text-primary transition-colors"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+            <UsageTypeSelect value={group.rows[0]?.usageType ?? ''} usageTypes={usageTypes} disabled={!canWrite}
+              onSave={(v) => saveGroupField(group, { usageType: v })} />
+          </div>
+        </td>
+
+        {/* 지출건명 */}
+        <td className="px-3 py-2">
+          <input
+            key={`${group.key}-desc`}
+            type="text"
+            defaultValue={group.description}
+            disabled={!canWrite}
+            placeholder="지출건명"
+            onBlur={(e) => { if (e.target.value !== group.description) saveGroupField(group, { description: e.target.value }); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+            className="w-full min-w-[120px] rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-[#131310] hover:border-[#D0D0CA] focus:border-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-40"
+          />
+        </td>
+
+        {/* 팀명 열: N팀 + 선택 수 (클릭 시 전체선택/해제) + sent 배지 */}
+        <td className="px-3 py-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => toggleAllTeamSelection(group.key, group.rows)}
+              title={allTeamsSelected ? '전체 해제' : '전체 선택'}
+              className="rounded-full bg-[#D6E4F0] px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary hover:text-white transition-colors"
+            >
+              {currentSelection.size}/{group.rows.length}팀
+            </button>
+            {allSent && (
+              <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-600 flex items-center gap-0.5">
+                <SendHorizonal className="h-2.5 w-2.5" />전송완료
+              </span>
+            )}
+            {!allSent && anySent && (
+              <span className="rounded-full bg-yellow-50 px-1.5 py-0.5 text-[10px] font-medium text-yellow-600">
+                일부전송
+              </span>
+            )}
+          </div>
+        </td>
+
+        {/* 사용일자 */}
+        <td className="px-3 py-2 text-xs text-gray-300">—</td>
+
+        {/* 기안금액 합계 */}
+        <td className="px-3 py-2 text-right text-xs tabular-nums font-medium text-[#131310]">
+          {totalDraft > 0 ? formatKRW(totalDraft) : <span className="text-gray-300">—</span>}
+        </td>
+
+        {/* 확정금액 합계 */}
+        <td className="px-3 py-2 text-right text-xs tabular-nums font-medium text-[#131310]">
+          {totalConf > 0 ? formatKRW(totalConf) : <span className="text-gray-300">—</span>}
+        </td>
+
+        {/* 미청구 합계 */}
+        <td className="px-3 py-2 text-right text-xs">
+          {unclaimedAmt > 0
+            ? <span className="inline-flex w-36 items-center justify-between text-red-400">
+                <span className="text-[10px]">(미청구)</span>
+                <span className="tabular-nums">{formatKRW(unclaimedAmt)}</span>
+              </span>
+            : <span className="text-gray-300">—</span>}
+        </td>
+
+        {/* 증빙 건수 */}
+        <td className="px-3 py-2 text-center text-xs">
+          {evidenceCnt > 0
+            ? <span className="text-[#131310]">{evidenceCnt}/{group.rows.length}</span>
+            : <span className="text-gray-300">—</span>}
+        </td>
+
+        {/* 보내기 버튼 */}
+        {canWrite && (
+          <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => { setSendGroup(group); setSendInitialSelection(Array.from(currentSelection)); }}
+              disabled={currentSelection.size === 0}
+              title={currentSelection.size > 0 ? `선택한 ${currentSelection.size}팀 전송` : '팀을 선택하세요'}
+              className="rounded p-1 text-gray-300 hover:bg-[#D6E4F0] hover:text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <Send className="h-3.5 w-3.5" />
+            </button>
+          </td>
+        )}
+      </tr>,
+    );
+
+    // 팀별 행 (체크박스 포함)
     group.rows.forEach((row, ri) => {
-      const isFirst      = ri === 0;
-      const isLast       = ri === group.rows.length - 1;
-      const topBorderRow = isFirst && gi > 0 ? 'border-t-2 border-[#D6E4F0]' : '';
-      const bg           = ri % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]';
-      const isConf       = row.confirmedAmount > 0;
+      const isLast    = ri === group.rows.length - 1;
+      const bg        = ri % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]';
+      const isConf    = row.confirmedAmount > 0;
+      const isChecked = currentSelection.has(row.rowIndex);
 
       result.push(
-        <tr key={row.rowIndex} className={`${bg} ${topBorderRow}`}>
-          {/* 사용구분 */}
+        <tr key={row.rowIndex} className={bg}>
+          {/* 체크박스 (사용구분 열) */}
           <td className="px-3 py-1.5">
-            {isFirst ? (
-              <div className="flex items-center gap-1">
-                {dragHandle}
-                <button
-                  onClick={() => toggleGroup(group.key)}
-                  className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-[#D6E4F0] hover:text-primary transition-colors"
-                >
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </button>
-                <UsageTypeSelect value={row.usageType} usageTypes={usageTypes} disabled={!canWrite}
-                  onSave={(v) => saveGroupField(group, { usageType: v })} />
-              </div>
-            ) : (
-              <span className="text-gray-300 pl-2 select-none">↑</span>
-            )}
+            <div className="flex items-center pl-5">
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => toggleTeamSelection(group.key, row.rowIndex, group.rows)}
+                className="h-3.5 w-3.5 accent-primary cursor-pointer"
+              />
+            </div>
           </td>
 
-          {/* 지출건명 */}
+          {/* ↑ (지출건명 열) */}
           <td className="px-3 py-1.5">
-            {isFirst ? (
-              <input key={`${row.rowIndex}-desc`} type="text" defaultValue={row.description}
-                disabled={!canWrite} placeholder="지출건명"
-                onBlur={(e) => { if (e.target.value !== row.description) saveGroupField(group, { description: e.target.value }); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                className="w-full min-w-[120px] rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-[#131310] hover:border-[#D0D0CA] focus:border-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-40"
-              />
-            ) : (
-              <span className="text-gray-300 pl-2 select-none">↑</span>
-            )}
+            <span className="text-gray-300 pl-2 select-none">↑</span>
           </td>
 
           {/* 팀명 */}
@@ -544,7 +660,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
           const newConf = parseKRW(newTeam.confirmedStr) || 0;
           result.push(
             <tr key={`add-team-${group.key}`} className="bg-[#F8FAFF] border-t border-dashed border-[#C8DCF0]">
-              <td className="px-3 py-1.5 text-[10px] text-gray-300 pl-5">↑</td>
+              <td className="px-3 py-1.5 pl-5 text-[10px] text-gray-300">+</td>
               <td className="px-3 py-1.5 text-[10px] text-gray-300">↑</td>
               <td className="px-3 py-1.5">
                 <select value={newTeam.teamName} onChange={(e) => setNewTeam((t) => ({ ...t, teamName: e.target.value }))} className={fis}>
@@ -868,6 +984,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
       <WeMeetGroupSendModal
         open={sendGroup !== null}
         group={sendGroup}
+        initialSelectedIndexes={sendInitialSelection}
         onClose={() => setSendGroup(null)}
         onSent={(rowIndexes) => {
           markSentMutation.mutate(rowIndexes);
