@@ -18,14 +18,12 @@ interface Props {
   onAdd: () => void;
   onEdit: (row: WeMeetExecution) => void;
   onDelete: (row: WeMeetExecution) => void;
-  onToggleConfirmed: (row: WeMeetExecution) => void;
   onSendToExpenditure: (row: WeMeetExecution) => void;
-  isToggling: boolean;
 }
 
 export function WeMeetTable({
   rows, teams, canWrite, selectedTeam, onSelectTeam,
-  onAdd, onEdit, onDelete, onToggleConfirmed, onSendToExpenditure, isToggling,
+  onAdd, onEdit, onDelete, onSendToExpenditure,
 }: Props) {
   const [search, setSearch]           = useState('');
   const [filterTeam, setFilterTeam]   = useState<string>('');
@@ -47,7 +45,7 @@ export function WeMeetTable({
   }, [rows, effectiveTeam, filterUsage, search]);
 
   const totalDraft     = filtered.reduce((s, r) => s + r.draftAmount, 0);
-  const totalConfirmed = filtered.reduce((s, r) => s + (r.confirmed ? r.confirmedAmount : 0), 0);
+  const totalConfirmed = filtered.reduce((s, r) => s + r.confirmedAmount, 0);
 
   const colSpan = canWrite ? 7 : 6;
 
@@ -160,17 +158,13 @@ export function WeMeetTable({
                   </td>
                   <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(row.draftAmount)}</td>
                   <td className="px-3 py-2 text-center">
-                    <input
-                      type="checkbox"
-                      checked={row.confirmed}
-                      disabled={!canWrite || isToggling}
-                      onChange={() => onToggleConfirmed(row)}
-                      className="h-4 w-4 cursor-pointer accent-primary disabled:cursor-default"
-                    />
+                    <span className={`text-xs ${row.confirmedAmount > 0 ? 'text-complete' : 'text-gray-300'}`}>
+                      {row.confirmedAmount > 0 ? '●' : '○'}
+                    </span>
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <span className={row.confirmed ? 'font-medium text-[#131310]' : 'text-gray-400'}>
-                      {formatKRW(row.confirmedAmount)}
+                    <span className={row.confirmedAmount > 0 ? 'font-medium text-[#131310]' : 'text-gray-400'}>
+                      {row.confirmedAmount > 0 ? formatKRW(row.confirmedAmount) : '—'}
                     </span>
                   </td>
                   {canWrite && (

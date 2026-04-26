@@ -184,36 +184,31 @@ export interface LibraryFile {
 // ── WE-Meet ──────────────────────────────────────────────────────────
 
 export interface WeMeetExecution {
-  rowIndex: number;        // 집행현황 시트 실제 행 번호 (2~200)
-  usageType: string;       // A: 사용구분
-  teamName: string;        // B: 팀명
-  draftAmount: number;     // C: 기안금액
-  confirmed: boolean;      // D: 확정여부
-  confirmedAmount: number; // F: 확정금액
-  usageDate: string;       // G: 사용(신청)일자
-  description: string;     // H: 지출건명
-  fileUrl?: string;        // I: 증빙제출 (Drive URL, 여러 개면 \n 구분)
+  rowIndex: number;            // 집행현황 시트 실제 행 번호 (2~200)
+  usageType: string;           // A: 사용구분
+  description: string;         // B: 지출건명
+  teamName: string;            // C: 팀명
+  draftAmount: number;         // D: 기안금액
+  confirmedAmount: number;     // E: 확정금액 (0 = 미확정)
+  claimed: boolean;            // F: 청구여부 (TRUE/FALSE)
+  usageDate: string;           // G: 사용(신청)일자
+  evidenceSubmitted: boolean;  // H: 증빙제출 (TRUE/FALSE)
+}
+
+export interface WeMeetUsageSummary {
+  draft: number;     // 기안금액 (미확정)
+  confirmed: number; // 확정금액 (확정 미청구)
+  claimed: number;   // 미청구금액 (확정 청구됨)
 }
 
 export interface WeMeetTeamSummary {
   teamName: string;
   totalBudget: number;
-  confirmed: {
-    mentoring: number;
-    meeting: number;
-    material: number;
-    studentActivity: number;
-    total: number;
-  };
-  pending: {
-    mentoring: number;
-    meeting: number;
-    material: number;
-    studentActivity: number;
-    total: number;
-  };
-  confirmedBalance: number;  // totalBudget - confirmed.total
-  expectedBalance: number;   // totalBudget - (confirmed.total + pending.total)
+  balance: number;          // 잔액 = totalBudget - (기안+확정+미청구 합계)
+  mentoring: WeMeetUsageSummary;
+  meeting: WeMeetUsageSummary;
+  material: WeMeetUsageSummary;
+  studentActivity: WeMeetUsageSummary;
 }
 
 export interface WeMeetPageData {

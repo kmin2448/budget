@@ -35,12 +35,13 @@ export async function PATCH(
     await assertCanWrite(session.user.email);
     const body = await req.json() as {
       usageType: string;
+      description: string;
       teamName: string;
       draftAmount: number;
-      confirmed: boolean;
       confirmedAmount: number;
-      description: string;
+      claimed: boolean;
       usageDate: string;
+      evidenceSubmitted: boolean;
     };
     await updateWeMeetExecution(rowIndex, body);
     return NextResponse.json({ ok: true });

@@ -7,7 +7,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { KRWInput } from '@/components/ui/krw-input';
 import { parseKRW, formatKRW } from '@/lib/utils';
-import { WEMEET_USAGE_TYPES } from '@/constants/wemeet';
 import type { WeMeetExecution } from '@/types';
 import type { ExecutionPayload } from '@/hooks/useWeMeet';
 
@@ -23,6 +22,7 @@ interface Props {
   open: boolean;
   mode: 'add' | 'edit';
   teams: string[];
+  usageTypes: string[];
   initialData?: WeMeetExecution;
   defaultTeam?: string;
   onClose: () => void;
@@ -32,34 +32,38 @@ interface Props {
 
 const DEFAULT_FORM: ExecutionPayload = {
   usageType: '',
+  description: '',
   teamName: '',
   draftAmount: 0,
-  confirmed: false,
   confirmedAmount: 0,
-  description: '',
+  claimed: false,
   usageDate: '',
+  evidenceSubmitted: false,
 };
 
-export function WeMeetRowForm({ open, mode, teams, initialData, defaultTeam, onClose, onSubmit, isPending }: Props) {
-  const [form, setForm]           = useState<ExecutionPayload>(DEFAULT_FORM);
-  const [draftStr,    setDraftStr]    = useState('');
+export function WeMeetRowForm({ open, mode, teams, usageTypes, initialData, defaultTeam, onClose, onSubmit, isPending }: Props) {
+  const [form, setForm]             = useState<ExecutionPayload>(DEFAULT_FORM);
+  const [draftStr,     setDraftStr]     = useState('');
   const [confirmedStr, setConfirmedStr] = useState('');
   const [error, setError] = useState('');
+
+  const isConfirmed = (parseKRW(confirmedStr) || form.confirmedAmount) > 0;
 
   useEffect(() => {
     if (open) {
       if (mode === 'edit' && initialData) {
         setForm({
-          usageType:       initialData.usageType,
-          teamName:        initialData.teamName,
-          draftAmount:     initialData.draftAmount,
-          confirmed:       initialData.confirmed,
-          confirmedAmount: initialData.confirmedAmount,
-          description:     initialData.description,
-          usageDate:       initialData.usageDate,
+          usageType:         initialData.usageType,
+          description:       initialData.description,
+          teamName:          initialData.teamName,
+          draftAmount:       initialData.draftAmount,
+          confirmedAmount:   initialData.confirmedAmount,
+          claimed:           initialData.claimed,
+          usageDate:         initialData.usageDate,
+          evidenceSubmitted: initialData.evidenceSubmitted,
         });
         setDraftStr(formatKRW(initialData.draftAmount));
-        setConfirmedStr(formatKRW(initialData.confirmedAmount));
+        setConfirmedStr(initialData.confirmedAmount > 0 ? formatKRW(initialData.confirmedAmount) : '');
       } else {
         setForm({ ...DEFAULT_FORM, teamName: defaultTeam ?? '' });
         setDraftStr('');
@@ -68,16 +72,6 @@ export function WeMeetRowForm({ open, mode, teams, initialData, defaultTeam, onC
       setError('');
     }
   }, [open, mode, initialData, defaultTeam]);
-
-  // 확정 체크 해제 시 확정금액 초기화
-  function handleConfirmedChange(checked: boolean) {
-    setForm((f) => ({ ...f, confirmed: checked }));
-    if (!checked) {
-      setConfirmedStr('');
-    } else if (!confirmedStr) {
-      setConfirmedStr(draftStr);
-    }
-  }
 
   async function handleSubmit() {
     if (!form.usageType) { setError('사용구분을 선택해주세요.'); return; }
@@ -90,7 +84,7 @@ export function WeMeetRowForm({ open, mode, teams, initialData, defaultTeam, onC
     await onSubmit({
       ...form,
       draftAmount:     draft,
-      confirmedAmount: form.confirmed ? confirmed : draft, // FALSE면 기안금액을 E열에
+      confirmedAmount: confirmed,
     });
     onClose();
   }
@@ -116,7 +110,7 @@ export function WeMeetRowForm({ open, mode, teams, initialData, defaultTeam, onC
               className="w-full rounded-md border border-[#E3E3E0] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="">선택</option>
-              {WEMEET_USAGE_TYPES.map((u) => <option key={u} value={u}>{u}</option>)}
+              {usageTypes.map((u) => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
 
@@ -167,34 +161,45 @@ export function WeMeetRowForm({ open, mode, teams, initialData, defaultTeam, onC
             />
           </div>
 
-          {/* 확정여부 */}
-          <div className="flex items-center gap-2">
-            <input
-              id="confirmed"
-              type="checkbox"
-              checked={form.confirmed}
-              onChange={(e) => handleConfirmedChange(e.target.checked)}
-              className="h-4 w-4 accent-primary"
+          {/* 확정금액 */}
+          <div className="space-y-1.5">
+            <Label>확정금액 <span className="text-xs font-normal text-gray-400">(입력 시 확정 처리, 0이면 미확정)</span></Label>
+            <KRWInput
+              value={confirmedStr}
+              onChange={setConfirmedStr}
+              placeholder="0"
+              className="w-full rounded-md border border-[#E3E3E0] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             />
-            <Label htmlFor="confirmed" className="cursor-pointer">확정</Label>
-            {!form.confirmed && draftStr && (
-              <span className="ml-auto text-xs text-gray-400">
-                미확정 — 기안금액({draftStr})이 집계에 반영됩니다
-              </span>
-            )}
           </div>
 
-          {/* 확정금액 — 확정=TRUE일 때만 표시 */}
-          {form.confirmed && (
-            <div className="space-y-1.5">
-              <Label>확정금액</Label>
-              <KRWInput
-                value={confirmedStr}
-                onChange={setConfirmedStr}
-                placeholder="0"
-                className="w-full rounded-md border border-[#E3E3E0] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+          {/* 청구여부 + 증빙제출 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2">
+              <input
+                id="claimed"
+                type="checkbox"
+                checked={form.claimed}
+                disabled={!isConfirmed}
+                onChange={(e) => setForm((f) => ({ ...f, claimed: e.target.checked }))}
+                className="h-4 w-4 accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
               />
+              <Label htmlFor="claimed" className={`cursor-pointer ${!isConfirmed ? 'text-gray-400' : ''}`}>
+                청구완료
+              </Label>
             </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="evidenceSubmitted"
+                type="checkbox"
+                checked={form.evidenceSubmitted}
+                onChange={(e) => setForm((f) => ({ ...f, evidenceSubmitted: e.target.checked }))}
+                className="h-4 w-4 accent-primary"
+              />
+              <Label htmlFor="evidenceSubmitted" className="cursor-pointer">증빙제출</Label>
+            </div>
+          </div>
+          {!isConfirmed && (
+            <p className="text-xs text-gray-400">청구완료는 확정금액 입력 후 활성화됩니다.</p>
           )}
         </div>
 

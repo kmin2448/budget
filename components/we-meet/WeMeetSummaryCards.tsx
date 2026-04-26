@@ -9,6 +9,10 @@ interface Props {
   onSelectTeam: (team: string | null) => void;
 }
 
+function confirmedTotal(s: WeMeetTeamSummary): number {
+  return s.mentoring.confirmed + s.meeting.confirmed + s.material.confirmed + s.studentActivity.confirmed;
+}
+
 export function WeMeetSummaryCards({ summaries, selectedTeam, onSelectTeam }: Props) {
   if (summaries.length === 0) {
     return (
@@ -23,8 +27,8 @@ export function WeMeetSummaryCards({ summaries, selectedTeam, onSelectTeam }: Pr
       <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
         {summaries.map((s) => {
           const isSelected = selectedTeam === s.teamName;
-          const isOver = s.confirmedBalance < 0;
-          const isWarn = s.expectedBalance < 0 && s.confirmedBalance >= 0;
+          const conf = confirmedTotal(s);
+          const isOver = s.balance < 0;
 
           return (
             <button
@@ -44,32 +48,21 @@ export function WeMeetSummaryCards({ summaries, selectedTeam, onSelectTeam }: Pr
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] text-gray-400">확정</span>
-                  <span className="text-xs font-medium text-[#131310]">
-                    {formatKRW(s.confirmed.total)}
-                  </span>
+                  <span className="text-xs font-medium text-[#131310]">{formatKRW(conf)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-gray-400">확정잔액</span>
+                  <span className="text-[10px] text-gray-400">잔액</span>
                   <span className={['text-xs font-semibold', isOver ? 'text-red-500' : 'text-complete'].join(' ')}>
-                    {formatKRW(s.confirmedBalance)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-gray-400">예정잔액</span>
-                  <span className={['text-xs', isWarn ? 'text-amber-500' : 'text-gray-500'].join(' ')}>
-                    {formatKRW(s.expectedBalance)}
+                    {formatKRW(s.balance)}
                   </span>
                 </div>
               </div>
 
-              {/* 예산 소진율 바 */}
               <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-gray-100">
                 <div
                   className={['h-full rounded-full transition-all', isOver ? 'bg-red-400' : 'bg-primary'].join(' ')}
                   style={{
-                    width: s.totalBudget > 0
-                      ? `${Math.min(100, (s.confirmed.total / s.totalBudget) * 100)}%`
-                      : '0%',
+                    width: s.totalBudget > 0 ? `${Math.min(100, (conf / s.totalBudget) * 100)}%` : '0%',
                   }}
                 />
               </div>

@@ -7,6 +7,7 @@ import {
   WEMEET_SUMMARY_COLS,
   WEMEET_MAX_TEAMS,
   WEMEET_MAX_ROWS,
+  WEMEET_NAMED_RANGES,
 } from '@/constants/wemeet';
 import type { WeMeetExecution, WeMeetTeamSummary, WeMeetTeamInfo } from '@/types';
 
@@ -16,13 +17,33 @@ const SHEETS_ID = () => {
   return id;
 };
 
+// ── 사용구분 목록 ─────────────────────────────────────────────────────
+
+export async function getWeMeetUsageTypes(): Promise<string[]> {
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEETS_ID(),
+    range: WEMEET_NAMED_RANGES.USAGE_TYPE_LIST,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  });
+  const rows = res.data.values ?? [];
+  return rows
+    .map((row) => String(row?.[0] ?? '').trim())
+    .filter((v) => v !== '');
+}
+
 // ── 집행현황 ──────────────────────────────────────────────────────────
+// 시트 컬럼: A=사용구분, B=지출건명, C=팀명, D=기안금액, E=확정금액, F=청구여부(TRUE/FALSE), G=사용일자, H=증빙제출(TRUE/FALSE)
+
+function parseBool(v: unknown): boolean {
+  return v === true || v === 'TRUE' || v === 1;
+}
 
 export async function getWeMeetExecutions(): Promise<WeMeetExecution[]> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEETS_ID(),
-    range: '집행현황!A2:I200',
+    range: WEMEET_EXECUTION_RANGE,
     valueRenderOption: 'UNFORMATTED_VALUE',
   });
 
@@ -32,20 +53,19 @@ export async function getWeMeetExecutions(): Promise<WeMeetExecution[]> {
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const usageType = String(row?.[0] ?? '').trim();
-    const teamName  = String(row?.[1] ?? '').trim();
+    const teamName  = String(row?.[2] ?? '').trim();
     if (!usageType && !teamName) continue;
 
     result.push({
-      rowIndex:        i + 2,
+      rowIndex:          i + 2,
       usageType,
-      teamName,
-      draftAmount:     Number(row?.[2] ?? 0),   // C
-      confirmed:       row?.[3] === true || row?.[3] === 'TRUE' || row?.[3] === 1, // D
-      // E(idx4): 미확정금액 — 시트 수식값, 별도 저장 안 함
-      confirmedAmount: Number(row?.[5] ?? 0),   // F
-      usageDate:       String(row?.[6] ?? '').trim(), // G
-      description:     String(row?.[7] ?? '').trim(), // H
-      fileUrl:         String(row?.[8] ?? '').trim(), // I
+      description:       String(row?.[1] ?? '').trim(),  // B
+      teamName,                                           // C
+      draftAmount:       Number(row?.[3] ?? 0),          // D
+      confirmedAmount:   Number(row?.[4] ?? 0),          // E
+      claimed:           parseBool(row?.[5]),             // F
+      usageDate:         String(row?.[6] ?? '').trim(),  // G
+      evidenceSubmitted: parseBool(row?.[7]),             // H
     });
   }
 
@@ -76,19 +96,18 @@ export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowInde
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A${nextRowNum}:I${nextRowNum}`,
+    range: `집행현황!A${nextRowNum}:H${nextRowNum}`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
-        data.usageType,                               // A
-        data.teamName,                                // B
-        data.draftAmount,                             // C: 기안금액
-        data.confirmed,                               // D: 확정여부
-        data.confirmed ? 0 : data.draftAmount,        // E: 미확정금액
-        data.confirmed ? data.confirmedAmount : 0,    // F: 확정금액
-        data.usageDate ?? '',                         // G: 사용일자
-        data.description ?? '',                       // H: 지출건명
-        data.fileUrl ?? '',                           // I: 증빙
+        data.usageType,          // A
+        data.description,        // B
+        data.teamName,           // C
+        data.draftAmount,        // D
+        data.confirmedAmount,    // E
+        data.claimed,            // F
+        data.usageDate ?? '',    // G
+        data.evidenceSubmitted,  // H
       ]],
     },
   });
@@ -101,31 +120,30 @@ export async function updateWeMeetExecution(
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A${rowIndex}:I${rowIndex}`,
+    range: `집행현황!A${rowIndex}:H${rowIndex}`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
-        data.usageType,                            // A
-        data.teamName,                             // B
-        data.draftAmount,                          // C: 기안금액
-        data.confirmed,                            // D: 확정여부
-        data.confirmed ? 0 : data.draftAmount,     // E: 미확정금액
-        data.confirmed ? data.confirmedAmount : 0, // F: 확정금액
-        data.usageDate ?? '',                      // G: 사용일자
-        data.description ?? '',                    // H: 지출건명
-        data.fileUrl ?? '',                        // I: 증빙
+        data.usageType,          // A
+        data.description,        // B
+        data.teamName,           // C
+        data.draftAmount,        // D
+        data.confirmedAmount,    // E
+        data.claimed,            // F
+        data.usageDate ?? '',    // G
+        data.evidenceSubmitted,  // H
       ]],
     },
   });
 }
 
-export async function updateWeMeetFileUrl(rowIndex: number, fileUrl: string): Promise<void> {
+export async function updateWeMeetEvidenceSubmitted(rowIndex: number, submitted: boolean): Promise<void> {
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!I${rowIndex}`,
+    range: `집행현황!H${rowIndex}`,
     valueInputOption: 'RAW',
-    requestBody: { values: [[fileUrl]] },
+    requestBody: { values: [[submitted]] },
   });
 }
 
@@ -138,27 +156,24 @@ export async function deleteWeMeetExecution(rowIndex: number): Promise<void> {
   });
 
   const rows = res.data.values ?? [];
-  // rowIndex는 시트 행 번호(2-based), 배열 인덱스로 변환
   const arrIdx = rowIndex - 2;
-
-  // 해당 행 제거 후 아래 행 shift up
   const filtered = rows.filter((_, i) => i !== arrIdx);
 
   const clearEnd = rows.length + 1;
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A2:I${clearEnd}`,
+    range: `집행현황!A2:H${clearEnd}`,
   });
 
   if (filtered.length > 0) {
     const normalized = filtered.map((row) => {
       const r = [...row];
-      while (r.length < 9) r.push('');
-      return r.slice(0, 9);
+      while (r.length < 8) r.push('');
+      return r.slice(0, 8);
     });
     await sheets.spreadsheets.values.update({
       spreadsheetId: SHEETS_ID(),
-      range: `집행현황!A2:I${filtered.length + 1}`,
+      range: `집행현황!A2:H${filtered.length + 1}`,
       valueInputOption: 'RAW',
       requestBody: { values: normalized },
     });
@@ -208,11 +223,9 @@ export async function deleteWeMeetTeam(rowIndex: number): Promise<void> {
   });
 
   const rows = res.data.values ?? [];
-  const arrIdx = rowIndex - 3; // 팀별취합 A3 시작이므로 3-based
-
+  const arrIdx = rowIndex - 3;
   const filtered = rows.filter((_, i) => i !== arrIdx);
 
-  // 범위 클리어 후 재작성
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SHEETS_ID(),
     range: WEMEET_TEAM_LIST_RANGE,
@@ -245,7 +258,6 @@ export async function getWeMeetTeamInfos(): Promise<WeMeetTeamInfo[]> {
     const row = rows[i];
     const teamName = String(row?.[0] ?? '').trim();
     if (!teamName) continue;
-    // K열(index 10)부터 개별 팀원 명단
     const memberList: string[] = [];
     for (let j = 10; j < (row?.length ?? 0); j++) {
       const v = String(row?.[j] ?? '').trim();
@@ -253,16 +265,16 @@ export async function getWeMeetTeamInfos(): Promise<WeMeetTeamInfo[]> {
     }
 
     result.push({
-      rowIndex:       i + 2,
+      rowIndex:        i + 2,
       teamName,
-      advisor:        String(row?.[1] ?? '').trim(),
-      topic:          String(row?.[2] ?? '').trim(),
-      mentorOrg:      String(row?.[3] ?? '').trim(),
-      mentor:         String(row?.[4] ?? '').trim(),
-      teamLeader:     String(row?.[5] ?? '').trim(),
-      teamMembers:    String(row?.[6] ?? '').trim(),
+      advisor:         String(row?.[1] ?? '').trim(),
+      topic:           String(row?.[2] ?? '').trim(),
+      mentorOrg:       String(row?.[3] ?? '').trim(),
+      mentor:          String(row?.[4] ?? '').trim(),
+      teamLeader:      String(row?.[5] ?? '').trim(),
+      teamMembers:     String(row?.[6] ?? '').trim(),
       assistantMentor: String(row?.[7] ?? '').trim(),
-      remarks:        String(row?.[9] ?? '').trim(),
+      remarks:         String(row?.[9] ?? '').trim(),
       memberList,
     });
   }
@@ -291,7 +303,6 @@ export async function upsertWeMeetTeamInfo(
   if (existingRowIndex) {
     targetRow = existingRowIndex;
   } else {
-    // 새 행: 마지막 채워진 행 다음
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SHEETS_ID(),
       range: WEMEET_TEAM_INFO_RANGE,
@@ -308,7 +319,7 @@ export async function upsertWeMeetTeamInfo(
   }
 
   const members = (data.memberList ?? []).filter((m) => m.trim() !== '');
-  const endColIdx = members.length > 0 ? 9 + members.length : 9; // J=9, K=10, ...
+  const endColIdx = members.length > 0 ? 9 + members.length : 9;
   const endCol = colLetter(endColIdx);
 
   await sheets.spreadsheets.values.update({
@@ -325,9 +336,9 @@ export async function upsertWeMeetTeamInfo(
         data.teamLeader,
         data.teamMembers,
         data.assistantMentor,
-        '',           // I열 (빈칸)
+        '',
         data.remarks,
-        ...members,   // K열부터 팀원명단
+        ...members,
       ]],
     },
   });
@@ -361,7 +372,58 @@ export async function deleteWeMeetTeamInfo(rowIndex: number): Promise<void> {
   }
 }
 
+// ── 다중 행 일괄 추가 ─────────────────────────────────────────────────
+
+export async function bulkAppendWeMeetExecutions(
+  items: Array<Omit<WeMeetExecution, 'rowIndex'>>,
+): Promise<void> {
+  if (items.length === 0) return;
+
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEETS_ID(),
+    range: WEMEET_EXECUTION_RANGE,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+  });
+
+  const rows = res.data.values ?? [];
+  let lastFilledIdx = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (row?.some((c) => c !== null && c !== undefined && c !== '')) {
+      lastFilledIdx = i;
+    }
+  }
+
+  const nextRowNum = lastFilledIdx + 1 + 2;
+  const endRowNum  = nextRowNum + items.length - 1;
+
+  if (endRowNum > WEMEET_MAX_ROWS + 1) {
+    throw new Error(`집행현황 최대 행(${WEMEET_MAX_ROWS}행)을 초과했습니다.`);
+  }
+
+  const values = items.map((data) => [
+    data.usageType,
+    data.description,
+    data.teamName,
+    data.draftAmount,
+    data.confirmedAmount,
+    data.claimed,
+    data.usageDate ?? '',
+    data.evidenceSubmitted,
+  ]);
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEETS_ID(),
+    range: `집행현황!A${nextRowNum}:H${endRowNum}`,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  });
+}
+
 // ── 팀별 요약 ─────────────────────────────────────────────────────────
+// 팀별취합 시트: A=팀명, B=총예산, C=잔액, D~F=멘토링, G~I=회의비, J~L=재료비, M~O=학생활동지원비
+// 각 3열: (기안금액, 확정금액, 미청구금액)
 
 export async function getWeMeetSummary(): Promise<WeMeetTeamSummary[]> {
   const sheets = getSheetsClient();
@@ -379,29 +441,30 @@ export async function getWeMeetSummary(): Promise<WeMeetTeamSummary[]> {
       const teamName = String(row?.[C.TEAM_NAME] ?? '').trim();
       if (!teamName) return null;
 
-      const confirmedTotal    = Number(row?.[C.CONFIRMED_TOTAL] ?? 0);
-      const expectedTotal     = Number(row?.[C.EXPECTED_TOTAL]  ?? 0);
-      const totalBudget       = Number(row?.[C.TOTAL_BUDGET]    ?? 0);
-
       return {
         teamName,
-        totalBudget,
-        confirmed: {
-          mentoring:       Number(row?.[C.MENTORING_CONFIRMED] ?? 0),
-          meeting:         Number(row?.[C.MEETING_CONFIRMED]   ?? 0),
-          material:        Number(row?.[C.MATERIAL_CONFIRMED]  ?? 0),
-          studentActivity: Number(row?.[C.STUDENT_CONFIRMED]   ?? 0),
-          total:           confirmedTotal,
+        totalBudget: Number(row?.[C.TOTAL_BUDGET] ?? 0),
+        balance:     Number(row?.[C.BALANCE]       ?? 0),
+        mentoring: {
+          draft:     Number(row?.[C.MENTORING_DRAFT]      ?? 0),
+          confirmed: Number(row?.[C.MENTORING_CONFIRMED]  ?? 0),
+          claimed:   Number(row?.[C.MENTORING_CLAIMED]    ?? 0),
         },
-        pending: {
-          mentoring:       Number(row?.[C.MENTORING_PENDING] ?? 0),
-          meeting:         Number(row?.[C.MEETING_PENDING]   ?? 0),
-          material:        Number(row?.[C.MATERIAL_PENDING]  ?? 0),
-          studentActivity: Number(row?.[C.STUDENT_PENDING]   ?? 0),
-          total:           expectedTotal - confirmedTotal,
+        meeting: {
+          draft:     Number(row?.[C.MEETING_DRAFT]        ?? 0),
+          confirmed: Number(row?.[C.MEETING_CONFIRMED]    ?? 0),
+          claimed:   Number(row?.[C.MEETING_CLAIMED]      ?? 0),
         },
-        confirmedBalance: totalBudget - confirmedTotal,
-        expectedBalance:  totalBudget - expectedTotal,
+        material: {
+          draft:     Number(row?.[C.MATERIAL_DRAFT]       ?? 0),
+          confirmed: Number(row?.[C.MATERIAL_CONFIRMED]   ?? 0),
+          claimed:   Number(row?.[C.MATERIAL_CLAIMED]     ?? 0),
+        },
+        studentActivity: {
+          draft:     Number(row?.[C.STUDENT_DRAFT]        ?? 0),
+          confirmed: Number(row?.[C.STUDENT_CONFIRMED]    ?? 0),
+          claimed:   Number(row?.[C.STUDENT_CLAIMED]      ?? 0),
+        },
       } satisfies WeMeetTeamSummary;
     })
     .filter((r): r is WeMeetTeamSummary => r !== null);

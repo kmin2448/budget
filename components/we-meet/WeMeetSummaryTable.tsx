@@ -5,18 +5,30 @@ import { formatKRW, parseKRW } from '@/lib/utils';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { ChevronRight, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
 import { WeMeetTeamPdfReport } from '@/components/we-meet/WeMeetPdfReport';
-import type { WeMeetTeamSummary, WeMeetTeamInfo, WeMeetExecution } from '@/types';
+import type { WeMeetTeamSummary, WeMeetUsageSummary, WeMeetTeamInfo, WeMeetExecution } from '@/types';
 
 // ── 상수 ────────────────────────────────────────────────────────────────
 
-const USAGE_LABELS = [
-  { key: 'mentoring'       as const, label: '멘토링' },
-  { key: 'meeting'         as const, label: '회의비' },
-  { key: 'material'        as const, label: '재료비' },
-  { key: 'studentActivity' as const, label: '학생활동지원비' },
-];
-const COL_COUNT = 11;
 const NO_ADVISOR = '지도교수 미배정';
+
+// 집행 데이터에서 사용구분별 집계 (시트 사용구분목록 변경 시 자동 반영)
+function calcUsageBreakdown(execs: WeMeetExecution[]): Array<{
+  usageType: string; draft: number; confirmed: number; unclaimed: number;
+}> {
+  const map = new Map<string, { draft: number; confirmed: number; unclaimed: number }>();
+  const order: string[] = [];
+  for (const e of execs) {
+    if (!map.has(e.usageType)) {
+      map.set(e.usageType, { draft: 0, confirmed: 0, unclaimed: 0 });
+      order.push(e.usageType);
+    }
+    const acc = map.get(e.usageType)!;
+    acc.draft     += e.draftAmount;
+    acc.confirmed += e.confirmedAmount;
+    if (e.confirmedAmount > 0 && !e.claimed) acc.unclaimed += e.confirmedAmount;
+  }
+  return order.map((t) => ({ usageType: t, ...map.get(t)! }));
+}
 
 // ── 타입 ────────────────────────────────────────────────────────────────
 
@@ -35,27 +47,36 @@ interface Props {
   onAddExecution: (teamName: string) => void;
   onEditExecution: (row: WeMeetExecution) => void;
   onDeleteExecution: (row: WeMeetExecution) => void;
-  onToggleConfirmed: (row: WeMeetExecution) => void;
   onUpdateExecution: (row: WeMeetExecution) => void;
   isToggling: boolean;
 }
 
 // ── 유틸 ────────────────────────────────────────────────────────────────
 
+function usageTotals(s: WeMeetTeamSummary): { draft: number; confirmed: number; claimed: number } {
+  const keys = ['mentoring', 'meeting', 'material', 'studentActivity'] as const;
+  return keys.reduce(
+    (acc, k) => {
+      const u = s[k] as WeMeetUsageSummary;
+      return { draft: acc.draft + u.draft, confirmed: acc.confirmed + u.confirmed, claimed: acc.claimed + u.claimed };
+    },
+    { draft: 0, confirmed: 0, claimed: 0 },
+  );
+}
+
 function sumGroups(list: WeMeetTeamSummary[]) {
   return list.reduce(
-    (acc, s) => ({
-      totalBudget:      acc.totalBudget + s.totalBudget,
-      confirmedTotal:   acc.confirmedTotal + s.confirmed.total,
-      pendingTotal:     acc.pendingTotal + s.pending.total,
-      confirmedBalance: acc.confirmedBalance + s.confirmedBalance,
-      expectedBalance:  acc.expectedBalance + s.expectedBalance,
-      mentoring:        acc.mentoring + s.confirmed.mentoring,
-      meeting:          acc.meeting + s.confirmed.meeting,
-      material:         acc.material + s.confirmed.material,
-      studentActivity:  acc.studentActivity + s.confirmed.studentActivity,
-    }),
-    { totalBudget: 0, confirmedTotal: 0, pendingTotal: 0, confirmedBalance: 0, expectedBalance: 0, mentoring: 0, meeting: 0, material: 0, studentActivity: 0 },
+    (acc, s) => {
+      const t = usageTotals(s);
+      return {
+        totalBudget: acc.totalBudget + s.totalBudget,
+        balance:     acc.balance     + s.balance,
+        draft:       acc.draft       + t.draft,
+        confirmed:   acc.confirmed   + t.confirmed,
+        claimed:     acc.claimed     + t.claimed,
+      };
+    },
+    { totalBudget: 0, balance: 0, draft: 0, confirmed: 0, claimed: 0 },
   );
 }
 
@@ -72,7 +93,7 @@ function toEdit(info: WeMeetTeamInfo): EditState {
 export function WeMeetSummaryTable({
   summaries, teamInfos, executions, canWrite,
   onSelectTeam, onUpdateTeamInfo,
-  onAddExecution, onEditExecution, onDeleteExecution, onToggleConfirmed, onUpdateExecution, isToggling,
+  onAddExecution, onEditExecution, onDeleteExecution, onUpdateExecution, isToggling,
 }: Props) {
   const [openAdvisors, setOpenAdvisors] = useState<Set<string>>(new Set());
   const [openTeam, setOpenTeam]         = useState<string | null>(null);
@@ -81,8 +102,6 @@ export function WeMeetSummaryTable({
   const [savePending, setSavePending]   = useState(false);
   const [deleteOpen, setDeleteOpen]     = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<WeMeetExecution | null>(null);
-
-  // ── 파생 데이터 ──────────────────────────────────────────────────────
 
   const teamInfoMap = useMemo(
     () => new Map(teamInfos.map((t) => [t.teamName, t])),
@@ -98,7 +117,6 @@ export function WeMeetSummaryTable({
     return m;
   }, [executions]);
 
-  // 지도교수별 그룹 (이름순, 미배정 맨 뒤)
   const advisorGroups = useMemo(() => {
     const map = new Map<string, WeMeetTeamSummary[]>();
     for (const s of summaries) {
@@ -116,8 +134,6 @@ export function WeMeetSummaryTable({
   }, [summaries, teamInfoMap]);
 
   const grandTotal = useMemo(() => sumGroups(summaries), [summaries]);
-
-  // ── 이벤트 핸들러 ────────────────────────────────────────────────────
 
   function toggleAdvisor(advisor: string) {
     setOpenAdvisors((prev) => {
@@ -162,8 +178,6 @@ export function WeMeetSummaryTable({
     setEditState((prev) => (prev ? { ...prev, [key]: val } : prev));
   }
 
-  // ── 빈 상태 ──────────────────────────────────────────────────────────
-
   if (summaries.length === 0) {
     return (
       <div className="rounded-lg border border-[#E3E3E0] bg-white px-4 py-6 text-center text-sm text-gray-400">
@@ -171,8 +185,6 @@ export function WeMeetSummaryTable({
       </div>
     );
   }
-
-  // ── 헬퍼: 편집 인풋 ──────────────────────────────────────────────────
 
   const inp = (key: keyof EditState, placeholder: string, full = false) => (
     <div className={full ? 'col-span-full' : ''}>
@@ -186,28 +198,18 @@ export function WeMeetSummaryTable({
     </div>
   );
 
-  // ── 렌더 ─────────────────────────────────────────────────────────────
-
   return (
     <div>
       <div className="overflow-x-auto rounded-lg border border-[#E3E3E0]">
         <table className="w-full border-collapse text-sm">
-
-          {/* 헤더 */}
           <thead>
             <tr className="bg-[#F3F3EE]">
               <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">팀명</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B]">배정예산</th>
-              {USAGE_LABELS.map((u) => (
-                <th key={u.key} className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">
-                  {u.label}
-                  <span className="block text-[10px] font-normal text-gray-400">확정</span>
-                </th>
-              ))}
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">미확정계</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B]">확정합계</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B]">확정잔액</th>
-              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B]">예정잔액</th>
+              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">배정예산</th>
+              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">기안금액</th>
+              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정금액</th>
+              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">미청구금액</th>
+              <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">잔액</th>
             </tr>
           </thead>
 
@@ -217,7 +219,6 @@ export function WeMeetSummaryTable({
               const gt = sumGroups(teams);
 
               return [
-                /* ── 지도교수 그룹 헤더 ── */
                 <tr
                   key={`adv-${advisor}`}
                   className="cursor-pointer bg-[#EEF3F8] hover:bg-[#E5EDF5] transition-colors border-t border-[#D6E4F0]"
@@ -233,37 +234,32 @@ export function WeMeetSummaryTable({
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-right font-semibold text-[#131310]">{formatKRW(gt.totalBudget)}</td>
-                  {USAGE_LABELS.map((u) => (
-                    <td key={u.key} className="px-3 py-2.5 text-right text-[#131310]">
-                      {gt[u.key] > 0 ? formatKRW(gt[u.key]) : <span className="text-gray-300">—</span>}
-                    </td>
-                  ))}
-                  <td className="px-3 py-2.5 text-right text-gray-400">
-                    {gt.pendingTotal > 0 ? formatKRW(gt.pendingTotal) : <span className="text-gray-300">—</span>}
+                  <td className="px-3 py-2.5 text-right text-gray-500">
+                    {gt.draft > 0 ? formatKRW(gt.draft) : <span className="text-gray-300">—</span>}
                   </td>
-                  <td className="px-3 py-2.5 text-right font-semibold text-[#131310]">{formatKRW(gt.confirmedTotal)}</td>
-                  <td className={`px-3 py-2.5 text-right font-semibold ${gt.confirmedBalance < 0 ? 'text-red-500' : 'text-complete'}`}>
-                    {formatKRW(gt.confirmedBalance)}
+                  <td className="px-3 py-2.5 text-right text-[#131310]">
+                    {gt.confirmed > 0 ? formatKRW(gt.confirmed) : <span className="text-gray-300">—</span>}
                   </td>
-                  <td className={`px-3 py-2.5 text-right ${gt.expectedBalance < 0 ? 'text-amber-500' : 'text-gray-500'}`}>
-                    {formatKRW(gt.expectedBalance)}
+                  <td className="px-3 py-2.5 text-right text-[#131310]">
+                    {gt.claimed > 0 ? formatKRW(gt.claimed) : <span className="text-gray-300">—</span>}
+                  </td>
+                  <td className={`px-3 py-2.5 text-right font-semibold ${gt.balance < 0 ? 'text-red-500' : 'text-complete'}`}>
+                    {formatKRW(gt.balance)}
                   </td>
                 </tr>,
 
-                /* ── 팀 행들 (지도교수 펼쳤을 때) ── */
                 ...(!isAdvisorOpen
                   ? []
                   : teams.flatMap((s: WeMeetTeamSummary, idx: number) => {
-                      const isOpen  = openTeam === s.teamName;
-                      const isOver  = s.confirmedBalance < 0;
-                      const isWarn  = s.expectedBalance < 0 && s.confirmedBalance >= 0;
-                      const info    = teamInfoMap.get(s.teamName) ?? null;
-                      const execs   = executionsByTeam.get(s.teamName) ?? [];
+                      const isOpen    = openTeam === s.teamName;
+                      const totals    = usageTotals(s);
+                      const isOver    = s.balance < 0;
+                      const info      = teamInfoMap.get(s.teamName) ?? null;
+                      const execs     = executionsByTeam.get(s.teamName) ?? [];
                       const isEditing = info !== null && editingRow === info.rowIndex;
-                      const rowBg   = isOpen ? 'bg-primary-bg' : idx % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]';
+                      const rowBg     = isOpen ? 'bg-primary-bg' : idx % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]';
 
                       return [
-                        /* 팀 요약 행 */
                         <tr
                           key={s.teamName}
                           className={`${rowBg} cursor-pointer hover:bg-primary-bg/60 transition-colors`}
@@ -276,34 +272,67 @@ export function WeMeetSummaryTable({
                             </span>
                           </td>
                           <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(s.totalBudget)}</td>
-                          {USAGE_LABELS.map((u) => (
-                            <td key={u.key} className="px-3 py-2 text-right text-[#131310]">
-                              {s.confirmed[u.key] > 0 ? formatKRW(s.confirmed[u.key]) : <span className="text-gray-300">—</span>}
-                            </td>
-                          ))}
-                          <td className="px-3 py-2 text-right text-gray-400">
-                            {s.pending.total > 0 ? formatKRW(s.pending.total) : <span className="text-gray-300">—</span>}
+                          <td className="px-3 py-2 text-right text-gray-500">
+                            {totals.draft > 0 ? formatKRW(totals.draft) : <span className="text-gray-300">—</span>}
                           </td>
-                          <td className="px-3 py-2 text-right font-medium text-[#131310]">{formatKRW(s.confirmed.total)}</td>
+                          <td className="px-3 py-2 text-right text-[#131310]">
+                            {totals.confirmed > 0 ? formatKRW(totals.confirmed) : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="px-3 py-2 text-right text-[#131310]">
+                            {totals.claimed > 0 ? formatKRW(totals.claimed) : <span className="text-gray-300">—</span>}
+                          </td>
                           <td className={`px-3 py-2 text-right font-medium ${isOver ? 'text-red-500' : 'text-complete'}`}>
-                            {formatKRW(s.confirmedBalance)}
-                          </td>
-                          <td className={`px-3 py-2 text-right ${isWarn ? 'text-amber-500' : 'text-gray-500'}`}>
-                            {formatKRW(s.expectedBalance)}
+                            {formatKRW(s.balance)}
                           </td>
                         </tr>,
 
-                        /* 인라인 아코디언 패널 */
                         ...(isOpen
                           ? [
                               <tr key={`${s.teamName}-panel`}>
-                                <td colSpan={COL_COUNT} className="p-0 border-t border-[#E8EFF5]">
+                                <td colSpan={6} className="p-0 border-t border-[#E8EFF5]">
                                   <div className="bg-[#F8FAFC] px-5 py-4 space-y-4">
+
+                                    {/* 사용구분별 요약 (집행 데이터 기반 동적 계산) */}
+                                    <div>
+                                      <p className="mb-2 text-xs font-semibold text-[#6F6F6B]">사용구분별 현황</p>
+                                      {execs.length === 0 ? (
+                                        <p className="text-xs text-gray-400">집행내역이 없습니다.</p>
+                                      ) : (
+                                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                          {calcUsageBreakdown(execs).map(({ usageType, draft, confirmed, unclaimed }) => (
+                                            <div key={usageType} className="rounded-md border border-[#E3E3E0] bg-white p-2.5">
+                                              <p className="mb-1.5 text-[11px] font-medium text-[#6F6F6B]">{usageType}</p>
+                                              <div className="space-y-0.5 text-[11px]">
+                                                <div className="flex justify-between">
+                                                  <span className="text-gray-400">기안</span>
+                                                  <span className={draft > 0 ? 'text-gray-600' : 'text-gray-300'}>
+                                                    {draft > 0 ? formatKRW(draft) : '—'}
+                                                  </span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-gray-400">확정</span>
+                                                  <span className={confirmed > 0 ? 'font-medium text-[#131310]' : 'text-gray-300'}>
+                                                    {confirmed > 0 ? formatKRW(confirmed) : '—'}
+                                                  </span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                  <span className="text-gray-400">미청구</span>
+                                                  <span className={unclaimed > 0 ? 'text-primary' : 'text-gray-300'}>
+                                                    {unclaimed > 0 ? formatKRW(unclaimed) : '—'}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="border-t border-[#E3E3E0]" />
 
                                     {/* 팀 정보 */}
                                     {info ? (
                                       <div className="space-y-3">
-                                        {/* 헤더 + 액션 */}
                                         <div className="flex items-center justify-between">
                                           <p className="text-xs font-semibold text-primary">{info.teamName} — 팀 정보</p>
                                           <div className="flex items-center gap-1.5">
@@ -344,7 +373,6 @@ export function WeMeetSummaryTable({
                                           </div>
                                         </div>
 
-                                        {/* 편집 폼 또는 읽기 전용 */}
                                         {isEditing ? (
                                           <div
                                             className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4"
@@ -364,9 +392,9 @@ export function WeMeetSummaryTable({
                                               [
                                                 ['지도교수', info.advisor],
                                                 ['멘토소속', info.mentorOrg],
-                                                ['멘토',    info.mentor],
+                                                ['멘토',     info.mentor],
                                                 ['보조멘토', info.assistantMentor],
-                                                ['팀장',    info.teamLeader],
+                                                ['팀장',     info.teamLeader],
                                               ] as [string, string][]
                                             ).map(([label, val]) => (
                                               <div key={label} className="flex gap-1.5">
@@ -377,7 +405,6 @@ export function WeMeetSummaryTable({
                                           </div>
                                         )}
 
-                                        {/* 주제 (읽기 전용일 때만 별도 표시) */}
                                         {!isEditing && info.topic && (
                                           <div className="flex gap-1.5 text-xs">
                                             <span className="shrink-0 text-[#6F6F6B]">주제</span>
@@ -385,22 +412,17 @@ export function WeMeetSummaryTable({
                                           </div>
                                         )}
 
-                                        {/* 팀원 명단 (K열 이후 개별) */}
                                         {info.memberList && info.memberList.length > 0 && (
                                           <div className="flex flex-wrap items-center gap-1.5">
                                             <span className="shrink-0 text-xs text-[#6F6F6B]">팀원명단</span>
                                             {info.memberList.map((m, mi) => (
-                                              <span
-                                                key={mi}
-                                                className="rounded-full bg-primary-bg px-2 py-0.5 text-[11px] text-primary"
-                                              >
+                                              <span key={mi} className="rounded-full bg-primary-bg px-2 py-0.5 text-[11px] text-primary">
                                                 {m}
                                               </span>
                                             ))}
                                           </div>
                                         )}
 
-                                        {/* 팀원 합산 텍스트 (G열, memberList 없을 때 표시) */}
                                         {(!info.memberList || info.memberList.length === 0) && info.teamMembers && !isEditing && (
                                           <div className="flex gap-1.5 text-xs">
                                             <span className="shrink-0 text-[#6F6F6B]">팀원</span>
@@ -408,11 +430,7 @@ export function WeMeetSummaryTable({
                                           </div>
                                         )}
 
-                                        {/* 비고 — 항상 편집 가능, blur 시 자동저장 */}
-                                        <div
-                                          className="space-y-1"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
+                                        <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
                                           <label className="text-xs text-[#6F6F6B]">비고</label>
                                           <textarea
                                             key={`remarks-${info.rowIndex}-${info.remarks}`}
@@ -464,10 +482,10 @@ export function WeMeetSummaryTable({
                                               <tr className="bg-[#F3F3EE]">
                                                 <th className="px-3 py-2 text-left font-medium text-[#6F6F6B]">사용구분</th>
                                                 <th className="px-3 py-2 text-left font-medium text-[#6F6F6B]">지출건명</th>
-                                                <th className="px-3 py-2 text-right font-medium text-[#6F6F6B]">기안금액</th>
-                                                <th className="px-3 py-2 text-center font-medium text-[#6F6F6B]">확정여부</th>
-                                                <th className="px-3 py-2 text-right font-medium text-[#6F6F6B]">미확정금액</th>
-                                                <th className="px-3 py-2 text-right font-medium text-[#6F6F6B]">확정금액</th>
+                                                <th className="px-3 py-2 text-right font-medium text-[#6F6F6B] whitespace-nowrap">기안금액</th>
+                                                <th className="px-3 py-2 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정금액</th>
+                                                <th className="px-3 py-2 text-center font-medium text-[#6F6F6B] whitespace-nowrap">청구</th>
+                                                <th className="px-3 py-2 text-center font-medium text-[#6F6F6B] whitespace-nowrap">증빙</th>
                                                 {canWrite && <th className="px-3 py-2 font-medium text-[#6F6F6B]"></th>}
                                               </tr>
                                             </thead>
@@ -487,27 +505,16 @@ export function WeMeetSummaryTable({
                                                       <div className="text-[10px] text-gray-400">{row.usageDate}</div>
                                                     )}
                                                   </td>
-                                                  <td className="px-3 py-1.5 text-right text-[#131310]">{formatKRW(row.draftAmount)}</td>
-                                                  <td className="px-3 py-1.5 text-center">
-                                                    <input
-                                                      type="checkbox"
-                                                      checked={row.confirmed}
-                                                      disabled={!canWrite || isToggling}
-                                                      onChange={(e) => { e.stopPropagation(); onToggleConfirmed(row); }}
-                                                      className="h-3.5 w-3.5 cursor-pointer accent-primary disabled:cursor-default"
-                                                    />
-                                                  </td>
-                                                  <td className="px-3 py-1.5 text-right text-gray-400">
-                                                    {row.confirmed
-                                                      ? <span className="text-gray-300">—</span>
-                                                      : formatKRW(row.draftAmount)}
+                                                  <td className="px-3 py-1.5 text-right text-[#131310]">
+                                                    {formatKRW(row.draftAmount)}
                                                   </td>
                                                   <td className="px-3 py-1.5 text-right">
-                                                    {row.confirmed ? (
+                                                    {row.confirmedAmount > 0 ? (
                                                       <input
                                                         key={`${row.rowIndex}-${row.confirmedAmount}`}
                                                         type="text"
                                                         defaultValue={formatKRW(row.confirmedAmount)}
+                                                        disabled={!canWrite || isToggling}
                                                         onBlur={(e) => {
                                                           const next = parseKRW(e.target.value);
                                                           if (next !== row.confirmedAmount) {
@@ -515,11 +522,35 @@ export function WeMeetSummaryTable({
                                                           }
                                                         }}
                                                         onClick={(e) => e.stopPropagation()}
-                                                        className="w-24 rounded border border-[#E3E3E0] px-2 py-0.5 text-right text-xs font-medium text-[#131310] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                        className="w-24 rounded border border-[#E3E3E0] px-2 py-0.5 text-right text-xs font-medium text-[#131310] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-40"
                                                       />
                                                     ) : (
-                                                      <span className="text-gray-400">—</span>
+                                                      <span className="text-gray-400 text-xs">미확정</span>
                                                     )}
+                                                  </td>
+                                                  <td className="px-3 py-1.5 text-center">
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={row.claimed}
+                                                      disabled={!canWrite || isToggling || row.confirmedAmount === 0}
+                                                      onChange={(e) => {
+                                                        e.stopPropagation();
+                                                        onUpdateExecution({ ...row, claimed: e.target.checked });
+                                                      }}
+                                                      className="h-3.5 w-3.5 cursor-pointer accent-primary disabled:cursor-default disabled:opacity-40"
+                                                    />
+                                                  </td>
+                                                  <td className="px-3 py-1.5 text-center">
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={row.evidenceSubmitted}
+                                                      disabled={!canWrite || isToggling}
+                                                      onChange={(e) => {
+                                                        e.stopPropagation();
+                                                        onUpdateExecution({ ...row, evidenceSubmitted: e.target.checked });
+                                                      }}
+                                                      className="h-3.5 w-3.5 cursor-pointer accent-primary disabled:cursor-default"
+                                                    />
                                                   </td>
                                                   {canWrite && (
                                                     <td className="px-3 py-1.5">
@@ -552,12 +583,14 @@ export function WeMeetSummaryTable({
                                                 <td className="px-3 py-1.5 text-right text-[#131310]">
                                                   {formatKRW(execs.reduce((sum, r) => sum + r.draftAmount, 0))}
                                                 </td>
-                                                <td />
-                                                <td className="px-3 py-1.5 text-right text-gray-500">
-                                                  {formatKRW(execs.reduce((sum, r) => sum + (r.confirmed ? 0 : r.draftAmount), 0))}
-                                                </td>
                                                 <td className="px-3 py-1.5 text-right text-[#131310]">
-                                                  {formatKRW(execs.reduce((sum, r) => sum + (r.confirmed ? r.confirmedAmount : 0), 0))}
+                                                  {formatKRW(execs.reduce((sum, r) => sum + r.confirmedAmount, 0))}
+                                                </td>
+                                                <td className="px-3 py-1.5 text-center text-xs text-gray-400">
+                                                  {execs.filter((r) => r.claimed).length}/{execs.length}건
+                                                </td>
+                                                <td className="px-3 py-1.5 text-center text-xs text-gray-400">
+                                                  {execs.filter((r) => r.evidenceSubmitted).length}/{execs.length}건
                                                 </td>
                                                 {canWrite && <td />}
                                               </tr>
@@ -577,21 +610,15 @@ export function WeMeetSummaryTable({
             })}
           </tbody>
 
-          {/* 전체 합계 */}
           <tfoot>
             <tr className="border-t-2 border-[#E3E3E0] bg-[#F3F3EE] font-semibold">
               <td className="px-3 py-2 text-[#6F6F6B]">합계 ({summaries.length}팀)</td>
               <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.totalBudget)}</td>
-              {USAGE_LABELS.map((u) => (
-                <td key={u.key} className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal[u.key])}</td>
-              ))}
-              <td className="px-3 py-2 text-right text-gray-400">{formatKRW(grandTotal.pendingTotal)}</td>
-              <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.confirmedTotal)}</td>
-              <td className={`px-3 py-2 text-right ${grandTotal.confirmedBalance < 0 ? 'text-red-500' : 'text-[#131310]'}`}>
-                {formatKRW(grandTotal.confirmedBalance)}
-              </td>
-              <td className={`px-3 py-2 text-right ${grandTotal.expectedBalance < 0 ? 'text-amber-500' : 'text-[#131310]'}`}>
-                {formatKRW(grandTotal.expectedBalance)}
+              <td className="px-3 py-2 text-right text-gray-500">{formatKRW(grandTotal.draft)}</td>
+              <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.confirmed)}</td>
+              <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(grandTotal.claimed)}</td>
+              <td className={`px-3 py-2 text-right ${grandTotal.balance < 0 ? 'text-red-500' : 'text-[#131310]'}`}>
+                {formatKRW(grandTotal.balance)}
               </td>
             </tr>
           </tfoot>

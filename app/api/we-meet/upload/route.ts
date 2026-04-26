@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { uploadToWeMeetDrive, deleteFromUserDrive } from '@/lib/google/drive';
-import { updateWeMeetFileUrl } from '@/lib/google/wemeet-sheets';
+import { updateWeMeetEvidenceSubmitted } from '@/lib/google/wemeet-sheets';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,10 +29,6 @@ function extFromMime(mime: string): string {
   return map[mime] ?? 'bin';
 }
 
-function extractFileId(url: string): string | null {
-  const m = url.match(/\/d\/([^/]+)\//);
-  return m?.[1] ?? null;
-}
 
 async function assertCanWrite(email: string) {
   const supabase = createServerSupabaseClient();
@@ -70,8 +66,6 @@ export async function POST(req: NextRequest) {
     const description    = formData.get('description')     as string | null;
     const amountStr      = formData.get('confirmedAmount') as string | null;
     const usageDate      = formData.get('usageDate')       as string | null;
-    const currentFileUrl = (formData.get('currentFileUrl') as string | null) ?? '';
-
     if (!file || !rowIndexStr || !teamName) {
       return NextResponse.json({ error: '필수 파라미터 누락 (file, rowIndex, teamName)' }, { status: 400 });
     }
@@ -79,10 +73,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'PDF 또는 이미지 파일만 업로드 가능합니다.' }, { status: 400 });
     }
 
-    const rowIndex       = Number(rowIndexStr);
+    const rowIndex        = Number(rowIndexStr);
     const confirmedAmount = Number(amountStr ?? 0);
-    const ext            = extFromMime(file.type);
-    const buffer         = Buffer.from(await file.arrayBuffer());
+    const ext             = extFromMime(file.type);
+    const buffer          = Buffer.from(await file.arrayBuffer());
 
     const { webViewLink } = await uploadToWeMeetDrive({
       accessToken: session.accessToken,
@@ -95,14 +89,10 @@ export async function POST(req: NextRequest) {
       ext,
     });
 
-    // I열: 기존 URL 목록에 신규 URL 추가 (\n 구분)
-    const newFileUrl = currentFileUrl
-      ? `${currentFileUrl}\n${webViewLink}`
-      : webViewLink;
+    // H열: 증빙제출 = TRUE로 설정
+    await updateWeMeetEvidenceSubmitted(rowIndex, true);
 
-    await updateWeMeetFileUrl(rowIndex, newFileUrl);
-
-    return NextResponse.json({ newFileUrl });
+    return NextResponse.json({ driveUrl: webViewLink });
   } catch (err) {
     const message = err instanceof Error ? err.message : '업로드 실패';
     const status  = message === '권한이 없습니다.' ? 403 : 500;
@@ -127,15 +117,14 @@ export async function DELETE(req: NextRequest) {
 
     await assertCanWrite(session.user.email);
 
-    const body = await req.json() as { rowIndex: number; targetUrl: string; currentFileUrl: string };
-    const { rowIndex, targetUrl, currentFileUrl } = body;
+    const body = await req.json() as { rowIndex: number; fileId?: string };
+    const { rowIndex, fileId } = body;
 
-    if (!rowIndex || !targetUrl) {
-      return NextResponse.json({ error: '필수 파라미터 누락 (rowIndex, targetUrl)' }, { status: 400 });
+    if (!rowIndex) {
+      return NextResponse.json({ error: '필수 파라미터 누락 (rowIndex)' }, { status: 400 });
     }
 
-    // Drive에서 삭제 (실패해도 시트 업데이트는 진행)
-    const fileId = extractFileId(targetUrl);
+    // Drive에서 파일 삭제 (fileId 제공 시)
     if (fileId) {
       try {
         await deleteFromUserDrive({ accessToken: session.accessToken, fileId });
@@ -144,16 +133,10 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    // I열에서 해당 URL 제거
-    const remaining = currentFileUrl
-      .split('\n')
-      .map((u) => u.trim())
-      .filter((u) => u && u !== targetUrl)
-      .join('\n');
+    // H열: 증빙제출 = FALSE로 설정
+    await updateWeMeetEvidenceSubmitted(rowIndex, false);
 
-    await updateWeMeetFileUrl(rowIndex, remaining);
-
-    return NextResponse.json({ newFileUrl: remaining });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : '삭제 실패';
     const status  = message === '권한이 없습니다.' ? 403 : 500;

@@ -118,6 +118,29 @@ export function useDeleteWeMeetExecution() {
   });
 }
 
+// ── 다중 행 일괄 추가 (팀별 개별 금액 지원) ──────────────────────────
+
+export function useAddBulkWeMeetExecutions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payloads: ExecutionPayload[]) => {
+      const res = await fetch('/api/we-meet/executions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ executions: payloads }),
+      });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '일괄 추가 실패');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [SUMMARY_KEY] });
+    },
+  });
+}
+
 // ── 팀 추가 ──────────────────────────────────────────────────────────
 
 export function useAddWeMeetTeam() {

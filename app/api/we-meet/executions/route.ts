@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { getWeMeetExecutions, appendWeMeetExecution, getWeMeetTeams } from '@/lib/google/wemeet-sheets';
-import { WEMEET_USAGE_TYPES } from '@/constants/wemeet';
+import { getWeMeetExecutions, appendWeMeetExecution, getWeMeetTeams, getWeMeetUsageTypes } from '@/lib/google/wemeet-sheets';
+
 
 async function assertCanWrite(email: string) {
   const supabase = createServerSupabaseClient();
@@ -20,14 +20,15 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const [executions, teams] = await Promise.all([
+    const [executions, teams, usageTypes] = await Promise.all([
       getWeMeetExecutions(),
       getWeMeetTeams(),
+      getWeMeetUsageTypes(),
     ]);
     return NextResponse.json({
       executions,
       teams: teams.map((t) => t.teamName),
-      usageTypes: [...WEMEET_USAGE_TYPES],
+      usageTypes,
     });
   } catch (err) {
     return NextResponse.json(
@@ -46,12 +47,13 @@ export async function POST(req: Request) {
     await assertCanWrite(session.user.email);
     const body = await req.json() as {
       usageType: string;
+      description: string;
       teamName: string;
       draftAmount: number;
-      confirmed: boolean;
       confirmedAmount: number;
-      description: string;
+      claimed: boolean;
       usageDate: string;
+      evidenceSubmitted: boolean;
     };
     await appendWeMeetExecution(body);
     return NextResponse.json({ ok: true });
