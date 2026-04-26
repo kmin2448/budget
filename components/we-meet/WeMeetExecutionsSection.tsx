@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Trash2, RefreshCw, Check, X,
   ChevronDown, ChevronRight, Search, GripVertical,
+  Send, Settings2, SendHorizonal,
 } from 'lucide-react';
 import {
   DndContext, type DragEndEvent, DragOverlay, type DragStartEvent,
@@ -17,6 +18,8 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { formatKRW, parseKRW } from '@/lib/utils';
 import { WeMeetBulkAddModal } from '@/components/we-meet/WeMeetBulkAddModal';
+import { WeMeetGroupSendModal } from '@/components/we-meet/WeMeetGroupSendModal';
+import { WeMeetSendSettingsModal } from '@/components/we-meet/WeMeetSendSettingsModal';
 import {
   useWeMeetExecutions,
   useAddWeMeetExecution,
@@ -24,6 +27,7 @@ import {
   useDeleteWeMeetExecution,
   useAddBulkWeMeetExecutions,
   useReorderWeMeetExecutions,
+  useMarkWeMeetSent,
   type ExecutionPayload,
 } from '@/hooks/useWeMeet';
 import type { WeMeetExecution } from '@/types';
@@ -193,6 +197,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
   const deleteMutation   = useDeleteWeMeetExecution();
   const bulkMutation     = useAddBulkWeMeetExecutions();
   const reorderMutation  = useReorderWeMeetExecutions();
+  const markSentMutation = useMarkWeMeetSent();
 
   const executions = useMemo(() => data?.executions ?? [], [data]);
   const teams      = data?.teams ?? [];
@@ -205,8 +210,10 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
   const [newGroupForm, setNewGroupForm]       = useState<NewGroupForm>({ ...DEFAULT_NEW_GROUP });
   const [deleteOpen, setDeleteOpen]           = useState(false);
   const [deleteTarget, setDeleteTarget]       = useState<WeMeetExecution | null>(null);
-  const [showBulkModal, setShowBulkModal]     = useState(false);
-  const [expandedKeys, setExpandedKeys]       = useState<Set<string>>(new Set());
+  const [showBulkModal, setShowBulkModal]         = useState(false);
+  const [expandedKeys, setExpandedKeys]           = useState<Set<string>>(new Set());
+  const [sendGroup, setSendGroup]                 = useState<ExecGroup | null>(null);
+  const [showSendSettings, setShowSendSettings]   = useState(false);
 
   // 검색 + 사용구분 필터
   const [searchQuery, setSearchQuery] = useState('');
@@ -361,6 +368,8 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
     const totalConf    = group.rows.reduce((s, r) => s + r.confirmedAmount, 0);
     const unclaimedAmt = group.rows.filter((r) => r.confirmedAmount > 0 && !r.claimed).reduce((s, r) => s + r.confirmedAmount, 0);
     const evidenceCnt  = group.rows.filter((r) => r.evidenceSubmitted).length;
+    const allSent      = group.rows.length > 0 && group.rows.every((r) => r.sent);
+    const anySent      = group.rows.some((r) => r.sent);
 
     if (!isExpanded) {
       result.push(
@@ -378,9 +387,21 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
           </td>
           <td className="px-3 py-2 text-xs text-[#131310]">{group.description}</td>
           <td className="px-3 py-2">
-            <span className="rounded-full bg-[#D6E4F0] px-2 py-0.5 text-[11px] font-medium text-primary">
-              {group.rows.length}팀
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="rounded-full bg-[#D6E4F0] px-2 py-0.5 text-[11px] font-medium text-primary">
+                {group.rows.length}팀
+              </span>
+              {allSent && (
+                <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-600 flex items-center gap-0.5">
+                  <SendHorizonal className="h-2.5 w-2.5" />전송완료
+                </span>
+              )}
+              {!allSent && anySent && (
+                <span className="rounded-full bg-yellow-50 px-1.5 py-0.5 text-[10px] font-medium text-yellow-600">
+                  일부전송
+                </span>
+              )}
+            </div>
           </td>
           <td className="px-3 py-2 text-xs text-gray-300">—</td>
           <td className="px-3 py-2 text-right text-xs tabular-nums text-[#131310]">
@@ -402,7 +423,17 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               ? <span className="text-[#131310]">{evidenceCnt}/{group.rows.length}</span>
               : <span className="text-gray-300">—</span>}
           </td>
-          {canWrite && <td className="px-2 py-2" />}
+          {canWrite && (
+            <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setSendGroup(group)}
+                title="비목별 집행내역으로 전송"
+                className="rounded p-1 text-gray-300 hover:bg-[#D6E4F0] hover:text-primary transition-colors"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+            </td>
+          )}
         </tr>,
       );
       return result;
@@ -597,6 +628,9 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
             </Button>
             <Button size="sm" onClick={() => { setShowNewGroup(true); setAddTeamGroupKey(null); }} className="gap-1.5">
               <Plus className="h-3.5 w-3.5" />건 추가
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setShowSendSettings(true)} className="gap-1.5 text-gray-600" title="보내기 기본 설정">
+              <Settings2 className="h-3.5 w-3.5" />보내기 설정
             </Button>
           </>
         )}
@@ -829,6 +863,21 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
         isPending={bulkMutation.isPending}
         onClose={() => setShowBulkModal(false)}
         onSave={(payloads) => bulkMutation.mutateAsync(payloads)}
+      />
+
+      <WeMeetGroupSendModal
+        open={sendGroup !== null}
+        group={sendGroup}
+        onClose={() => setSendGroup(null)}
+        onSent={(rowIndexes) => {
+          markSentMutation.mutate(rowIndexes);
+          setSendGroup(null);
+        }}
+      />
+
+      <WeMeetSendSettingsModal
+        open={showSendSettings}
+        onClose={() => setShowSendSettings(false)}
       />
 
       <ConfirmDialog

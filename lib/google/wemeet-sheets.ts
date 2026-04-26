@@ -66,13 +66,14 @@ export async function getWeMeetExecutions(): Promise<WeMeetExecution[]> {
       claimed:           parseBool(row?.[5]),             // F
       usageDate:         String(row?.[6] ?? '').trim(),  // G
       evidenceSubmitted: parseBool(row?.[7]),             // H
+      sent:              parseBool(row?.[8]),             // I
     });
   }
 
   return result;
 }
 
-export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowIndex'>): Promise<void> {
+export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowIndex' | 'sent'>): Promise<void> {
   const sheets = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEETS_ID(),
@@ -96,7 +97,7 @@ export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowInde
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A${nextRowNum}:H${nextRowNum}`,
+    range: `집행현황!A${nextRowNum}:I${nextRowNum}`,
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
@@ -108,6 +109,7 @@ export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowInde
         data.claimed,            // F
         data.usageDate ?? '',    // G
         data.evidenceSubmitted,  // H
+        false,                   // I: 보내기여부 (신규 = false)
       ]],
     },
   });
@@ -115,7 +117,7 @@ export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowInde
 
 export async function updateWeMeetExecution(
   rowIndex: number,
-  data: Omit<WeMeetExecution, 'rowIndex'>,
+  data: Omit<WeMeetExecution, 'rowIndex' | 'sent'>,
 ): Promise<void> {
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.update({
@@ -162,18 +164,18 @@ export async function deleteWeMeetExecution(rowIndex: number): Promise<void> {
   const clearEnd = rows.length + 1;
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A2:H${clearEnd}`,
+    range: `집행현황!A2:I${clearEnd}`,
   });
 
   if (filtered.length > 0) {
     const normalized = filtered.map((row) => {
       const r = [...row];
-      while (r.length < 8) r.push('');
-      return r.slice(0, 8);
+      while (r.length < 9) r.push('');
+      return r.slice(0, 9);
     });
     await sheets.spreadsheets.values.update({
       spreadsheetId: SHEETS_ID(),
-      range: `집행현황!A2:H${filtered.length + 1}`,
+      range: `집행현황!A2:I${filtered.length + 1}`,
       valueInputOption: 'RAW',
       requestBody: { values: normalized },
     });
@@ -391,7 +393,7 @@ export async function reorderWeMeetExecutions(
 
   await sheets.spreadsheets.values.clear({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A2:H${clearEnd}`,
+    range: `집행현황!A2:I${clearEnd}`,
   });
 
   const values = orderedRows.map((data) => [
@@ -403,20 +405,38 @@ export async function reorderWeMeetExecutions(
     data.claimed,
     data.usageDate ?? '',
     data.evidenceSubmitted,
+    data.sent ?? false,
   ]);
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A2:H${orderedRows.length + 1}`,
+    range: `집행현황!A2:I${orderedRows.length + 1}`,
     valueInputOption: 'RAW',
     requestBody: { values },
+  });
+}
+
+// ── 집행현황 보내기여부 일괄 표시 ─────────────────────────────────────
+
+export async function markWeMeetExecutionsSent(rowIndexes: number[]): Promise<void> {
+  if (rowIndexes.length === 0) return;
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SHEETS_ID(),
+    requestBody: {
+      valueInputOption: 'RAW',
+      data: rowIndexes.map((ri) => ({
+        range: `집행현황!I${ri}`,
+        values: [[true]],
+      })),
+    },
   });
 }
 
 // ── 다중 행 일괄 추가 ─────────────────────────────────────────────────
 
 export async function bulkAppendWeMeetExecutions(
-  items: Array<Omit<WeMeetExecution, 'rowIndex'>>,
+  items: Array<Omit<WeMeetExecution, 'rowIndex' | 'sent'>>,
 ): Promise<void> {
   if (items.length === 0) return;
 
@@ -452,11 +472,12 @@ export async function bulkAppendWeMeetExecutions(
     data.claimed,
     data.usageDate ?? '',
     data.evidenceSubmitted,
+    false,  // I: 보내기여부 (신규 = false)
   ]);
 
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `집행현황!A${nextRowNum}:H${endRowNum}`,
+    range: `집행현황!A${nextRowNum}:I${endRowNum}`,
     valueInputOption: 'RAW',
     requestBody: { values },
   });

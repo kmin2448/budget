@@ -193,6 +193,7 @@ export interface WeMeetExecution {
   claimed: boolean;            // F: 청구여부 (TRUE/FALSE)
   usageDate: string;           // G: 사용(신청)일자
   evidenceSubmitted: boolean;  // H: 증빙제출 (TRUE/FALSE)
+  sent: boolean;               // I: 보내기여부
 }
 
 export interface WeMeetUsageSummary {

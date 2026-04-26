@@ -15,9 +15,9 @@ export const WEMEET_NAMED_RANGES = {
 export const WEMEET_USAGE_TYPES = ['멘토링', '회의비', '재료비', '학생활동지원비'] as const;
 export type WeMeetUsageType = (typeof WEMEET_USAGE_TYPES)[number];
 
-// 집행현황 시트 데이터 범위 A2:H200
-// A: 사용구분, B: 지출건명, C: 팀명, D: 기안금액, E: 확정금액, F: 청구여부, G: 사용일자, H: 파일URL
-export const WEMEET_EXECUTION_RANGE = '집행현황!A2:H200';
+// 집행현황 시트 데이터 범위 A2:I200
+// A: 사용구분, B: 지출건명, C: 팀명, D: 기안금액, E: 확정금액, F: 청구여부, G: 사용일자, H: 증빙제출, I: 보내기여부
+export const WEMEET_EXECUTION_RANGE = '집행현황!A2:I200';
 // 팀별취합 시트 데이터 범위 A3:O31 (3열씩 × 4개 사용구분 + A팀명 + B예산 + C잔액)
 export const WEMEET_SUMMARY_RANGE = '팀별취합!A3:O31';
 // 팀명단 범위

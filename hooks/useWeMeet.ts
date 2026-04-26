@@ -52,7 +52,7 @@ export function useWeMeetSummary() {
 
 // ── 행 추가 ──────────────────────────────────────────────────────────
 
-export type ExecutionPayload = Omit<WeMeetExecution, 'rowIndex'>;
+export type ExecutionPayload = Omit<WeMeetExecution, 'rowIndex' | 'sent'>;
 
 export function useAddWeMeetExecution() {
   const queryClient = useQueryClient();
@@ -114,6 +114,28 @@ export function useDeleteWeMeetExecution() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [SUMMARY_KEY] });
+    },
+  });
+}
+
+// ── 집행현황 보내기 표시 ──────────────────────────────────────────────
+
+export function useMarkWeMeetSent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (rowIndexes: number[]) => {
+      const res = await fetch('/api/we-meet/executions/mark-sent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rowIndexes }),
+      });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '보내기 표시 실패');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
     },
   });
 }
