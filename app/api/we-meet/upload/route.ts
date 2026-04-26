@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     const teamName       = formData.get('teamName')        as string | null;
     const description    = formData.get('description')     as string | null;
     const amountStr      = formData.get('confirmedAmount') as string | null;
-    const usageDate      = formData.get('usageDate')       as string | null;
+    const remarks        = formData.get('remarks')          as string | null;
     if (!file || !rowIndexStr || !teamName) {
       return NextResponse.json({ error: '필수 파라미터 누락 (file, rowIndex, teamName)' }, { status: 400 });
     }
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       teamName,
       description:     description ?? '',
       confirmedAmount,
-      usageDate:       usageDate ?? '',
+      remarks:         remarks ?? '',
       buffer,
       mimeType:        file.type,
       ext,

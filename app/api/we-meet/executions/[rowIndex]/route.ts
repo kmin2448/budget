@@ -40,7 +40,7 @@ export async function PATCH(
       draftAmount: number;
       confirmedAmount: number;
       claimed: boolean;
-      usageDate: string;
+      remarks: string;
       evidenceSubmitted: boolean;
     };
     await updateWeMeetExecution(rowIndex, body);

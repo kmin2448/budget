@@ -37,7 +37,7 @@ const DEFAULT_FORM: ExecutionPayload = {
   draftAmount: 0,
   confirmedAmount: 0,
   claimed: false,
-  usageDate: '',
+  remarks: '',
   evidenceSubmitted: false,
 };
 
@@ -59,7 +59,7 @@ export function WeMeetRowForm({ open, mode, teams, usageTypes, initialData, defa
           draftAmount:       initialData.draftAmount,
           confirmedAmount:   initialData.confirmedAmount,
           claimed:           initialData.claimed,
-          usageDate:         initialData.usageDate,
+          remarks:           initialData.remarks,
           evidenceSubmitted: initialData.evidenceSubmitted,
         });
         setDraftStr(formatKRW(initialData.draftAmount));
@@ -127,7 +127,7 @@ export function WeMeetRowForm({ open, mode, teams, usageTypes, initialData, defa
             </select>
           </div>
 
-          {/* 지출건명 + 사용일자 */}
+          {/* 지출건명 + 비고 */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>지출건명</Label>
@@ -140,11 +140,12 @@ export function WeMeetRowForm({ open, mode, teams, usageTypes, initialData, defa
               />
             </div>
             <div className="space-y-1.5">
-              <Label>사용일자</Label>
+              <Label>비고</Label>
               <input
-                type="date"
-                value={form.usageDate}
-                onChange={(e) => setForm((f) => ({ ...f, usageDate: e.target.value }))}
+                type="text"
+                value={form.remarks}
+                onChange={(e) => setForm((f) => ({ ...f, remarks: e.target.value }))}
+                placeholder="비고 입력 (선택)"
                 className="w-full rounded-md border border-[#E3E3E0] px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>

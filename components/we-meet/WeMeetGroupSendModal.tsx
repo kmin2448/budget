@@ -40,17 +40,18 @@ interface Props {
 
 // ── 유틸 ─────────────────────────────────────────────────────────────
 
-function dateToFiscalIdx(dateStr: string): number {
-  const m = dateStr ? parseInt(dateStr.substring(5, 7)) : new Date().getMonth() + 1;
+function currentFiscalIdx(): number {
+  const m = new Date().getMonth() + 1;
   return m >= 3 ? m - 3 : m + 9;
 }
 
 function buildMonthlyAmounts(rows: WeMeetExecution[]): number[] {
   const amounts = Array(12).fill(0) as number[];
+  const idx = currentFiscalIdx();
   for (const row of rows) {
     const amt = row.confirmedAmount > 0 ? row.confirmedAmount : row.draftAmount;
     if (amt === 0) continue;
-    amounts[dateToFiscalIdx(row.usageDate)] += amt;
+    amounts[idx] += amt;
   }
   return amounts;
 }
@@ -325,8 +326,8 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
                       <span className={`text-[11px] tabular-nums ${isConf ? 'text-primary' : 'text-gray-400'}`}>
                         {isConf ? `확정 ${formatKRW(row.confirmedAmount)}` : amt > 0 ? `기안 ${formatKRW(amt)}` : '금액 없음'}
                       </span>
-                      {row.usageDate && (
-                        <span className="text-[11px] text-gray-400">{row.usageDate}</span>
+                      {row.remarks && (
+                        <span className="text-[11px] text-gray-400">{row.remarks}</span>
                       )}
                       {row.sent && (
                         <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-600">전송됨</span>

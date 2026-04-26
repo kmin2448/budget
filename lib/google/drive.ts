@@ -134,7 +134,7 @@ export async function uploadToWeMeetDrive(params: {
   teamName: string;
   description: string;
   confirmedAmount: number;
-  usageDate: string;
+  remarks: string;
   buffer: Buffer;
   mimeType: string;
   ext: string;
@@ -147,8 +147,8 @@ export async function uploadToWeMeetDrive(params: {
 
   const sanitize = (s: string) => s.replace(/[/\\:*?"<>|]/g, '_').trim() || 'file';
   const amtStr   = params.confirmedAmount.toLocaleString('ko-KR');
-  const dateStr  = params.usageDate || '날짜미정';
-  const baseName = `${sanitize(params.description)}(${amtStr})_${dateStr}`;
+  const suffix   = params.remarks ? `_${sanitize(params.remarks)}` : '';
+  const baseName = `${sanitize(params.description)}(${amtStr})${suffix}`;
   const ext      = params.ext.toLowerCase().replace(/^\./, '');
 
   // 동일 폴더 내 파일명 목록 조회 → 중복 시 (1),(2)... 부여

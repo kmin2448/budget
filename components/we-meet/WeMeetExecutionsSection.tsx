@@ -45,7 +45,7 @@ interface ExecGroup {
 
 interface TeamFormRow {
   teamName: string;
-  usageDate: string;
+  remarks: string;
   draftStr: string;
   confirmedStr: string;
   claimed: boolean;
@@ -75,7 +75,7 @@ function groupExecutions(execs: WeMeetExecution[]): ExecGroup[] {
 }
 
 const DEFAULT_TEAM: TeamFormRow = {
-  teamName: '', usageDate: '', draftStr: '', confirmedStr: '', claimed: false, evidenceSubmitted: false,
+  teamName: '', remarks: '', draftStr: '', confirmedStr: '', claimed: false, evidenceSubmitted: false,
 };
 
 const DEFAULT_NEW_GROUP: NewGroupForm = {
@@ -296,7 +296,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
     updateMutation.mutate({
       rowIndex: row.rowIndex, usageType: row.usageType, teamName: row.teamName,
       draftAmount: row.draftAmount, confirmedAmount: row.confirmedAmount,
-      claimed: row.claimed, description: row.description, usageDate: row.usageDate,
+      claimed: row.claimed, description: row.description, remarks: row.remarks,
       evidenceSubmitted: row.evidenceSubmitted, ...patch,
     });
   }
@@ -313,7 +313,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
       usageType: group.usageType, teamName: newTeam.teamName,
       draftAmount: draft, confirmedAmount: confirmed,
       claimed: confirmed > 0 ? newTeam.claimed : false,
-      description: group.description, usageDate: newTeam.usageDate,
+      description: group.description, remarks: newTeam.remarks,
       evidenceSubmitted: newTeam.evidenceSubmitted,
     });
     setAddTeamGroupKey(null);
@@ -331,7 +331,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
         usageType: newGroupForm.usageType, teamName: t.teamName,
         draftAmount: draft, confirmedAmount: confirmed,
         claimed: confirmed > 0 ? t.claimed : false,
-        description: newGroupForm.description, usageDate: t.usageDate,
+        description: newGroupForm.description, remarks: t.remarks,
         evidenceSubmitted: t.evidenceSubmitted,
       };
     });
@@ -625,10 +625,11 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               onSave={(v) => saveRow(row, { teamName: v })} />
           </td>
           <td className="px-3 py-1.5">
-            <input key={`${row.rowIndex}-date`} type="date" defaultValue={row.usageDate}
+            <input key={`${row.rowIndex}-remarks`} type="text" defaultValue={row.remarks}
               disabled={!canWrite}
-              onBlur={(e) => { if (e.target.value !== row.usageDate) saveRow(row, { usageDate: e.target.value }); }}
-              className="rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-[#131310] hover:border-[#D0D0CA] focus:border-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-40"
+              placeholder="비고"
+              onBlur={(e) => { if (e.target.value !== row.remarks) saveRow(row, { remarks: e.target.value }); }}
+              className="w-full rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-[#131310] placeholder:text-gray-300 hover:border-[#D0D0CA] focus:border-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-40"
             />
           </td>
           <td className="px-3 py-1.5 text-right">
@@ -679,7 +680,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                 </select>
               </td>
               <td className="px-3 py-1.5">
-                <input type="date" value={newTeam.usageDate} onChange={(e) => setNewTeam((t) => ({ ...t, usageDate: e.target.value }))} className={fi} />
+                <input type="text" value={newTeam.remarks} onChange={(e) => setNewTeam((t) => ({ ...t, remarks: e.target.value }))} placeholder="비고" className={fi} />
               </td>
               <td className="px-3 py-1.5">
                 <input type="text" value={newTeam.draftStr}
@@ -746,7 +747,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               </select>
             </td>
             <td className="px-3 py-1.5">
-              <input type="date" value={newTeam.usageDate} onChange={(e) => setNewTeam((t) => ({ ...t, usageDate: e.target.value }))} className={fi} />
+              <input type="text" value={newTeam.remarks} onChange={(e) => setNewTeam((t) => ({ ...t, remarks: e.target.value }))} placeholder="비고" className={fi} />
             </td>
             <td className="px-3 py-1.5">
               <input type="text" value={newTeam.draftStr}
@@ -863,10 +864,11 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               </div>
             </td>
             <td className="px-3 py-1.5">
-              <input key={`${row.rowIndex}-date`} type="date" defaultValue={row.usageDate}
+              <input key={`${row.rowIndex}-remarks`} type="text" defaultValue={row.remarks}
                 disabled={!canWrite}
-                onBlur={(e) => { if (e.target.value !== row.usageDate) saveRow(row, { usageDate: e.target.value }); }}
-                className="rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-[#131310] hover:border-[#D0D0CA] focus:border-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-40"
+                placeholder="비고"
+                onBlur={(e) => { if (e.target.value !== row.remarks) saveRow(row, { remarks: e.target.value }); }}
+                className="w-full rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-[#131310] placeholder:text-gray-300 hover:border-[#D0D0CA] focus:border-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-40"
               />
             </td>
             <td className="px-3 py-1.5 text-right">
@@ -912,7 +914,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                     {teams.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </td>
-                <td className="px-3 py-1.5"><input type="date" value={newTeam.usageDate} onChange={(e) => setNewTeam((t) => ({ ...t, usageDate: e.target.value }))} className={fi} /></td>
+                <td className="px-3 py-1.5"><input type="text" value={newTeam.remarks} onChange={(e) => setNewTeam((t) => ({ ...t, remarks: e.target.value }))} placeholder="비고" className={fi} /></td>
                 <td className="px-3 py-1.5"><input type="text" value={newTeam.draftStr} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); setNewTeam((t) => ({ ...t, draftStr: raw === '' ? '' : Number(raw).toLocaleString('ko-KR') })); }} placeholder="0" className={`${fi} text-right`} /></td>
                 <td className="px-3 py-1.5"><input type="text" value={newTeam.confirmedStr} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); const fmt = raw === '' ? '' : Number(raw).toLocaleString('ko-KR'); setNewTeam((t) => ({ ...t, confirmedStr: fmt, claimed: Number(raw) === 0 ? false : t.claimed })); }} placeholder="0=미확정" className={`${fi} text-right placeholder:text-gray-300`} /></td>
                 <td className="px-3 py-1.5 text-center"><input type="checkbox" checked={newTeam.claimed} disabled={newConf === 0} onChange={(e) => setNewTeam((t) => ({ ...t, claimed: e.target.checked }))} className="h-3.5 w-3.5 accent-primary disabled:opacity-40 disabled:cursor-default" /></td>
@@ -1018,7 +1020,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                   <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">사용구분</th>
                   <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">지출건명</th>
                   <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B]">팀명</th>
-                  <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">사용일자</th>
+                  <th className="px-3 py-2.5 text-left font-medium text-[#6F6F6B] whitespace-nowrap">비고</th>
                   <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">기안금액</th>
                   <th className="px-3 py-2.5 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정금액</th>
                   <th className="px-3 py-2.5 text-center font-medium text-[#6F6F6B] whitespace-nowrap">청구여부</th>
@@ -1088,9 +1090,9 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                           </select>
                         </td>
                         <td className="px-3 py-1.5">
-                          <input type="date" value={team.usageDate}
-                            onChange={(e) => updateNewGroupTeam(ti, { usageDate: e.target.value })}
-                            className={fi} />
+                          <input type="text" value={team.remarks}
+                            onChange={(e) => updateNewGroupTeam(ti, { remarks: e.target.value })}
+                            placeholder="비고" className={fi} />
                         </td>
                         <td className="px-3 py-1.5">
                           <input type="text" value={team.draftStr}

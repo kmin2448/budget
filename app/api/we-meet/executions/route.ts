@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       draftAmount: number;
       confirmedAmount: number;
       claimed: boolean;
-      usageDate: string;
+      remarks: string;
       evidenceSubmitted: boolean;
     };
     await appendWeMeetExecution(body);

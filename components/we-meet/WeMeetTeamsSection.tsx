@@ -92,7 +92,7 @@ export function WeMeetTeamsSection({ canWrite }: Props) {
       confirmedAmount:   row.confirmedAmount,
       claimed:           row.claimed,
       description:       row.description,
-      usageDate:         row.usageDate,
+      remarks:           row.remarks,
       evidenceSubmitted: row.evidenceSubmitted,
     });
   }

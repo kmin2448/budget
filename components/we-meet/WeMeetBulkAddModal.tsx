@@ -12,7 +12,7 @@ import type { ExecutionPayload } from '@/hooks/useWeMeet';
 interface TeamRow {
   id: number;
   teamName: string;
-  usageDate: string;
+  remarks: string;
   draftStr: string;
   confirmedStr: string;
   claimed: boolean;
@@ -33,7 +33,7 @@ const newId = () => ++_id;
 
 function blankRow(teamName = ''): TeamRow {
   return {
-    id: newId(), teamName, usageDate: '', draftStr: '', confirmedStr: '',
+    id: newId(), teamName, remarks: '', draftStr: '', confirmedStr: '',
     claimed: false, evidenceSubmitted: false,
   };
 }
@@ -48,7 +48,7 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
   const [error,       setError]       = useState('');
 
   // 일괄 적용 필드
-  const [bulkDate,      setBulkDate]      = useState('');
+  const [bulkRemarks,   setBulkRemarks]   = useState('');
   const [bulkDraftStr,  setBulkDraftStr]  = useState('');
   const [bulkConfStr,   setBulkConfStr]   = useState('');
 
@@ -57,7 +57,7 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
     setDescription('');
     setRows([blankRow()]);
     setError('');
-    setBulkDate('');
+    setBulkRemarks('');
     setBulkDraftStr('');
     setBulkConfStr('');
   }
@@ -97,7 +97,7 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
   function applyBulk() {
     setRows((prev) => prev.map((r) => {
       const patch: Partial<TeamRow> = {};
-      if (bulkDate)     patch.usageDate   = bulkDate;
+      if (bulkRemarks)  patch.remarks     = bulkRemarks;
       if (bulkDraftStr) patch.draftStr    = bulkDraftStr;
       if (bulkConfStr)  {
         patch.confirmedStr = bulkConfStr;
@@ -126,7 +126,7 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
         draftAmount:       draft,
         confirmedAmount:   confirmed,
         claimed:           confirmed > 0 ? r.claimed : false,
-        usageDate:         r.usageDate,
+        remarks:           r.remarks,
         evidenceSubmitted: r.evidenceSubmitted,
       };
     });
@@ -179,10 +179,10 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
           <div className="flex items-center gap-2 rounded-md border border-[#E3E3E0] bg-[#F8FAFC] px-3 py-2">
             <span className="shrink-0 text-[11px] font-medium text-[#6F6F6B]">일괄 적용</span>
             <input
-              type="date"
-              value={bulkDate}
-              onChange={(e) => setBulkDate(e.target.value)}
-              placeholder="사용일자"
+              type="text"
+              value={bulkRemarks}
+              onChange={(e) => setBulkRemarks(e.target.value)}
+              placeholder="비고"
               className="w-36 rounded border border-[#E3E3E0] bg-white px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <input
@@ -207,7 +207,7 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
             />
             <button
               onClick={applyBulk}
-              disabled={!bulkDate && !bulkDraftStr && !bulkConfStr}
+              disabled={!bulkRemarks && !bulkDraftStr && !bulkConfStr}
               className="flex items-center gap-1 rounded-md bg-[#D6E4F0] px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-40"
             >
               <ChevronsDown className="h-3 w-3" />
@@ -221,7 +221,7 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
               <thead className="sticky top-0 z-10">
                 <tr className="bg-[#F3F3EE]">
                   <th className="px-3 py-2 text-left font-medium text-[#6F6F6B] whitespace-nowrap">팀명 <span className="text-red-400">*</span></th>
-                  <th className="px-3 py-2 text-left font-medium text-[#6F6F6B] whitespace-nowrap">사용일자</th>
+                  <th className="px-3 py-2 text-left font-medium text-[#6F6F6B] whitespace-nowrap">비고</th>
                   <th className="px-3 py-2 text-right font-medium text-[#6F6F6B] whitespace-nowrap">기안금액</th>
                   <th className="px-3 py-2 text-right font-medium text-[#6F6F6B] whitespace-nowrap">확정금액</th>
                   <th className="px-2 py-2 text-center font-medium text-[#6F6F6B] whitespace-nowrap">청구</th>
@@ -245,12 +245,13 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
                           {teams.map((t) => <option key={t} value={t}>{t}</option>)}
                         </select>
                       </td>
-                      {/* 사용일자 */}
+                      {/* 비고 */}
                       <td className="px-2 py-1.5">
                         <input
-                          type="date"
-                          value={row.usageDate}
-                          onChange={(e) => updateRow(row.id, { usageDate: e.target.value })}
+                          type="text"
+                          value={row.remarks}
+                          onChange={(e) => updateRow(row.id, { remarks: e.target.value })}
+                          placeholder="비고"
                           className={fi}
                         />
                       </td>

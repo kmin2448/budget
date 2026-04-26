@@ -152,8 +152,8 @@ export function WeMeetTable({
                     <div className="truncate text-[#131310]">
                       {row.description || <span className="text-gray-300">—</span>}
                     </div>
-                    {row.usageDate && (
-                      <div className="text-[11px] text-gray-400">{row.usageDate}</div>
+                    {row.remarks && (
+                      <div className="text-[11px] text-gray-400">{row.remarks}</div>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right text-[#131310]">{formatKRW(row.draftAmount)}</td>

@@ -64,7 +64,7 @@ export async function getWeMeetExecutions(): Promise<WeMeetExecution[]> {
       draftAmount:       Number(row?.[3] ?? 0),          // D
       confirmedAmount:   Number(row?.[4] ?? 0),          // E
       claimed:           parseBool(row?.[5]),             // F
-      usageDate:         String(row?.[6] ?? '').trim(),  // G
+      remarks:           String(row?.[6] ?? '').trim(),  // G: 비고
       evidenceSubmitted: parseBool(row?.[7]),             // H
       sent:              parseBool(row?.[8]),             // I
     });
@@ -107,7 +107,7 @@ export async function appendWeMeetExecution(data: Omit<WeMeetExecution, 'rowInde
         data.draftAmount,        // D
         data.confirmedAmount,    // E
         data.claimed,            // F
-        data.usageDate ?? '',    // G
+        data.remarks ?? '',    // G
         data.evidenceSubmitted,  // H
         false,                   // I: 보내기여부 (신규 = false)
       ]],
@@ -132,7 +132,7 @@ export async function updateWeMeetExecution(
         data.draftAmount,        // D
         data.confirmedAmount,    // E
         data.claimed,            // F
-        data.usageDate ?? '',    // G
+        data.remarks ?? '',    // G
         data.evidenceSubmitted,  // H
       ]],
     },
@@ -403,7 +403,7 @@ export async function reorderWeMeetExecutions(
     data.draftAmount,
     data.confirmedAmount,
     data.claimed,
-    data.usageDate ?? '',
+    data.remarks ?? '',
     data.evidenceSubmitted,
     data.sent ?? false,
   ]);
@@ -487,7 +487,7 @@ export async function bulkAppendWeMeetExecutions(
     data.draftAmount,
     data.confirmedAmount,
     data.claimed,
-    data.usageDate ?? '',
+    data.remarks ?? '',
     data.evidenceSubmitted,
     false,  // I: 보내기여부 (신규 = false)
   ]);

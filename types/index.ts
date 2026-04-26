@@ -191,7 +191,7 @@ export interface WeMeetExecution {
   draftAmount: number;         // D: 기안금액
   confirmedAmount: number;     // E: 확정금액 (0 = 미확정)
   claimed: boolean;            // F: 청구여부 (TRUE/FALSE)
-  usageDate: string;           // G: 사용(신청)일자
+  remarks: string;             // G: 비고
   evidenceSubmitted: boolean;  // H: 증빙제출 (TRUE/FALSE)
   sent: boolean;               // I: 보내기여부
 }
