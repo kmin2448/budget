@@ -216,6 +216,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
   const [deleteTarget, setDeleteTarget]       = useState<WeMeetExecution | null>(null);
   const [showBulkModal, setShowBulkModal]         = useState(false);
   const [expandedKeys, setExpandedKeys]           = useState<Set<string>>(new Set());
+  const [expandedBatches, setExpandedBatches]     = useState<Set<string>>(new Set());
   const [sendGroup, setSendGroup]                 = useState<ExecGroup | null>(null);
   const [sendInitialSelection, setSendInitialSelection] = useState<number[]>([]);
   const [showSendSettings, setShowSendSettings]   = useState(false);
@@ -358,6 +359,15 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleBatch(batchId: string) {
+    setExpandedBatches((prev) => {
+      const next = new Set(prev);
+      if (next.has(batchId)) next.delete(batchId);
+      else next.add(batchId);
       return next;
     });
   }
@@ -798,24 +808,32 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
       }
     }
 
-    // ── 전송된 배치 그룹 ─────────────────────────────────────────────────
-    groupBatches.forEach((batch, bi) => {
-      const batchRows = group.rows.filter((r) => batch.wemeetRowIndexes.includes(r.rowIndex));
-      const sentDateStr = new Date(batch.sentAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    // ── 전송된 배치 그룹 (기본 접힘, 클릭 시 펼침) ──────────────────────
+    groupBatches.forEach((batch) => {
+      const batchRows      = group.rows.filter((r) => batch.wemeetRowIndexes.includes(r.rowIndex));
+      const sentDateStr    = new Date(batch.sentAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const isBatchExpanded = expandedBatches.has(batch.id);
 
-      // 배치 헤더 행
+      // 배치 헤더 행 — 클릭 시 토글
       result.push(
-        <tr key={`batch-header-${batch.id}`} className="bg-[#F0F5FF] border-t border-[#D6E4F0]">
-          <td colSpan={canWrite ? 8 : 8} className="px-3 py-1.5">
+        <tr
+          key={`batch-header-${batch.id}`}
+          className="bg-[#F0F5FF] border-t border-[#D6E4F0] cursor-pointer hover:bg-[#E8EFFA] transition-colors"
+          onClick={() => toggleBatch(batch.id)}
+        >
+          <td colSpan={8} className="px-3 py-1.5">
             <div className="flex items-center gap-2 flex-wrap">
+              <ChevronRight className={`h-3 w-3 shrink-0 text-primary transition-transform duration-150 ${isBatchExpanded ? 'rotate-90' : ''}`} />
               <span className="flex items-center gap-1 text-[11px] font-medium text-primary">
                 <SendHorizonal className="h-3 w-3" />전송됨
               </span>
+              <span className="rounded-full bg-[#D6E4F0] px-1.5 py-0.5 text-[10px] font-medium text-primary">{batchRows.length}팀</span>
               <span className="text-[11px] text-gray-500">{sentDateStr}</span>
               <span className="text-[10px] text-gray-400">·</span>
               <span className="text-[11px] text-gray-500 truncate max-w-[180px]">{batch.programName}</span>
               <a
                 href={`/expenditure/${encodeURIComponent(batch.category)}${batch.expenditureRowIndex ? `?rowIndex=${batch.expenditureRowIndex}` : ''}`}
+                onClick={(e) => e.stopPropagation()}
                 className="flex items-center gap-0.5 text-[11px] text-primary hover:underline ml-auto"
                 title="비목별 집행내역 바로가기"
               >
@@ -823,7 +841,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               </a>
               {canWrite && (
                 <button
-                  onClick={() => undoBatchMutation.mutate(batch.id)}
+                  onClick={(e) => { e.stopPropagation(); undoBatchMutation.mutate(batch.id); }}
                   disabled={undoBatchMutation.isPending}
                   title="전송 취소 (보내기여부·청구여부 FALSE로 복원)"
                   className="flex items-center gap-0.5 text-[11px] text-red-400 hover:text-red-600 hover:underline disabled:opacity-50"
@@ -833,115 +851,116 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               )}
             </div>
           </td>
-          {canWrite && <td className="px-2 py-1.5" />}
+          {canWrite && <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()} />}
         </tr>,
       );
 
-      // 배치 팀 행들
-      batchRows.forEach((row, ri) => {
-        const bg     = ri % 2 === 0 ? 'bg-[#F5F8FF]' : 'bg-[#EEF3FF]';
-        const isConf = row.confirmedAmount > 0;
-        const isLast = ri === batchRows.length - 1 && bi === groupBatches.length - 1;
+      // 배치 팀 행들 — 펼침 시에만 표시
+      if (isBatchExpanded) {
+        batchRows.forEach((row, ri) => {
+          const bg     = ri % 2 === 0 ? 'bg-[#F5F8FF]' : 'bg-[#EEF3FF]';
+          const isConf = row.confirmedAmount > 0;
 
-        result.push(
-          <tr key={`batch-row-${row.rowIndex}`} className={bg}>
-            <td className="px-3 py-1.5">
-              {canWrite ? (
-                <div className="flex items-center pl-4">
-                  <button onClick={() => { setDeleteTarget(row); setDeleteOpen(true); }}
-                    className="rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors">
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+          result.push(
+            <tr key={`batch-row-${row.rowIndex}`} className={bg}>
+              <td className="px-3 py-1.5">
+                {canWrite ? (
+                  <div className="flex items-center pl-4">
+                    <button onClick={() => { setDeleteTarget(row); setDeleteOpen(true); }}
+                      className="rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors">
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : <span className="text-gray-300 pl-2 select-none">↑</span>}
+              </td>
+              <td className="px-3 py-1.5"><span className="text-gray-300 pl-2 select-none">↑</span></td>
+              <td className="px-3 py-1.5">
+                <div className="flex items-center gap-1.5">
+                  <TeamSelect value={row.teamName} teams={teams} disabled={!canWrite}
+                    onSave={(v) => saveRow(row, { teamName: v })} />
+                  <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-600 shrink-0">전송됨</span>
                 </div>
-              ) : <span className="text-gray-300 pl-2 select-none">↑</span>}
-            </td>
-            <td className="px-3 py-1.5"><span className="text-gray-300 pl-2 select-none">↑</span></td>
+              </td>
+              <td className="px-3 py-1.5">
+                <input key={`${row.rowIndex}-remarks`} type="text" defaultValue={row.remarks}
+                  disabled={!canWrite}
+                  placeholder="비고"
+                  onBlur={(e) => { if (e.target.value !== row.remarks) saveRow(row, { remarks: e.target.value }); }}
+                  className="w-full rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-[#131310] placeholder:text-gray-300 hover:border-[#D0D0CA] focus:border-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-40"
+                />
+              </td>
+              <td className="px-3 py-1.5 text-right">
+                <AmountInput value={row.draftAmount} disabled={!canWrite} onSave={(v) => saveRow(row, { draftAmount: v })} />
+              </td>
+              <td className="px-3 py-1.5 text-right">
+                <AmountInput value={row.confirmedAmount} disabled={!canWrite} placeholder="0=미확정"
+                  onSave={(v) => saveRow(row, { confirmedAmount: v, claimed: v === 0 ? false : row.claimed })} />
+              </td>
+              <td className="px-3 py-1.5 text-center">
+                <input type="checkbox" checked={row.claimed}
+                  disabled={!canWrite || !isConf}
+                  onChange={(e) => saveRow(row, { claimed: e.target.checked })}
+                  className="h-3.5 w-3.5 accent-primary disabled:cursor-default disabled:opacity-40"
+                />
+              </td>
+              <td className="px-3 py-1.5 text-center">
+                <input type="checkbox" checked={row.evidenceSubmitted}
+                  disabled={!canWrite}
+                  onChange={(e) => saveRow(row, { evidenceSubmitted: e.target.checked })}
+                  className="h-3.5 w-3.5 accent-primary disabled:cursor-default"
+                />
+              </td>
+              {canWrite && (
+                <td className="px-2 py-1.5 text-center">
+                  <span className="text-[10px] text-green-500">✓</span>
+                </td>
+              )}
+            </tr>,
+          );
+        });
+      }
+    });
+
+    // 팀 추가 (미전송 팀 없음 + 배치 있음 케이스 — 배치 펼침 여부와 무관하게 항상 표시)
+    if (canWrite && unsentRows.length === 0 && groupBatches.length > 0) {
+      if (addTeamGroupKey === group.key) {
+        const newConf = parseKRW(newTeam.confirmedStr) || 0;
+        result.push(
+          <tr key={`add-team-${group.key}`} className="bg-[#F8FAFF] border-t border-dashed border-[#C8DCF0]">
+            <td className="px-3 py-1.5 pl-5 text-[10px] text-gray-300">+</td>
+            <td className="px-3 py-1.5 text-[10px] text-gray-300">↑</td>
             <td className="px-3 py-1.5">
-              <div className="flex items-center gap-1.5">
-                <TeamSelect value={row.teamName} teams={teams} disabled={!canWrite}
-                  onSave={(v) => saveRow(row, { teamName: v })} />
-                <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-600 shrink-0">전송됨</span>
+              <select value={newTeam.teamName} onChange={(e) => setNewTeam((t) => ({ ...t, teamName: e.target.value }))} className={fis}>
+                <option value="">팀 선택</option>
+                {teams.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </td>
+            <td className="px-3 py-1.5"><input type="text" value={newTeam.remarks} onChange={(e) => setNewTeam((t) => ({ ...t, remarks: e.target.value }))} placeholder="비고" className={fi} /></td>
+            <td className="px-3 py-1.5"><input type="text" value={newTeam.draftStr} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); setNewTeam((t) => ({ ...t, draftStr: raw === '' ? '' : Number(raw).toLocaleString('ko-KR') })); }} placeholder="0" className={`${fi} text-right`} /></td>
+            <td className="px-3 py-1.5"><input type="text" value={newTeam.confirmedStr} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); const fmt = raw === '' ? '' : Number(raw).toLocaleString('ko-KR'); setNewTeam((t) => ({ ...t, confirmedStr: fmt, claimed: Number(raw) === 0 ? false : t.claimed })); }} placeholder="0=미확정" className={`${fi} text-right placeholder:text-gray-300`} /></td>
+            <td className="px-3 py-1.5 text-center"><input type="checkbox" checked={newTeam.claimed} disabled={newConf === 0} onChange={(e) => setNewTeam((t) => ({ ...t, claimed: e.target.checked }))} className="h-3.5 w-3.5 accent-primary disabled:opacity-40 disabled:cursor-default" /></td>
+            <td className="px-3 py-1.5 text-center"><input type="checkbox" checked={newTeam.evidenceSubmitted} onChange={(e) => setNewTeam((t) => ({ ...t, evidenceSubmitted: e.target.checked }))} className="h-3.5 w-3.5 accent-primary" /></td>
+            <td className="px-2 py-1.5">
+              <div className="flex items-center gap-1">
+                <button onClick={() => { void handleAddTeamToGroup(group); }} disabled={!newTeam.teamName || addMutation.isPending} className="flex items-center justify-center rounded bg-primary p-1 text-white hover:bg-primary-light disabled:opacity-50"><Check className="h-3 w-3" /></button>
+                <button onClick={() => { setAddTeamGroupKey(null); setNewTeam({ ...DEFAULT_TEAM }); }} className="flex items-center justify-center rounded border border-[#E3E3E0] p-1 text-gray-500 hover:bg-gray-50"><X className="h-3 w-3" /></button>
               </div>
             </td>
-            <td className="px-3 py-1.5">
-              <input key={`${row.rowIndex}-remarks`} type="text" defaultValue={row.remarks}
-                disabled={!canWrite}
-                placeholder="비고"
-                onBlur={(e) => { if (e.target.value !== row.remarks) saveRow(row, { remarks: e.target.value }); }}
-                className="w-full rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-[#131310] placeholder:text-gray-300 hover:border-[#D0D0CA] focus:border-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-40"
-              />
-            </td>
-            <td className="px-3 py-1.5 text-right">
-              <AmountInput value={row.draftAmount} disabled={!canWrite} onSave={(v) => saveRow(row, { draftAmount: v })} />
-            </td>
-            <td className="px-3 py-1.5 text-right">
-              <AmountInput value={row.confirmedAmount} disabled={!canWrite} placeholder="0=미확정"
-                onSave={(v) => saveRow(row, { confirmedAmount: v, claimed: v === 0 ? false : row.claimed })} />
-            </td>
-            <td className="px-3 py-1.5 text-center">
-              <input type="checkbox" checked={row.claimed}
-                disabled={!canWrite || !isConf}
-                onChange={(e) => saveRow(row, { claimed: e.target.checked })}
-                className="h-3.5 w-3.5 accent-primary disabled:cursor-default disabled:opacity-40"
-              />
-            </td>
-            <td className="px-3 py-1.5 text-center">
-              <input type="checkbox" checked={row.evidenceSubmitted}
-                disabled={!canWrite}
-                onChange={(e) => saveRow(row, { evidenceSubmitted: e.target.checked })}
-                className="h-3.5 w-3.5 accent-primary disabled:cursor-default"
-              />
-            </td>
-            {canWrite && (
-              <td className="px-2 py-1.5 text-center">
-                <span className="text-[10px] text-green-500">✓</span>
-              </td>
-            )}
           </tr>,
         );
-
-        // 마지막 배치의 마지막 행 뒤에 "팀 추가" 버튼 (미전송 팀이 없을 때)
-        if (canWrite && isLast && unsentRows.length === 0) {
-          if (addTeamGroupKey === group.key) {
-            const newConf = parseKRW(newTeam.confirmedStr) || 0;
-            result.push(
-              <tr key={`add-team-${group.key}`} className="bg-[#F8FAFF] border-t border-dashed border-[#C8DCF0]">
-                <td className="px-3 py-1.5 pl-5 text-[10px] text-gray-300">+</td>
-                <td className="px-3 py-1.5 text-[10px] text-gray-300">↑</td>
-                <td className="px-3 py-1.5">
-                  <select value={newTeam.teamName} onChange={(e) => setNewTeam((t) => ({ ...t, teamName: e.target.value }))} className={fis}>
-                    <option value="">팀 선택</option>
-                    {teams.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </td>
-                <td className="px-3 py-1.5"><input type="text" value={newTeam.remarks} onChange={(e) => setNewTeam((t) => ({ ...t, remarks: e.target.value }))} placeholder="비고" className={fi} /></td>
-                <td className="px-3 py-1.5"><input type="text" value={newTeam.draftStr} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); setNewTeam((t) => ({ ...t, draftStr: raw === '' ? '' : Number(raw).toLocaleString('ko-KR') })); }} placeholder="0" className={`${fi} text-right`} /></td>
-                <td className="px-3 py-1.5"><input type="text" value={newTeam.confirmedStr} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); const fmt = raw === '' ? '' : Number(raw).toLocaleString('ko-KR'); setNewTeam((t) => ({ ...t, confirmedStr: fmt, claimed: Number(raw) === 0 ? false : t.claimed })); }} placeholder="0=미확정" className={`${fi} text-right placeholder:text-gray-300`} /></td>
-                <td className="px-3 py-1.5 text-center"><input type="checkbox" checked={newTeam.claimed} disabled={newConf === 0} onChange={(e) => setNewTeam((t) => ({ ...t, claimed: e.target.checked }))} className="h-3.5 w-3.5 accent-primary disabled:opacity-40 disabled:cursor-default" /></td>
-                <td className="px-3 py-1.5 text-center"><input type="checkbox" checked={newTeam.evidenceSubmitted} onChange={(e) => setNewTeam((t) => ({ ...t, evidenceSubmitted: e.target.checked }))} className="h-3.5 w-3.5 accent-primary" /></td>
-                <td className="px-2 py-1.5">
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => { void handleAddTeamToGroup(group); }} disabled={!newTeam.teamName || addMutation.isPending} className="flex items-center justify-center rounded bg-primary p-1 text-white hover:bg-primary-light disabled:opacity-50"><Check className="h-3 w-3" /></button>
-                    <button onClick={() => { setAddTeamGroupKey(null); setNewTeam({ ...DEFAULT_TEAM }); }} className="flex items-center justify-center rounded border border-[#E3E3E0] p-1 text-gray-500 hover:bg-gray-50"><X className="h-3 w-3" /></button>
-                  </div>
-                </td>
-              </tr>,
-            );
-          } else {
-            result.push(
-              <tr key={`add-btn-${group.key}`} className="bg-[#FAFAF8]">
-                <td colSpan={colCount} className="px-4 py-1">
-                  <button onClick={() => { setAddTeamGroupKey(group.key); setNewTeam({ ...DEFAULT_TEAM }); setShowNewGroup(false); }}
-                    className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-primary transition-colors">
-                    <Plus className="h-3 w-3" />팀 추가
-                  </button>
-                </td>
-              </tr>,
-            );
-          }
-        }
-      });
-    });
+      } else {
+        result.push(
+          <tr key={`add-btn-${group.key}`} className="bg-[#FAFAF8]">
+            <td colSpan={colCount} className="px-4 py-1">
+              <button onClick={() => { setAddTeamGroupKey(group.key); setNewTeam({ ...DEFAULT_TEAM }); setShowNewGroup(false); }}
+                className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-primary transition-colors">
+                <Plus className="h-3 w-3" />팀 추가
+              </button>
+            </td>
+          </tr>,
+        );
+      }
+    }
 
     return result;
   }
