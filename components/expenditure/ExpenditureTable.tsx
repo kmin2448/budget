@@ -323,7 +323,7 @@ export function ExpenditureTable({
           isExpanded && 'bg-gray-50/40',
           isDragging && 'opacity-40',
           isMoving && 'animate-pulse opacity-60',
-          isHighlighted && 'bg-primary/5 ring-1 ring-inset ring-primary/30 animate-pulse',
+          isHighlighted && 'bg-red-50 ring-1 ring-inset ring-red-200',
         )}
         // editMode일 때는 row 클릭으로 펼침/접힘 막음 (chevron cell에서 처리)
         onClick={editMode ? undefined : () => toggleExpand(expandKey)}

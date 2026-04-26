@@ -12,6 +12,7 @@ const config: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
+  maxWorkers: 2,
 };
 
 export default createJestConfig(config);

@@ -814,7 +814,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               <span className="text-[10px] text-gray-400">·</span>
               <span className="text-[11px] text-gray-500 truncate max-w-[180px]">{batch.programName}</span>
               <a
-                href={`/expenditure/${encodeURIComponent(batch.category)}`}
+                href={`/expenditure/${encodeURIComponent(batch.category)}${batch.expenditureRowIndex ? `?rowIndex=${batch.expenditureRowIndex}` : ''}`}
                 className="flex items-center gap-0.5 text-[11px] text-primary hover:underline ml-auto"
                 title="비목별 집행내역 바로가기"
               >

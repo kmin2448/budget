@@ -10,8 +10,8 @@ import { WeMeetExecutionsSection } from '@/components/we-meet/WeMeetExecutionsSe
 type TabId = 'teams' | 'executions' | 'team-manage';
 
 const TABS: { id: TabId; label: string; icon: React.ElementType; adminOnly?: boolean }[] = [
-  { id: 'teams',       label: '팀별 현황',    icon: BarChart3 },
   { id: 'executions',  label: '집행현황',     icon: ClipboardList, adminOnly: true },
+  { id: 'teams',       label: '팀별 현황',    icon: BarChart3 },
   { id: 'team-manage', label: '팀 관리',      icon: Users,         adminOnly: true },
 ];
 
@@ -23,7 +23,7 @@ export default function WeMeetPage() {
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const canWrite = userRole === 'super_admin' || userRole === 'admin';
 
-  const [activeTab, setActiveTab] = useState<TabId>('teams');
+  const [activeTab, setActiveTab] = useState<TabId>('executions');
 
   const [referenceUrl, setReferenceUrl] = useState(DEFAULT_REF_URL);
   const [isEditingUrl, setIsEditingUrl] = useState(false);
