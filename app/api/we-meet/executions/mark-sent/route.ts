@@ -24,8 +24,32 @@ export async function POST(req: Request) {
   }
   try {
     await assertCanWrite(session.user.email);
-    const body = await req.json() as { rowIndexes: number[] };
+    const body = await req.json() as {
+      rowIndexes: number[];
+      category?: string;
+      budgetType?: string;
+      description?: string;
+      programName?: string;
+      expenditureRowIndex?: number;
+    };
+
+    // 1. Google Sheets 보내기여부 + 청구여부 업데이트
     await markWeMeetExecutionsSent(body.rowIndexes);
+
+    // 2. Supabase에 배치 이력 저장
+    if (body.category && body.rowIndexes.length > 0) {
+      const supabase = createServerSupabaseClient();
+      await supabase.from('wemeet_send_batches').insert({
+        category:               body.category,
+        budget_type:            body.budgetType ?? 'main',
+        description:            body.description ?? '',
+        program_name:           body.programName ?? '',
+        wemeet_row_indexes:     body.rowIndexes,
+        expenditure_row_index:  body.expenditureRowIndex ?? null,
+        sent_by:                session.user.email,
+      });
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : '보내기 표시 실패';

@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { WeMeetExecution, WeMeetTeamSummary, WeMeetTeamInfo } from '@/types';
+import type { WeMeetExecution, WeMeetTeamSummary, WeMeetTeamInfo, WeMeetSendBatch } from '@/types';
 
 const QUERY_KEY = 'wemeet';
 const SUMMARY_KEY = 'wemeet-summary';
 const TEAM_INFO_KEY = 'wemeet-team-info';
+const SEND_BATCHES_KEY = 'wemeet-send-batches';
 
 // ── 집행현황 조회 ─────────────────────────────────────────────────────
 
@@ -120,14 +121,23 @@ export function useDeleteWeMeetExecution() {
 
 // ── 집행현황 보내기 표시 ──────────────────────────────────────────────
 
+interface MarkSentPayload {
+  rowIndexes: number[];
+  category?: string;
+  budgetType?: string;
+  description?: string;
+  programName?: string;
+  expenditureRowIndex?: number;
+}
+
 export function useMarkWeMeetSent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (rowIndexes: number[]) => {
+    mutationFn: async (payload: MarkSentPayload) => {
       const res = await fetch('/api/we-meet/executions/mark-sent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rowIndexes }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const body = await res.json() as { error?: string };
@@ -136,6 +146,43 @@ export function useMarkWeMeetSent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [SEND_BATCHES_KEY] });
+    },
+  });
+}
+
+// ── 보내기 배치 조회 ──────────────────────────────────────────────────
+
+async function fetchSendBatches(): Promise<WeMeetSendBatch[]> {
+  const res = await fetch('/api/we-meet/send-batches');
+  if (!res.ok) return [];
+  const data = await res.json() as { batches: WeMeetSendBatch[] };
+  return data.batches;
+}
+
+export function useWeMeetSendBatches() {
+  return useQuery({
+    queryKey: [SEND_BATCHES_KEY],
+    queryFn: fetchSendBatches,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+// ── 보내기 배치 취소 ──────────────────────────────────────────────────
+
+export function useUndoWeMeetBatch() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (batchId: string) => {
+      const res = await fetch(`/api/we-meet/send-batches/${batchId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '취소 실패');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [SEND_BATCHES_KEY] });
     },
   });
 }

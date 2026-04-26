@@ -21,12 +21,21 @@ interface ExecGroup {
   rows: WeMeetExecution[];
 }
 
+interface SentPayload {
+  rowIndexes: number[];
+  category: string;
+  budgetType: 'main' | 'carryover';
+  description: string;
+  programName: string;
+  expenditureRowIndex?: number;
+}
+
 interface Props {
   open: boolean;
   group: ExecGroup | null;
   initialSelectedIndexes?: number[];
   onClose: () => void;
-  onSent: (rowIndexes: number[]) => void;
+  onSent: (payload: SentPayload) => void;
 }
 
 // ── 유틸 ─────────────────────────────────────────────────────────────
@@ -211,7 +220,7 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
     setIsPending(true);
     setError('');
     try {
-      const res = await fetch(
+      const expenditureRes = await fetch(
         `/api/sheets/expenditure/${encodeURIComponent(category)}?sheetType=${budgetType}`,
         {
           method: 'POST',
@@ -224,17 +233,25 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
           }),
         },
       );
-      if (!res.ok) {
-        const body = await res.json() as { error?: string };
+      if (!expenditureRes.ok) {
+        const body = await expenditureRes.json() as { error?: string };
         throw new Error(body.error ?? '전송 실패');
       }
+      const { rowIndex: expenditureRowIndex } = await expenditureRes.json() as { rowIndex?: number };
 
-      // WE-Meet 시트 I열 보내기여부 표시
+      // WE-Meet 시트 보내기여부·청구여부 표시 + 배치 이력 저장
       const rowIndexes = selectedRows.map((r) => r.rowIndex);
       await fetch('/api/we-meet/executions/mark-sent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rowIndexes }),
+        body: JSON.stringify({
+          rowIndexes,
+          category,
+          budgetType,
+          description,
+          programName: selectedProgram,
+          expenditureRowIndex,
+        }),
       });
 
       // 설정 저장
@@ -243,7 +260,7 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
         localStorage.setItem(LAST_PROGRAM_KEY, selectedProgram);
       }
 
-      onSent(rowIndexes);
+      onSent({ rowIndexes, category, budgetType, description, programName: selectedProgram, expenditureRowIndex });
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : '전송 실패');

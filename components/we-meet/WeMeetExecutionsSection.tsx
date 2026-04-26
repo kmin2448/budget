@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Trash2, RefreshCw, Check, X,
   ChevronDown, ChevronRight, Search, GripVertical,
-  Send, Settings2, SendHorizonal,
+  Send, Settings2, SendHorizonal, RotateCcw, ExternalLink,
 } from 'lucide-react';
 import {
   DndContext, type DragEndEvent, DragOverlay, type DragStartEvent,
@@ -28,9 +28,11 @@ import {
   useAddBulkWeMeetExecutions,
   useReorderWeMeetExecutions,
   useMarkWeMeetSent,
+  useWeMeetSendBatches,
+  useUndoWeMeetBatch,
   type ExecutionPayload,
 } from '@/hooks/useWeMeet';
-import type { WeMeetExecution } from '@/types';
+import type { WeMeetExecution, WeMeetSendBatch } from '@/types';
 
 // ── 타입 ──────────────────────────────────────────────────────────────
 
@@ -192,12 +194,14 @@ interface Props {
 
 export function WeMeetExecutionsSection({ canWrite }: Props) {
   const { data, isLoading, isError, error, refetch } = useWeMeetExecutions();
-  const addMutation      = useAddWeMeetExecution();
-  const updateMutation   = useUpdateWeMeetExecution();
-  const deleteMutation   = useDeleteWeMeetExecution();
-  const bulkMutation     = useAddBulkWeMeetExecutions();
-  const reorderMutation  = useReorderWeMeetExecutions();
-  const markSentMutation = useMarkWeMeetSent();
+  const addMutation       = useAddWeMeetExecution();
+  const updateMutation    = useUpdateWeMeetExecution();
+  const deleteMutation    = useDeleteWeMeetExecution();
+  const bulkMutation      = useAddBulkWeMeetExecutions();
+  const reorderMutation   = useReorderWeMeetExecutions();
+  const markSentMutation  = useMarkWeMeetSent();
+  const undoBatchMutation = useUndoWeMeetBatch();
+  const { data: batchData } = useWeMeetSendBatches();
 
   const executions = useMemo(() => data?.executions ?? [], [data]);
   const teams      = data?.teams ?? [];
@@ -358,13 +362,13 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
     });
   }
 
-  function getGroupSelection(groupKey: string, groupRows: WeMeetExecution[]): Set<number> {
-    return groupSelections.get(groupKey) ?? new Set(groupRows.map((r) => r.rowIndex));
+  function getGroupSelection(groupKey: string): Set<number> {
+    return groupSelections.get(groupKey) ?? new Set<number>();
   }
 
-  function toggleTeamSelection(groupKey: string, rowIndex: number, groupRows: WeMeetExecution[]) {
+  function toggleTeamSelection(groupKey: string, rowIndex: number) {
     setGroupSelections((prev) => {
-      const current = prev.get(groupKey) ?? new Set(groupRows.map((r) => r.rowIndex));
+      const current = prev.get(groupKey) ?? new Set<number>();
       const next = new Set(current);
       if (next.has(rowIndex)) next.delete(rowIndex);
       else next.add(rowIndex);
@@ -374,11 +378,13 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
     });
   }
 
-  function toggleAllTeamSelection(groupKey: string, groupRows: WeMeetExecution[]) {
+  function toggleAllTeamSelection(groupKey: string, unsentRows: WeMeetExecution[]) {
     setGroupSelections((prev) => {
-      const current = prev.get(groupKey) ?? new Set(groupRows.map((r) => r.rowIndex));
+      const current = prev.get(groupKey) ?? new Set<number>();
+      const unsentIndexes = unsentRows.map((r) => r.rowIndex);
+      const allSelected = unsentIndexes.every((i) => current.has(i));
       const newMap = new Map(prev);
-      newMap.set(groupKey, current.size === groupRows.length ? new Set<number>() : new Set(groupRows.map((r) => r.rowIndex)));
+      newMap.set(groupKey, allSelected ? new Set<number>() : new Set(unsentIndexes));
       return newMap;
     });
   }
@@ -467,8 +473,23 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
     }
 
     // ── 확장 상태 ────────────────────────────────────────────────────────
-    const currentSelection  = getGroupSelection(group.key, group.rows);
-    const allTeamsSelected  = currentSelection.size === group.rows.length;
+    const currentSelection = getGroupSelection(group.key);
+
+    // 이 그룹의 row index 집합
+    const groupRowIndexSet = new Set(group.rows.map((r) => r.rowIndex));
+
+    // 이 그룹에 속한 배치들 (sent=TRUE 행들을 배치로 묶음)
+    const allBatches: WeMeetSendBatch[] = batchData ?? [];
+    const groupBatches = allBatches.filter((b) =>
+      b.wemeetRowIndexes.some((ri) => groupRowIndexSet.has(ri)),
+    );
+
+    // 배치에 속한 row index 집합 (이미 전송된 행)
+    const batchedRowSet = new Set(groupBatches.flatMap((b) => b.wemeetRowIndexes));
+
+    // 미전송 행 (체크박스 표시 대상)
+    const unsentRows = group.rows.filter((r) => !batchedRowSet.has(r.rowIndex));
+    const allUnsentSelected = unsentRows.length > 0 && unsentRows.every((r) => currentSelection.has(r.rowIndex));
 
     // 첫 행: 취합 정보 + 보내기 버튼
     result.push(
@@ -505,13 +526,19 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
         {/* 팀명 열: N팀 + 선택 수 (클릭 시 전체선택/해제) + sent 배지 */}
         <td className="px-3 py-2">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              onClick={() => toggleAllTeamSelection(group.key, group.rows)}
-              title={allTeamsSelected ? '전체 해제' : '전체 선택'}
-              className="rounded-full bg-[#D6E4F0] px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary hover:text-white transition-colors"
-            >
-              {currentSelection.size}/{group.rows.length}팀
-            </button>
+            {unsentRows.length > 0 ? (
+              <button
+                onClick={() => toggleAllTeamSelection(group.key, unsentRows)}
+                title={allUnsentSelected ? '미전송 전체 해제' : '미전송 전체 선택'}
+                className="rounded-full bg-[#D6E4F0] px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary hover:text-white transition-colors"
+              >
+                {currentSelection.size}/{unsentRows.length}팀
+              </button>
+            ) : (
+              <span className="rounded-full bg-[#D6E4F0] px-2 py-0.5 text-[11px] font-medium text-primary">
+                {group.rows.length}팀
+              </span>
+            )}
             {allSent && (
               <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-600 flex items-center gap-0.5">
                 <SendHorizonal className="h-2.5 w-2.5" />전송완료
@@ -561,7 +588,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
             <button
               onClick={() => { setSendGroup(group); setSendInitialSelection(Array.from(currentSelection)); }}
               disabled={currentSelection.size === 0}
-              title={currentSelection.size > 0 ? `선택한 ${currentSelection.size}팀 전송` : '팀을 선택하세요'}
+              title={currentSelection.size > 0 ? `선택한 ${currentSelection.size}팀 전송` : '미전송 팀을 선택하세요'}
               className="rounded p-1 text-gray-300 hover:bg-[#D6E4F0] hover:text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-30"
             >
               <Send className="h-3.5 w-3.5" />
@@ -571,23 +598,20 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
       </tr>,
     );
 
-    // 팀별 행 (체크박스 포함)
-    group.rows.forEach((row, ri) => {
-      const isLast    = ri === group.rows.length - 1;
+    // ── 미전송 팀 행 (체크박스 포함) ────────────────────────────────────
+    unsentRows.forEach((row, ri) => {
+      const isLast    = ri === unsentRows.length - 1 && groupBatches.length === 0;
       const bg        = ri % 2 === 0 ? 'bg-white' : 'bg-[#F5F9FC]';
       const isConf    = row.confirmedAmount > 0;
       const isChecked = currentSelection.has(row.rowIndex);
 
       result.push(
         <tr key={row.rowIndex} className={bg}>
-          {/* 삭제 버튼 (사용구분 열) */}
           <td className="px-3 py-1.5">
             {canWrite ? (
               <div className="flex items-center pl-4">
-                <button
-                  onClick={() => { setDeleteTarget(row); setDeleteOpen(true); }}
-                  className="rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
-                >
+                <button onClick={() => { setDeleteTarget(row); setDeleteOpen(true); }}
+                  className="rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors">
                   <Trash2 className="h-3 w-3" />
                 </button>
               </div>
@@ -595,19 +619,11 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               <span className="text-gray-300 pl-2 select-none">↑</span>
             )}
           </td>
-
-          {/* ↑ (지출건명 열) */}
-          <td className="px-3 py-1.5">
-            <span className="text-gray-300 pl-2 select-none">↑</span>
-          </td>
-
-          {/* 팀명 */}
+          <td className="px-3 py-1.5"><span className="text-gray-300 pl-2 select-none">↑</span></td>
           <td className="px-3 py-1.5">
             <TeamSelect value={row.teamName} teams={teams} disabled={!canWrite}
               onSave={(v) => saveRow(row, { teamName: v })} />
           </td>
-
-          {/* 사용일자 */}
           <td className="px-3 py-1.5">
             <input key={`${row.rowIndex}-date`} type="date" defaultValue={row.usageDate}
               disabled={!canWrite}
@@ -615,20 +631,14 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               className="rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-[#131310] hover:border-[#D0D0CA] focus:border-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-40"
             />
           </td>
-
-          {/* 기안금액 */}
           <td className="px-3 py-1.5 text-right">
             <AmountInput value={row.draftAmount} disabled={!canWrite}
               onSave={(v) => saveRow(row, { draftAmount: v })} />
           </td>
-
-          {/* 확정금액 */}
           <td className="px-3 py-1.5 text-right">
             <AmountInput value={row.confirmedAmount} disabled={!canWrite} placeholder="0=미확정"
               onSave={(v) => saveRow(row, { confirmedAmount: v, claimed: v === 0 ? false : row.claimed })} />
           </td>
-
-          {/* 청구여부 */}
           <td className="px-3 py-1.5 text-center">
             <input type="checkbox" checked={row.claimed}
               disabled={!canWrite || !isConf}
@@ -637,8 +647,6 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               title={!isConf ? '확정금액 입력 후 활성화' : ''}
             />
           </td>
-
-          {/* 증빙제출 */}
           <td className="px-3 py-1.5 text-center">
             <input type="checkbox" checked={row.evidenceSubmitted}
               disabled={!canWrite}
@@ -646,14 +654,10 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
               className="h-3.5 w-3.5 accent-primary disabled:cursor-default"
             />
           </td>
-
-          {/* 체크박스 (마지막 열) */}
           {canWrite && (
             <td className="px-2 py-1.5 text-center">
-              <input
-                type="checkbox"
-                checked={isChecked}
-                onChange={() => toggleTeamSelection(group.key, row.rowIndex, group.rows)}
+              <input type="checkbox" checked={isChecked}
+                onChange={() => toggleTeamSelection(group.key, row.rowIndex)}
                 className="h-3.5 w-3.5 accent-primary cursor-pointer"
               />
             </td>
@@ -675,25 +679,16 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
                 </select>
               </td>
               <td className="px-3 py-1.5">
-                <input type="date" value={newTeam.usageDate}
-                  onChange={(e) => setNewTeam((t) => ({ ...t, usageDate: e.target.value }))}
-                  className={fi} />
+                <input type="date" value={newTeam.usageDate} onChange={(e) => setNewTeam((t) => ({ ...t, usageDate: e.target.value }))} className={fi} />
               </td>
               <td className="px-3 py-1.5">
                 <input type="text" value={newTeam.draftStr}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/[^0-9]/g, '');
-                    setNewTeam((t) => ({ ...t, draftStr: raw === '' ? '' : Number(raw).toLocaleString('ko-KR') }));
-                  }}
+                  onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); setNewTeam((t) => ({ ...t, draftStr: raw === '' ? '' : Number(raw).toLocaleString('ko-KR') })); }}
                   placeholder="0" className={`${fi} text-right`} />
               </td>
               <td className="px-3 py-1.5">
                 <input type="text" value={newTeam.confirmedStr}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/[^0-9]/g, '');
-                    const fmt = raw === '' ? '' : Number(raw).toLocaleString('ko-KR');
-                    setNewTeam((t) => ({ ...t, confirmedStr: fmt, claimed: Number(raw) === 0 ? false : t.claimed }));
-                  }}
+                  onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); const fmt = raw === '' ? '' : Number(raw).toLocaleString('ko-KR'); setNewTeam((t) => ({ ...t, confirmedStr: fmt, claimed: Number(raw) === 0 ? false : t.claimed })); }}
                   placeholder="0=미확정" className={`${fi} text-right placeholder:text-gray-300`} />
               </td>
               <td className="px-3 py-1.5 text-center">
@@ -734,6 +729,216 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
           );
         }
       }
+    });
+
+    // 미전송 팀이 있고 배치도 있으면 "팀 추가" 버튼 (unsentRows 끝에 붙이기)
+    if (canWrite && unsentRows.length > 0 && groupBatches.length > 0) {
+      if (addTeamGroupKey === group.key) {
+        const newConf = parseKRW(newTeam.confirmedStr) || 0;
+        result.push(
+          <tr key={`add-team-${group.key}`} className="bg-[#F8FAFF] border-t border-dashed border-[#C8DCF0]">
+            <td className="px-3 py-1.5 pl-5 text-[10px] text-gray-300">+</td>
+            <td className="px-3 py-1.5 text-[10px] text-gray-300">↑</td>
+            <td className="px-3 py-1.5">
+              <select value={newTeam.teamName} onChange={(e) => setNewTeam((t) => ({ ...t, teamName: e.target.value }))} className={fis}>
+                <option value="">팀 선택</option>
+                {teams.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </td>
+            <td className="px-3 py-1.5">
+              <input type="date" value={newTeam.usageDate} onChange={(e) => setNewTeam((t) => ({ ...t, usageDate: e.target.value }))} className={fi} />
+            </td>
+            <td className="px-3 py-1.5">
+              <input type="text" value={newTeam.draftStr}
+                onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); setNewTeam((t) => ({ ...t, draftStr: raw === '' ? '' : Number(raw).toLocaleString('ko-KR') })); }}
+                placeholder="0" className={`${fi} text-right`} />
+            </td>
+            <td className="px-3 py-1.5">
+              <input type="text" value={newTeam.confirmedStr}
+                onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); const fmt = raw === '' ? '' : Number(raw).toLocaleString('ko-KR'); setNewTeam((t) => ({ ...t, confirmedStr: fmt, claimed: Number(raw) === 0 ? false : t.claimed })); }}
+                placeholder="0=미확정" className={`${fi} text-right placeholder:text-gray-300`} />
+            </td>
+            <td className="px-3 py-1.5 text-center">
+              <input type="checkbox" checked={newTeam.claimed} disabled={newConf === 0}
+                onChange={(e) => setNewTeam((t) => ({ ...t, claimed: e.target.checked }))}
+                className="h-3.5 w-3.5 accent-primary disabled:opacity-40 disabled:cursor-default" />
+            </td>
+            <td className="px-3 py-1.5 text-center">
+              <input type="checkbox" checked={newTeam.evidenceSubmitted}
+                onChange={(e) => setNewTeam((t) => ({ ...t, evidenceSubmitted: e.target.checked }))}
+                className="h-3.5 w-3.5 accent-primary" />
+            </td>
+            <td className="px-2 py-1.5">
+              <div className="flex items-center gap-1">
+                <button onClick={() => { void handleAddTeamToGroup(group); }}
+                  disabled={!newTeam.teamName || addMutation.isPending}
+                  className="flex items-center justify-center rounded bg-primary p-1 text-white hover:bg-primary-light disabled:opacity-50">
+                  <Check className="h-3 w-3" />
+                </button>
+                <button onClick={() => { setAddTeamGroupKey(null); setNewTeam({ ...DEFAULT_TEAM }); }}
+                  className="flex items-center justify-center rounded border border-[#E3E3E0] p-1 text-gray-500 hover:bg-gray-50">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            </td>
+          </tr>,
+        );
+      } else {
+        result.push(
+          <tr key={`add-btn-${group.key}`} className="bg-[#FAFAF8]">
+            <td colSpan={colCount} className="px-4 py-1">
+              <button onClick={() => { setAddTeamGroupKey(group.key); setNewTeam({ ...DEFAULT_TEAM }); setShowNewGroup(false); }}
+                className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-primary transition-colors">
+                <Plus className="h-3 w-3" />팀 추가
+              </button>
+            </td>
+          </tr>,
+        );
+      }
+    }
+
+    // ── 전송된 배치 그룹 ─────────────────────────────────────────────────
+    groupBatches.forEach((batch, bi) => {
+      const batchRows = group.rows.filter((r) => batch.wemeetRowIndexes.includes(r.rowIndex));
+      const sentDateStr = new Date(batch.sentAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+      // 배치 헤더 행
+      result.push(
+        <tr key={`batch-header-${batch.id}`} className="bg-[#F0F5FF] border-t border-[#D6E4F0]">
+          <td colSpan={canWrite ? 8 : 8} className="px-3 py-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="flex items-center gap-1 text-[11px] font-medium text-primary">
+                <SendHorizonal className="h-3 w-3" />전송됨
+              </span>
+              <span className="text-[11px] text-gray-500">{sentDateStr}</span>
+              <span className="text-[10px] text-gray-400">·</span>
+              <span className="text-[11px] text-gray-500 truncate max-w-[180px]">{batch.programName}</span>
+              <a
+                href={`/expenditure/${encodeURIComponent(batch.category)}`}
+                className="flex items-center gap-0.5 text-[11px] text-primary hover:underline ml-auto"
+                title="비목별 집행내역 바로가기"
+              >
+                <ExternalLink className="h-3 w-3" />집행내역 확인
+              </a>
+              {canWrite && (
+                <button
+                  onClick={() => undoBatchMutation.mutate(batch.id)}
+                  disabled={undoBatchMutation.isPending}
+                  title="전송 취소 (보내기여부·청구여부 FALSE로 복원)"
+                  className="flex items-center gap-0.5 text-[11px] text-red-400 hover:text-red-600 hover:underline disabled:opacity-50"
+                >
+                  <RotateCcw className="h-3 w-3" />전송 취소
+                </button>
+              )}
+            </div>
+          </td>
+          {canWrite && <td className="px-2 py-1.5" />}
+        </tr>,
+      );
+
+      // 배치 팀 행들
+      batchRows.forEach((row, ri) => {
+        const bg     = ri % 2 === 0 ? 'bg-[#F5F8FF]' : 'bg-[#EEF3FF]';
+        const isConf = row.confirmedAmount > 0;
+        const isLast = ri === batchRows.length - 1 && bi === groupBatches.length - 1;
+
+        result.push(
+          <tr key={`batch-row-${row.rowIndex}`} className={bg}>
+            <td className="px-3 py-1.5">
+              {canWrite ? (
+                <div className="flex items-center pl-4">
+                  <button onClick={() => { setDeleteTarget(row); setDeleteOpen(true); }}
+                    className="rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : <span className="text-gray-300 pl-2 select-none">↑</span>}
+            </td>
+            <td className="px-3 py-1.5"><span className="text-gray-300 pl-2 select-none">↑</span></td>
+            <td className="px-3 py-1.5">
+              <div className="flex items-center gap-1.5">
+                <TeamSelect value={row.teamName} teams={teams} disabled={!canWrite}
+                  onSave={(v) => saveRow(row, { teamName: v })} />
+                <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] text-green-600 shrink-0">전송됨</span>
+              </div>
+            </td>
+            <td className="px-3 py-1.5">
+              <input key={`${row.rowIndex}-date`} type="date" defaultValue={row.usageDate}
+                disabled={!canWrite}
+                onBlur={(e) => { if (e.target.value !== row.usageDate) saveRow(row, { usageDate: e.target.value }); }}
+                className="rounded border border-transparent bg-transparent px-2 py-0.5 text-xs text-[#131310] hover:border-[#D0D0CA] focus:border-[#E3E3E0] focus:outline-none focus:ring-1 focus:ring-primary transition-colors disabled:opacity-40"
+              />
+            </td>
+            <td className="px-3 py-1.5 text-right">
+              <AmountInput value={row.draftAmount} disabled={!canWrite} onSave={(v) => saveRow(row, { draftAmount: v })} />
+            </td>
+            <td className="px-3 py-1.5 text-right">
+              <AmountInput value={row.confirmedAmount} disabled={!canWrite} placeholder="0=미확정"
+                onSave={(v) => saveRow(row, { confirmedAmount: v, claimed: v === 0 ? false : row.claimed })} />
+            </td>
+            <td className="px-3 py-1.5 text-center">
+              <input type="checkbox" checked={row.claimed}
+                disabled={!canWrite || !isConf}
+                onChange={(e) => saveRow(row, { claimed: e.target.checked })}
+                className="h-3.5 w-3.5 accent-primary disabled:cursor-default disabled:opacity-40"
+              />
+            </td>
+            <td className="px-3 py-1.5 text-center">
+              <input type="checkbox" checked={row.evidenceSubmitted}
+                disabled={!canWrite}
+                onChange={(e) => saveRow(row, { evidenceSubmitted: e.target.checked })}
+                className="h-3.5 w-3.5 accent-primary disabled:cursor-default"
+              />
+            </td>
+            {canWrite && (
+              <td className="px-2 py-1.5 text-center">
+                <span className="text-[10px] text-green-500">✓</span>
+              </td>
+            )}
+          </tr>,
+        );
+
+        // 마지막 배치의 마지막 행 뒤에 "팀 추가" 버튼 (미전송 팀이 없을 때)
+        if (canWrite && isLast && unsentRows.length === 0) {
+          if (addTeamGroupKey === group.key) {
+            const newConf = parseKRW(newTeam.confirmedStr) || 0;
+            result.push(
+              <tr key={`add-team-${group.key}`} className="bg-[#F8FAFF] border-t border-dashed border-[#C8DCF0]">
+                <td className="px-3 py-1.5 pl-5 text-[10px] text-gray-300">+</td>
+                <td className="px-3 py-1.5 text-[10px] text-gray-300">↑</td>
+                <td className="px-3 py-1.5">
+                  <select value={newTeam.teamName} onChange={(e) => setNewTeam((t) => ({ ...t, teamName: e.target.value }))} className={fis}>
+                    <option value="">팀 선택</option>
+                    {teams.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </td>
+                <td className="px-3 py-1.5"><input type="date" value={newTeam.usageDate} onChange={(e) => setNewTeam((t) => ({ ...t, usageDate: e.target.value }))} className={fi} /></td>
+                <td className="px-3 py-1.5"><input type="text" value={newTeam.draftStr} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); setNewTeam((t) => ({ ...t, draftStr: raw === '' ? '' : Number(raw).toLocaleString('ko-KR') })); }} placeholder="0" className={`${fi} text-right`} /></td>
+                <td className="px-3 py-1.5"><input type="text" value={newTeam.confirmedStr} onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ''); const fmt = raw === '' ? '' : Number(raw).toLocaleString('ko-KR'); setNewTeam((t) => ({ ...t, confirmedStr: fmt, claimed: Number(raw) === 0 ? false : t.claimed })); }} placeholder="0=미확정" className={`${fi} text-right placeholder:text-gray-300`} /></td>
+                <td className="px-3 py-1.5 text-center"><input type="checkbox" checked={newTeam.claimed} disabled={newConf === 0} onChange={(e) => setNewTeam((t) => ({ ...t, claimed: e.target.checked }))} className="h-3.5 w-3.5 accent-primary disabled:opacity-40 disabled:cursor-default" /></td>
+                <td className="px-3 py-1.5 text-center"><input type="checkbox" checked={newTeam.evidenceSubmitted} onChange={(e) => setNewTeam((t) => ({ ...t, evidenceSubmitted: e.target.checked }))} className="h-3.5 w-3.5 accent-primary" /></td>
+                <td className="px-2 py-1.5">
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => { void handleAddTeamToGroup(group); }} disabled={!newTeam.teamName || addMutation.isPending} className="flex items-center justify-center rounded bg-primary p-1 text-white hover:bg-primary-light disabled:opacity-50"><Check className="h-3 w-3" /></button>
+                    <button onClick={() => { setAddTeamGroupKey(null); setNewTeam({ ...DEFAULT_TEAM }); }} className="flex items-center justify-center rounded border border-[#E3E3E0] p-1 text-gray-500 hover:bg-gray-50"><X className="h-3 w-3" /></button>
+                  </div>
+                </td>
+              </tr>,
+            );
+          } else {
+            result.push(
+              <tr key={`add-btn-${group.key}`} className="bg-[#FAFAF8]">
+                <td colSpan={colCount} className="px-4 py-1">
+                  <button onClick={() => { setAddTeamGroupKey(group.key); setNewTeam({ ...DEFAULT_TEAM }); setShowNewGroup(false); }}
+                    className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-primary transition-colors">
+                    <Plus className="h-3 w-3" />팀 추가
+                  </button>
+                </td>
+              </tr>,
+            );
+          }
+        }
+      });
     });
 
     return result;
@@ -992,8 +1197,8 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
         group={sendGroup}
         initialSelectedIndexes={sendInitialSelection}
         onClose={() => setSendGroup(null)}
-        onSent={(rowIndexes) => {
-          markSentMutation.mutate(rowIndexes);
+        onSent={(payload) => {
+          markSentMutation.mutate(payload);
           setSendGroup(null);
         }}
       />

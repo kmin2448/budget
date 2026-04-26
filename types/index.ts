@@ -217,6 +217,18 @@ export interface WeMeetPageData {
   teams: string[];
 }
 
+export interface WeMeetSendBatch {
+  id: string;
+  category: string;
+  budgetType: 'main' | 'carryover';
+  description: string;
+  programName: string;
+  wemeetRowIndexes: number[];
+  expenditureRowIndex: number | null;
+  sentAt: string;
+  sentBy: string | null;
+}
+
 export interface WeMeetTeamInfo {
   rowIndex: number;         // 팀정보 시트 행 번호 (2~)
   teamName: string;         // A: 팀명

@@ -433,6 +433,23 @@ export async function markWeMeetExecutionsSent(rowIndexes: number[]): Promise<vo
   });
 }
 
+// ── 집행현황 보내기여부·청구여부 일괄 취소 ────────────────────────────
+
+export async function unmarkWeMeetExecutionsSent(rowIndexes: number[]): Promise<void> {
+  if (rowIndexes.length === 0) return;
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: SHEETS_ID(),
+    requestBody: {
+      valueInputOption: 'RAW',
+      data: rowIndexes.flatMap((ri) => [
+        { range: `집행현황!F${ri}`, values: [[false]] },  // 청구여부 → FALSE
+        { range: `집행현황!I${ri}`, values: [[false]] },  // 보내기여부 → FALSE
+      ]),
+    },
+  });
+}
+
 // ── 다중 행 일괄 추가 ─────────────────────────────────────────────────
 
 export async function bulkAppendWeMeetExecutions(

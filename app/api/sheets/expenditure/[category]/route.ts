@@ -304,7 +304,7 @@ export async function PUT(
   }
 }
 
-// DELETE: 집행내역 행 초기화
+// DELETE: 집행내역 행 초기화 + WE-Meet 보내기 배치 자동 취소
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { category: string } },
@@ -332,10 +332,32 @@ export async function DELETE(
     const monthCount = getMonthCount(sheetType);
     const isPersonnel = category === PERSONNEL_CATEGORY;
     const endCol = isPersonnel ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
+
+    // 1. 집행내역 시트 행 초기화
     await sheets.spreadsheets.values.clear({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${category}'!A${rowIndex}:${endCol}${rowIndex}`,
     });
+
+    // 2. 동일 행에 연결된 WE-Meet 보내기 배치 자동 취소
+    try {
+      const { unmarkWeMeetExecutionsSent } = await import('@/lib/google/wemeet-sheets');
+      const supabase = createServerSupabaseClient();
+      const { data: batch } = await supabase
+        .from('wemeet_send_batches')
+        .select('id, wemeet_row_indexes')
+        .eq('category', category)
+        .eq('budget_type', sheetType)
+        .eq('expenditure_row_index', rowIndex)
+        .maybeSingle();
+
+      if (batch) {
+        await unmarkWeMeetExecutionsSent(batch.wemeet_row_indexes as number[]);
+        await supabase.from('wemeet_send_batches').delete().eq('id', batch.id);
+      }
+    } catch {
+      // 배치 취소 실패는 무시 (집행내역 삭제는 이미 완료)
+    }
 
     return NextResponse.json({ message: '삭제되었습니다.' });
   } catch (error) {
