@@ -425,10 +425,10 @@ export async function markWeMeetExecutionsSent(rowIndexes: number[]): Promise<vo
     spreadsheetId: SHEETS_ID(),
     requestBody: {
       valueInputOption: 'RAW',
-      data: rowIndexes.map((ri) => ({
-        range: `집행현황!I${ri}`,
-        values: [[true]],
-      })),
+      data: rowIndexes.flatMap((ri) => [
+        { range: `집행현황!F${ri}`, values: [[true]] },  // 청구여부 → TRUE
+        { range: `집행현황!I${ri}`, values: [[true]] },  // 보내기여부 → TRUE
+      ]),
     },
   });
 }

@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ExternalLink } from 'lucide-react';
 import { formatKRW, parseKRW } from '@/lib/utils';
 import { MONTH_COLUMNS } from '@/constants/sheets';
 import { loadSendSettings, saveSendSettings } from './WeMeetSendSettingsModal';
@@ -72,6 +73,8 @@ function KRWCell({ value, onChange }: { value: string; onChange: (v: string) => 
 // ── 컴포넌트 ─────────────────────────────────────────────────────────
 
 export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onClose, onSent }: Props) {
+  const router = useRouter();
+
   // 전송 설정 (settings 기반)
   const [budgetType, setBudgetType]   = useState<'main' | 'carryover'>('main');
   const [category, setCategory]       = useState('');
@@ -242,7 +245,6 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
 
       onSent(rowIndexes);
       setSuccess(true);
-      setTimeout(() => { onClose(); setSuccess(false); }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : '전송 실패');
     } finally {
@@ -264,7 +266,12 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
             <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>
           )}
           {success && (
-            <p className="rounded-md bg-green-50 px-3 py-2 text-xs text-green-600">전송 완료!</p>
+            <div className="rounded-md bg-green-50 px-3 py-2 text-xs text-green-700 space-y-0.5">
+              <p className="font-medium">전송 완료!</p>
+              <p className="text-green-600">
+                비목별 집행내역({category})에 추가되었습니다. 청구여부도 자동으로 표시되었습니다.
+              </p>
+            </div>
           )}
 
           {/* ── 원본 건 정보 ── */}
@@ -434,13 +441,31 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isPending}>취소</Button>
-          <Button
-            onClick={() => { void handleSubmit(); }}
-            disabled={isPending || success || selectedIdxSet.size === 0}
-          >
-            {isPending ? '전송 중…' : `집행내역 전송 (${selectedIdxSet.size}팀)`}
-          </Button>
+          {success ? (
+            <>
+              <Button variant="outline" onClick={() => { onClose(); setSuccess(false); }}>닫기</Button>
+              <Button
+                className="gap-1.5"
+                onClick={() => {
+                  router.push(`/expenditure/${encodeURIComponent(category)}`);
+                  onClose();
+                  setSuccess(false);
+                }}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />집행내역 바로가기
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onClose} disabled={isPending}>취소</Button>
+              <Button
+                onClick={() => { void handleSubmit(); }}
+                disabled={isPending || selectedIdxSet.size === 0}
+              >
+                {isPending ? '전송 중…' : `집행내역 전송 (${selectedIdxSet.size}팀)`}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

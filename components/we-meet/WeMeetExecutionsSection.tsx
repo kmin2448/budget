@@ -580,16 +580,20 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
 
       result.push(
         <tr key={row.rowIndex} className={bg}>
-          {/* 체크박스 (사용구분 열) */}
+          {/* 삭제 버튼 (사용구분 열) */}
           <td className="px-3 py-1.5">
-            <div className="flex items-center pl-5">
-              <input
-                type="checkbox"
-                checked={isChecked}
-                onChange={() => toggleTeamSelection(group.key, row.rowIndex, group.rows)}
-                className="h-3.5 w-3.5 accent-primary cursor-pointer"
-              />
-            </div>
+            {canWrite ? (
+              <div className="flex items-center pl-4">
+                <button
+                  onClick={() => { setDeleteTarget(row); setDeleteOpen(true); }}
+                  className="rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <span className="text-gray-300 pl-2 select-none">↑</span>
+            )}
           </td>
 
           {/* ↑ (지출건명 열) */}
@@ -643,13 +647,15 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
             />
           </td>
 
-          {/* 삭제 */}
+          {/* 체크박스 (마지막 열) */}
           {canWrite && (
             <td className="px-2 py-1.5 text-center">
-              <button onClick={() => { setDeleteTarget(row); setDeleteOpen(true); }}
-                className="rounded p-1 text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors">
-                <Trash2 className="h-3 w-3" />
-              </button>
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => toggleTeamSelection(group.key, row.rowIndex, group.rows)}
+                className="h-3.5 w-3.5 accent-primary cursor-pointer"
+              />
             </td>
           )}
         </tr>,
