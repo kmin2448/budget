@@ -143,7 +143,7 @@ export function SmallClubBulkAddModal({ open, teams, usageTypes, onClose, onSave
             <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-[#6F6F6B]">사용구분 <span className="text-red-400">*</span></label>
               <select value={usageType} onChange={(e) => setUsageType(e.target.value)} className={fis}>
@@ -151,7 +151,7 @@ export function SmallClubBulkAddModal({ open, teams, usageTypes, onClose, onSave
                 {usageTypes.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
-            <div className="space-y-1">
+            <div className="col-span-3 space-y-1">
               <label className="text-xs font-medium text-[#6F6F6B]">지출건명 <span className="text-red-400">*</span></label>
               <input
                 type="text"

@@ -151,7 +151,7 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
           )}
 
           {/* 공통 필드 */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-[#6F6F6B]">사용구분 <span className="text-red-400">*</span></label>
               <select
@@ -163,7 +163,7 @@ export function WeMeetBulkAddModal({ open, teams, usageTypes, onClose, onSave, i
                 {usageTypes.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
-            <div className="space-y-1">
+            <div className="col-span-3 space-y-1">
               <label className="text-xs font-medium text-[#6F6F6B]">지출건명 <span className="text-red-400">*</span></label>
               <input
                 type="text"
