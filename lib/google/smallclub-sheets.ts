@@ -8,6 +8,7 @@ import {
   SMALL_CLUB_MAX_TEAMS,
   SMALL_CLUB_MAX_ROWS,
   SMALL_CLUB_NAMED_RANGES,
+  SMALL_CLUB_USAGE_TYPES,
 } from '@/constants/smallclub';
 import type { WeMeetExecution, WeMeetTeamSummary, WeMeetTeamInfo } from '@/types';
 
@@ -20,16 +21,21 @@ const SHEETS_ID = () => {
 // ── 사용구분 목록 ─────────────────────────────────────────────────────
 
 export async function getSmallClubUsageTypes(): Promise<string[]> {
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEETS_ID(),
-    range: SMALL_CLUB_NAMED_RANGES.USAGE_TYPE_LIST,
-    valueRenderOption: 'UNFORMATTED_VALUE',
-  });
-  const rows = res.data.values ?? [];
-  return rows
-    .map((row) => String(row?.[0] ?? '').trim())
-    .filter((v) => v !== '');
+  try {
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEETS_ID(),
+      range: SMALL_CLUB_NAMED_RANGES.USAGE_TYPE_LIST,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const rows = res.data.values ?? [];
+    const values = rows
+      .map((row) => String(row?.[0] ?? '').trim())
+      .filter((v) => v !== '');
+    return values.length > 0 ? values : [...SMALL_CLUB_USAGE_TYPES];
+  } catch {
+    return [...SMALL_CLUB_USAGE_TYPES];
+  }
 }
 
 // ── 집행현황 ──────────────────────────────────────────────────────────
