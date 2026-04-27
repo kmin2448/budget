@@ -198,6 +198,40 @@ export async function getWeMeetTeams(): Promise<Array<{ teamName: string; rowInd
     .filter((t) => t.teamName !== '');
 }
 
+// 상대참조 행 번호만 rowDelta만큼 조정 (절대참조 $는 유지)
+function adjustFormulaRow(formula: string, rowDelta: number): string {
+  if (!formula.startsWith('=')) return formula;
+  let out = '';
+  let inStr = false;
+  for (let i = 0; i < formula.length; ) {
+    const ch = formula[i] as string;
+    if (ch === '"') {
+      inStr = !inStr;
+      out += ch;
+      i++;
+    } else if (inStr) {
+      out += ch;
+      i++;
+    } else {
+      const m = /^(\$?[A-Z]+)(\$?)(\d+)/.exec(formula.slice(i));
+      if (m) {
+        const full = m[0]!;
+        const col  = m[1]!;
+        const rowAbsMarker = m[2]!;
+        const rowNum = m[3]!;
+        out += rowAbsMarker === '$'
+          ? full
+          : `${col}${parseInt(rowNum, 10) + rowDelta}`;
+        i += full.length;
+      } else {
+        out += ch;
+        i++;
+      }
+    }
+  }
+  return out;
+}
+
 export async function appendWeMeetTeam(teamName: string): Promise<void> {
   const teams = await getWeMeetTeams();
 
@@ -205,14 +239,42 @@ export async function appendWeMeetTeam(teamName: string): Promise<void> {
     throw new Error(`팀은 최대 ${WEMEET_MAX_TEAMS}개까지 추가할 수 있습니다.`);
   }
 
-  const nextRowNum = teams.length === 0 ? 3 : teams[teams.length - 1].rowIndex + 1;
-
   const sheets = getSheetsClient();
+
+  if (teams.length === 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEETS_ID(),
+      range: `팀별취합!A3`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [[teamName]] },
+    });
+    return;
+  }
+
+  const lastTeam = teams[teams.length - 1]!;
+  const sourceRow = lastTeam.rowIndex;
+  const targetRow = sourceRow + 1;
+
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEETS_ID(),
+    range: `팀별취합!A${sourceRow}:Z${sourceRow}`,
+    valueRenderOption: 'FORMULA',
+  });
+
+  const sourceValues = res.data.values?.[0] ?? [];
+
+  const newRow: (string | number | boolean)[] = sourceValues.map((cell, colIdx) => {
+    if (colIdx === 0) return teamName;
+    const s = String(cell ?? '');
+    return s.startsWith('=') ? adjustFormulaRow(s, 1) : '';
+  });
+  if (newRow.length === 0) newRow.push(teamName);
+
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEETS_ID(),
-    range: `팀별취합!A${nextRowNum}`,
-    valueInputOption: 'RAW',
-    requestBody: { values: [[teamName]] },
+    range: `팀별취합!A${targetRow}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [newRow] },
   });
 }
 
