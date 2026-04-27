@@ -69,8 +69,7 @@ export function WeMeetTeamManageSection({ canWrite, advisorOrder }: Props) {
   // 팀 정보 저장: rowIndex < 0이면 신규 추가(팀별취합에만 존재), 아니면 수정
   const handleUpdateTeam = useCallback(async (info: WeMeetTeamInfo) => {
     if (info.rowIndex < 0) {
-      const { rowIndex: _r, ...payload } = info;
-      await addTeamInfoMutation.mutateAsync(payload as TeamInfoPayload);
+      await addTeamInfoMutation.mutateAsync(info);
     } else {
       await updateTeamInfoMutation.mutateAsync(info);
     }
