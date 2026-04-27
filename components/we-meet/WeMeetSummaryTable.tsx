@@ -187,21 +187,23 @@ export function WeMeetSummaryTable({
   });
   const [activeDragAdvisor, setActiveDragAdvisor] = useState<string | null>(null);
 
+  // 새 지도교수만 끝에 추가 — 기존 항목은 절대 제거하지 않음
+  // (teamInfos 로딩 지연 시 advisorGroups가 임시로 '미배정'만 갖는 중간 상태에서
+  //  기존 저장 순서가 초기화되는 버그 방지)
   useEffect(() => {
     setAdvisorOrder((prev) => {
-      const existing = new Set(advisorGroups.map((g) => g.advisor));
-      const filtered = prev.filter((a) => existing.has(a));
-      const added    = advisorGroups.filter((g) => !prev.includes(g.advisor)).map((g) => g.advisor);
-      return [...filtered, ...added];
+      const prevSet = new Set(prev);
+      const added = advisorGroups.filter((g) => !prevSet.has(g.advisor)).map((g) => g.advisor);
+      if (added.length === 0) return prev;
+      return [...prev, ...added];
     });
   }, [advisorGroups]);
 
-  // 순서 변경 시 localStorage 저장 + 부모로 전파
+  // 현재 데이터에 존재하는 지도교수 순서만 부모로 전파
   useEffect(() => {
-    if (advisorOrder.length > 0) {
-      localStorage.setItem(ADVISOR_ORDER_KEY, JSON.stringify(advisorOrder));
-      onAdvisorOrderChange?.(advisorOrder);
-    }
+    if (advisorOrder.length === 0) return;
+    const existing = new Set(advisorGroups.map((g) => g.advisor));
+    onAdvisorOrderChange?.(advisorOrder.filter((a) => existing.has(a)));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [advisorOrder]);
 
@@ -223,7 +225,9 @@ export function WeMeetSummaryTable({
     const oldIdx = advisorOrder.indexOf(active.id as string);
     const newIdx = advisorOrder.indexOf(over.id as string);
     if (oldIdx === -1 || newIdx === -1) return;
-    setAdvisorOrder(arrayMove(advisorOrder, oldIdx, newIdx));
+    const newOrder = arrayMove(advisorOrder, oldIdx, newIdx);
+    setAdvisorOrder(newOrder);
+    localStorage.setItem(ADVISOR_ORDER_KEY, JSON.stringify(newOrder));
   }
 
   function toggleAdvisor(advisor: string) {
