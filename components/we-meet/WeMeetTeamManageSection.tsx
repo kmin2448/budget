@@ -1,14 +1,19 @@
 'use client';
 
+import { useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { WeMeetTeamManageTable } from '@/components/we-meet/WeMeetTeamManageTable';
 import {
   useWeMeetTeamInfos,
+  useAddWeMeetTeam,
   useAddWeMeetTeamInfo,
   useUpdateWeMeetTeamInfo,
+  useDeleteWeMeetTeam,
   useDeleteWeMeetTeamInfo,
+  type TeamInfoPayload,
 } from '@/hooks/useWeMeet';
+import type { WeMeetTeamInfo } from '@/types';
 
 interface Props {
   canWrite: boolean;
@@ -17,11 +22,73 @@ interface Props {
 
 export function WeMeetTeamManageSection({ canWrite, advisorOrder }: Props) {
   const { data: teamInfoData, isLoading, isError, error, refetch } = useWeMeetTeamInfos();
+
+  const addTeamMutation        = useAddWeMeetTeam();
   const addTeamInfoMutation    = useAddWeMeetTeamInfo();
   const updateTeamInfoMutation = useUpdateWeMeetTeamInfo();
+  const deleteTeamMutation     = useDeleteWeMeetTeam();
   const deleteTeamInfoMutation = useDeleteWeMeetTeamInfo();
 
   const teamInfos = teamInfoData?.teamInfos ?? [];
+  const teamList  = teamInfoData?.teams ?? [];
+
+  // 팀정보에 없는 팀별취합 항목을 synthetic 엔트리(rowIndex 음수)로 포함
+  const teamInfoNameSet = useMemo(
+    () => new Set(teamInfos.map((t) => t.teamName)),
+    [teamInfos],
+  );
+
+  const allTeamInfos = useMemo<WeMeetTeamInfo[]>(() => {
+    const synthetic = teamList
+      .filter((t) => !teamInfoNameSet.has(t.teamName))
+      .map((t): WeMeetTeamInfo => ({
+        teamName:        t.teamName,
+        rowIndex:        -(t.rowIndex),  // 음수 = 팀별취합에만 존재
+        advisor:         '',
+        topic:           '',
+        mentorOrg:       '',
+        mentor:          '',
+        teamLeader:      '',
+        teamMembers:     '',
+        assistantMentor: '',
+        remarks:         '',
+        memberList:      [],
+      }));
+    return [...teamInfos, ...synthetic];
+  }, [teamInfos, teamList, teamInfoNameSet]);
+
+  // 팀 추가: 팀별취합 + 팀정보 양쪽 추가 (중복 방지)
+  const handleAddTeam = useCallback(async (payload: TeamInfoPayload) => {
+    const alreadyInList = teamList.some((t) => t.teamName === payload.teamName);
+    if (!alreadyInList) {
+      await addTeamMutation.mutateAsync(payload.teamName);
+    }
+    await addTeamInfoMutation.mutateAsync(payload);
+  }, [teamList, addTeamMutation, addTeamInfoMutation]);
+
+  // 팀 정보 저장: rowIndex < 0이면 신규 추가(팀별취합에만 존재), 아니면 수정
+  const handleUpdateTeam = useCallback(async (info: WeMeetTeamInfo) => {
+    if (info.rowIndex < 0) {
+      const { rowIndex: _r, ...payload } = info;
+      await addTeamInfoMutation.mutateAsync(payload as TeamInfoPayload);
+    } else {
+      await updateTeamInfoMutation.mutateAsync(info);
+    }
+  }, [addTeamInfoMutation, updateTeamInfoMutation]);
+
+  // 팀 삭제: rowIndex < 0이면 팀별취합만 삭제, 양수면 팀정보 + 팀별취합 모두 삭제
+  const handleDeleteTeam = useCallback(async (rowIndex: number) => {
+    if (rowIndex < 0) {
+      await deleteTeamMutation.mutateAsync(-rowIndex);
+    } else {
+      const teamName  = teamInfos.find((t) => t.rowIndex === rowIndex)?.teamName;
+      await deleteTeamInfoMutation.mutateAsync(rowIndex);
+      const listEntry = teamList.find((t) => t.teamName === teamName);
+      if (listEntry) {
+        await deleteTeamMutation.mutateAsync(listEntry.rowIndex);
+      }
+    }
+  }, [teamInfos, teamList, deleteTeamInfoMutation, deleteTeamMutation]);
 
   return (
     <div className="space-y-4">
@@ -53,11 +120,11 @@ export function WeMeetTeamManageSection({ canWrite, advisorOrder }: Props) {
         <div className="h-40 animate-pulse rounded-lg bg-[#F3F3EE]" />
       ) : (
         <WeMeetTeamManageTable
-          teamInfos={teamInfos}
-          onAddTeam={addTeamInfoMutation.mutateAsync}
-          onUpdateTeam={updateTeamInfoMutation.mutateAsync}
-          onDeleteTeam={deleteTeamInfoMutation.mutateAsync}
-          isDeleting={deleteTeamInfoMutation.isPending}
+          teamInfos={allTeamInfos}
+          onAddTeam={handleAddTeam}
+          onUpdateTeam={handleUpdateTeam}
+          onDeleteTeam={handleDeleteTeam}
+          isDeleting={deleteTeamInfoMutation.isPending || deleteTeamMutation.isPending}
           advisorOrder={advisorOrder ?? []}
         />
       )}

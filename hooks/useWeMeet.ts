@@ -252,6 +252,7 @@ export function useAddWeMeetTeam() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [SUMMARY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [TEAM_INFO_KEY] });
     },
   });
 }
@@ -271,6 +272,7 @@ export function useDeleteWeMeetTeam() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [SUMMARY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [TEAM_INFO_KEY] });
     },
   });
 }
@@ -279,7 +281,7 @@ export function useDeleteWeMeetTeam() {
 
 interface TeamInfoResponse {
   teamInfos: WeMeetTeamInfo[];
-  teams: string[];
+  teams: Array<{ teamName: string; rowIndex: number }>;
 }
 
 async function fetchTeamInfos(): Promise<TeamInfoResponse> {

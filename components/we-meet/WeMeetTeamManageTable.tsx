@@ -378,7 +378,7 @@ export function WeMeetTeamManageTable({
       <ConfirmDialog
         open={deleteOpen}
         title="팀 삭제"
-        description={`"${deleteTarget?.teamName}" 팀을 삭제하시겠습니까? 팀 정보가 함께 삭제됩니다.`}
+        description={`"${deleteTarget?.teamName}" 팀을 삭제하시겠습니까?${(deleteTarget?.rowIndex ?? 0) > 0 ? ' 팀 정보가 함께 삭제됩니다.' : ' 팀별 현황 목록에서 제거됩니다.'}`}
         loading={isDeleting}
         onConfirm={() => {
           if (deleteTarget) void onDeleteTeam(deleteTarget.rowIndex);
