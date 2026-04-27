@@ -450,7 +450,7 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
               <Button
                 className="gap-1.5"
                 onClick={() => {
-                  router.push(`/expenditure/${encodeURIComponent(category)}`);
+                  router.push(`/expenditure/${encodeURIComponent(category)}?sheetType=${budgetType}`);
                   onClose();
                   setSuccess(false);
                 }}

@@ -1,7 +1,7 @@
 // app/(dashboard)/expenditure/[category]/page.tsx
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
@@ -34,8 +34,18 @@ export default function ExpenditurePage({
   const highlightRowIndex = searchParams.get('rowIndex') ? Number(searchParams.get('rowIndex')) : undefined;
   const { data: session } = useSession();
   const { data, isLoading, isError, error, refetch } = useExpenditure(category);
-  const { budgetType } = useBudgetType();
+  const { budgetType, setBudgetType } = useBudgetType();
   const isCarryover = budgetType === 'carryover';
+
+  // URL ?sheetType= 파라미터가 있으면 해당 예산구분으로 탭 강제 설정 (WE-Meet 바로가기 등)
+  useEffect(() => {
+    const typeFromUrl = searchParams.get('sheetType');
+    if (typeFromUrl === 'main' || typeFromUrl === 'carryover') {
+      setBudgetType(typeFromUrl);
+    }
+  // 마운트 시 1회만 실행
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const addMutation    = useAddExpenditureRow(category);
   const updateMutation = useUpdateExpenditureRow(category);
