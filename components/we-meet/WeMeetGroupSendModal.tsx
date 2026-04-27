@@ -80,9 +80,9 @@ function KRWCell({ value, onChange }: { value: string; onChange: (v: string) => 
 export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onClose, onSent }: Props) {
   const router = useRouter();
 
-  // 전송 설정 (settings 기반)
-  const [budgetType, setBudgetType]   = useState<'main' | 'carryover'>('main');
-  const [category, setCategory]       = useState('');
+  // 전송 설정 (settings 기반) — 마운트 시 localStorage에서 초기화
+  const [budgetType, setBudgetType]   = useState<'main' | 'carryover'>(() => loadSendSettings().budgetType);
+  const [category, setCategory]       = useState(() => loadSendSettings().category);
 
   // 팀 선택
   const [selectedIdxSet, setSelectedIdxSet] = useState<Set<number>>(new Set());
@@ -101,6 +101,11 @@ export function WeMeetGroupSendModal({ open, group, initialSelectedIndexes, onCl
   const [isPending, setIsPending] = useState(false);
   const [error, setError]         = useState('');
   const [success, setSuccess]     = useState(false);
+
+  // budgetType 변경 시 즉시 저장 (전송 취소해도 유지)
+  useEffect(() => {
+    saveSendSettings({ budgetType, category });
+  }, [budgetType, category]);
 
   // ── 모달 열릴 때 초기화 ─────────────────────────────────────────────
   useEffect(() => {

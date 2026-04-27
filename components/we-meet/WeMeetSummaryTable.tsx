@@ -18,6 +18,7 @@ import type { WeMeetTeamSummary, WeMeetUsageSummary, WeMeetTeamInfo, WeMeetExecu
 // ── 상수 ────────────────────────────────────────────────────────────────
 
 const NO_ADVISOR = '지도교수 미배정';
+const ADVISOR_ORDER_KEY = 'wemeet_advisor_order_v1';
 
 // ── DnD 지도교수 그룹 tbody 래퍼 ─────────────────────────────────────────
 
@@ -174,7 +175,16 @@ export function WeMeetSummaryTable({
 
   // ── DnD 지도교수 순서 ──────────────────────────────────────────────────
 
-  const [advisorOrder, setAdvisorOrder]           = useState<string[]>([]);
+  const [advisorOrder, setAdvisorOrder] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(ADVISOR_ORDER_KEY);
+      if (!raw) return [];
+      return JSON.parse(raw) as string[];
+    } catch {
+      return [];
+    }
+  });
   const [activeDragAdvisor, setActiveDragAdvisor] = useState<string | null>(null);
 
   useEffect(() => {
@@ -186,9 +196,12 @@ export function WeMeetSummaryTable({
     });
   }, [advisorGroups]);
 
-  // 순서 변경 시 부모로 전파
+  // 순서 변경 시 localStorage 저장 + 부모로 전파
   useEffect(() => {
-    if (advisorOrder.length > 0) onAdvisorOrderChange?.(advisorOrder);
+    if (advisorOrder.length > 0) {
+      localStorage.setItem(ADVISOR_ORDER_KEY, JSON.stringify(advisorOrder));
+      onAdvisorOrderChange?.(advisorOrder);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [advisorOrder]);
 
