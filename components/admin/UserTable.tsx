@@ -101,6 +101,7 @@ export function UserTable({
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [roleLoading, setRoleLoading] = useState<string | null>(null);
   const [permLoading, setPermLoading] = useState<string | null>(null);
+  const [permError, setPermError] = useState<string | null>(null);
 
   useEffect(() => {
     setOrderedUsers((prev) => {
@@ -175,14 +176,18 @@ export function UserTable({
   async function handlePermToggle(user: AdminUser, permission: string) {
     const key = `${user.id}-${permission}`;
     setPermLoading(key);
+    setPermError(null);
     try {
       if (user.permissions.includes(permission)) {
         await onRevokePermission(user.id, permission);
       } else {
         await onGrantPermission(user.id, permission);
       }
+    } catch (err) {
+      setPermError(err instanceof Error ? err.message : '권한 변경에 실패했습니다.');
     } finally {
-      setPermLoading(null); }
+      setPermLoading(null);
+    }
   }
 
   async function handleDelete() {
@@ -263,6 +268,19 @@ export function UserTable({
         className="hidden"
         onChange={handleExcelUpload}
       />
+
+      {/* 권한 변경 에러 */}
+      {permError && (
+        <div className="flex items-center justify-between rounded-[2px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{permError}</span>
+          </div>
+          <button onClick={() => setPermError(null)} className="text-red-400 hover:text-red-600">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* 엑셀 가져오기 결과 */}
       {importResult && (
