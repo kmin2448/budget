@@ -28,6 +28,7 @@ import {
   LogOut,
   User,
   HandCoins,
+  Users,
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
@@ -39,6 +40,7 @@ const navItems = [
   { label: '선지원금',       href: '/advance-funds',       icon: Wallet },
   { label: '카드관리',       href: '/card',                icon: CreditCard },
   { label: 'WE-Meet 지원',  href: '/we-meet',             icon: HandCoins },
+  { label: '소학회 지원',   href: '/small-club',          icon: Users },
   { label: '자료실',         href: '/library',             icon: FolderOpen },
   { label: '권한관리',       href: '/admin',               icon: Settings },
 ];

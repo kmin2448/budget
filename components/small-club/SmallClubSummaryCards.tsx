@@ -1,0 +1,75 @@
+'use client';
+
+import { formatKRW } from '@/lib/utils';
+import type { SmallClubTeamSummary } from '@/types';
+
+interface Props {
+  summaries: SmallClubTeamSummary[];
+  selectedTeam: string | null;
+  onSelectTeam: (team: string | null) => void;
+}
+
+function confirmedTotal(s: SmallClubTeamSummary): number {
+  return s.mentoring.confirmed + s.meeting.confirmed + s.material.confirmed + s.studentActivity.confirmed;
+}
+
+export function SmallClubSummaryCards({ summaries, selectedTeam, onSelectTeam }: Props) {
+  if (summaries.length === 0) {
+    return (
+      <div className="rounded-lg border border-[#E3E3E0] bg-white px-4 py-6 text-center text-sm text-gray-400">
+        소학회 데이터가 없습니다.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto pb-1">
+      <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
+        {summaries.map((s) => {
+          const isSelected = selectedTeam === s.teamName;
+          const conf = confirmedTotal(s);
+          const isOver = s.balance < 0;
+
+          return (
+            <button
+              key={s.teamName}
+              onClick={() => onSelectTeam(isSelected ? null : s.teamName)}
+              className={[
+                'flex w-44 flex-col gap-1.5 rounded-xl border p-3 text-left transition-all',
+                isSelected
+                  ? 'border-primary bg-primary-bg shadow-sm'
+                  : 'border-[#E3E3E0] bg-white hover:border-primary/40 hover:bg-[#F5F9FC]',
+              ].join(' ')}
+            >
+              <span className={['truncate text-xs font-semibold', isSelected ? 'text-primary' : 'text-[#131310]'].join(' ')}>
+                {s.teamName}
+              </span>
+
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-gray-400">확정</span>
+                  <span className="text-xs font-medium text-[#131310]">{formatKRW(conf)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-gray-400">잔액</span>
+                  <span className={['text-xs font-semibold', isOver ? 'text-red-500' : 'text-complete'].join(' ')}>
+                    {formatKRW(s.balance)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className={['h-full rounded-full transition-all', isOver ? 'bg-red-400' : 'bg-primary'].join(' ')}
+                  style={{
+                    width: s.totalBudget > 0 ? `${Math.min(100, (conf / s.totalBudget) * 100)}%` : '0%',
+                  }}
+                />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

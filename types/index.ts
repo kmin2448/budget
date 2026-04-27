@@ -243,6 +243,25 @@ export interface WeMeetTeamInfo {
   memberList?: string[];    // K~: 팀원 명단(개별 셀, 시트에서만 읽음)
 }
 
+// ── 소학회 지원 타입 (WE-Meet과 동일 구조) ──────────────────────────────
+export type SmallClubExecution    = WeMeetExecution;
+export type SmallClubUsageSummary = WeMeetUsageSummary;
+export type SmallClubTeamSummary  = WeMeetTeamSummary;
+export type SmallClubPageData     = WeMeetPageData;
+export type SmallClubTeamInfo     = WeMeetTeamInfo;
+
+export interface SmallClubSendBatch {
+  id: string;
+  category: string;
+  budgetType: 'main' | 'carryover';
+  description: string;
+  programName: string;
+  smallclubRowIndexes: number[];
+  expenditureRowIndex: number | null;
+  sentAt: string;
+  sentBy: string | null;
+}
+
 // 예산변경 확정 요청 payload
 export interface BudgetChangePayload {
   changedAt: string;                       // YYYY-MM-DD
