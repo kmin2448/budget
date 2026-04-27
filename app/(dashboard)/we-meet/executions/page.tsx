@@ -8,7 +8,8 @@ import { WeMeetExecutionsSection } from '@/components/we-meet/WeMeetExecutionsSe
 export default function WeMeetExecutionsPage() {
   const { data: session } = useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
-  const canWrite = userRole === 'super_admin' || userRole === 'admin';
+  const userPermissions = (session?.user as { permissions?: string[] } | undefined)?.permissions ?? [];
+  const canWrite = userRole === 'super_admin' || userPermissions.includes('wemeet:write');
 
   return (
     <div className="space-y-4">

@@ -43,6 +43,8 @@ const PERM_LABELS: Record<string, string> = {
   [PERMISSIONS.ADVANCE_WRITE]:     '선지원금',
   [PERMISSIONS.CARD_WRITE]:        '산단카드',
   [PERMISSIONS.LIBRARY_WRITE]:     '자료실',
+  [PERMISSIONS.WEMEET_WRITE]:      'WE-Meet',
+  [PERMISSIONS.SMALL_CLUB_WRITE]:  '소학회',
 };
 
 const inputCls =

@@ -11,6 +11,8 @@ export const PERMISSIONS = {
   ADVANCE_WRITE:     'advance:write',     // 선지원금 편집
   CARD_WRITE:        'card:write',        // 산단카드 편집
   LIBRARY_WRITE:     'library:write',     // 자료실 업로드/삭제
+  WEMEET_WRITE:      'wemeet:write',      // WE-Meet 지원 편집
+  SMALL_CLUB_WRITE:  'smallclub:write',   // 소학회 지원 편집
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

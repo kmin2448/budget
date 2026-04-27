@@ -21,7 +21,8 @@ const STORAGE_KEY = 'wemeet-reference-url';
 export default function WeMeetPage() {
   const { data: session } = useSession();
   const userRole = (session?.user as { role?: string } | undefined)?.role;
-  const canWrite = userRole === 'super_admin' || userRole === 'admin';
+  const userPermissions = (session?.user as { permissions?: string[] } | undefined)?.permissions ?? [];
+  const canWrite = userRole === 'super_admin' || userPermissions.includes('wemeet:write');
 
   const [activeTab, setActiveTab] = useState<TabId>('executions');
   const [sharedAdvisorOrder, setSharedAdvisorOrder] = useState<string[]>([]);
