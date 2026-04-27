@@ -46,10 +46,13 @@ export function SmallClubTeamsSection({ canWrite, onAdvisorOrderChange }: Props)
   const usageTypes = data?.usageTypes ?? [];
   const teamInfos  = teamInfoData?.teamInfos ?? [];
 
+  const teamInfoNameSet = useMemo(() => new Set(teamInfos.map((t) => t.teamName)), [teamInfos]);
+
   const filteredSummaries = useMemo(() => {
+    const active = summaries.filter((s) => teamInfoNameSet.has(s.teamName));
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return summaries;
-    return summaries.filter((s) => {
+    if (!q) return active;
+    return active.filter((s) => {
       if (s.teamName.toLowerCase().includes(q)) return true;
       const info = teamInfos.find((t) => t.teamName === s.teamName);
       if (info) {
@@ -60,7 +63,7 @@ export function SmallClubTeamsSection({ canWrite, onAdvisorOrderChange }: Props)
       }
       return false;
     });
-  }, [summaries, searchQuery, teamInfos]);
+  }, [summaries, teamInfoNameSet, searchQuery, teamInfos]);
 
   function handleAddExecution(teamName: string) {
     setFormMode('add');
