@@ -149,8 +149,8 @@ export default function UnitBudgetPage() {
           />
         )}
 
-        {/* 변경 내역 요약 */}
-        {hasAdjustments && (
+        {/* 변경 내역 요약 — 데이터 로드 후 항상 표시 */}
+        {!isLoading && !error && unitTasks.length > 0 && (
           <AdjustmentSummary unitTasks={unitTasks} adjustments={adjustments} />
         )}
 
