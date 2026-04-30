@@ -2,6 +2,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
 import type { UnitTask, TransferItem, BudgetType } from '@/types';
 
+interface AdjustItem {
+  rowIndex: number;
+  programName: string;
+  unitName: string;
+  category: string;
+  subcategory: string;
+  subDetail: string;
+  before: number;
+  adjustment: number;
+}
+
 interface UnitBudgetResponse {
   unitTasks: UnitTask[];
 }
@@ -26,9 +37,40 @@ export function useUnitBudget() {
   });
 }
 
+interface AdjustPayload {
+  items: AdjustItem[];
+  changedAt: string;
+}
+
 interface TransferPayload {
   transfers: TransferItem[];
   changedAt: string;
+}
+
+export function useUnitBudgetAdjust() {
+  const { budgetType } = useBudgetType();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: AdjustPayload) => {
+      const res = await fetch('/api/unit-budget/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, sheetType: budgetType }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? '증감 처리에 실패했습니다.');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['unit-budget', budgetType] });
+      void queryClient.invalidateQueries({ queryKey: ['budget', budgetType] });
+      void queryClient.invalidateQueries({ queryKey: ['budget-history'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+    },
+  });
 }
 
 export function useUnitBudgetTransfer() {
