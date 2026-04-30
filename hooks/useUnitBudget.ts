@@ -42,6 +42,46 @@ interface AdjustPayload {
   changedAt: string;
 }
 
+interface ApplyAllocationItem {
+  rowOffset: number;
+  category: string;
+  subcategory: string;
+  subDetail: string;
+  before: number;
+  after: number;
+}
+
+interface ApplyAllocationPayload {
+  items: ApplyAllocationItem[];
+  changedAt: string;
+}
+
+export function useUnitBudgetApplyAllocation() {
+  const { budgetType } = useBudgetType();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: ApplyAllocationPayload) => {
+      const res = await fetch('/api/unit-budget/apply-allocation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, sheetType: budgetType }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? '배정금액 반영에 실패했습니다.');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['unit-budget', budgetType] });
+      void queryClient.invalidateQueries({ queryKey: ['budget', budgetType] });
+      void queryClient.invalidateQueries({ queryKey: ['budget-history'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+    },
+  });
+}
+
 export function useUnitBudgetAdjust() {
   const { budgetType } = useBudgetType();
   const queryClient = useQueryClient();
