@@ -49,8 +49,9 @@ export default function UnitBudgetPage() {
   const handleAdjChange = useCallback((rowIndex: number, value: number) => {
     setAdjustments((prev) => {
       if (value === 0) {
-        const { [rowIndex]: _, ...rest } = prev;
-        return rest;
+        const next = { ...prev };
+        delete next[rowIndex];
+        return next;
       }
       return { ...prev, [rowIndex]: value };
     });

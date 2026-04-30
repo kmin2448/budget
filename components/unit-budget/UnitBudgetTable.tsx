@@ -70,15 +70,16 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange }: 
   const toggleUnit = (name: string) =>
     setOpenUnits((prev) => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) { next.delete(name); } else { next.add(name); }
       return next;
     });
 
   const handleChange = (rowIndex: number, val: string) => {
     setDisplayValues((prev) => {
       if (!val) {
-        const { [rowIndex]: _, ...rest } = prev;
-        return rest;
+        const next = { ...prev };
+        delete next[rowIndex];
+        return next;
       }
       return { ...prev, [rowIndex]: val };
     });
