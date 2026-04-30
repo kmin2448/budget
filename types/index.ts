@@ -296,24 +296,3 @@ export interface UnitTask {
   totalBudgetPlan: number;
 }
 
-// 이체 건 내 출발 프로그램 차감 배분
-export interface TransferProgramAllocation {
-  rowIndex: number;
-  programName: string;
-  deductAmount: number;
-}
-
-// 이체 1건
-export interface TransferItem {
-  id: string;
-  fromUnit: string;
-  toUnit: string;
-  fromCategory: string;
-  fromSubcategory: string;
-  fromSubDetail: string;
-  toCategory: string;
-  toSubcategory: string;
-  toSubDetail: string;
-  amount: number;
-  sourceProgramAllocations: TransferProgramAllocation[];
-}
