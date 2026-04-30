@@ -270,3 +270,50 @@ export interface BudgetChangePayload {
   adjustments: { rowOffset: number; value: number }[];
   snapshot: BudgetCategoryRow[];
 }
+
+// ── 단위과제 예산관리 ─────────────────────────────────────────────
+
+// 단위과제 내 보조세목 1행
+export interface UnitBudgetRow {
+  category: string;        // 비목
+  subcategory: string;     // 세목
+  subDetail: string;       // 보조세목
+  allocation: number;      // ★취합 편성액
+  budgetPlan: number;      // 프로그램 예산계획 합산
+  rowOffset: number | null; // ★취합 시트 rowOffset (없으면 null)
+  programs: {
+    rowIndex: number;
+    programName: string;
+    budgetPlan: number;
+  }[];
+}
+
+// 단위과제 1개
+export interface UnitTask {
+  name: string;
+  rows: UnitBudgetRow[];
+  totalAllocation: number;
+  totalBudgetPlan: number;
+}
+
+// 이체 건 내 출발 프로그램 차감 배분
+export interface TransferProgramAllocation {
+  rowIndex: number;
+  programName: string;
+  deductAmount: number;
+}
+
+// 이체 1건
+export interface TransferItem {
+  id: string;
+  fromUnit: string;
+  toUnit: string;
+  fromCategory: string;
+  fromSubcategory: string;
+  fromSubDetail: string;
+  toCategory: string;
+  toSubcategory: string;
+  toSubDetail: string;
+  amount: number;
+  sourceProgramAllocations: TransferProgramAllocation[];
+}

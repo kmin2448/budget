@@ -29,15 +29,17 @@ import {
   User,
   HandCoins,
   Users,
+  GitCompare,
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
 
 const navItems = [
-  { label: '대시보드',       href: '/dashboard',          icon: LayoutDashboard },
-  { label: '비목별 집행내역', href: '/expenditure/인건비',  icon: FileText },
-  { label: '예산관리',       href: '/budget',              icon: BarChart2 },
-  { label: '선지원금',       href: '/advance-funds',       icon: Wallet },
+  { label: '대시보드',           href: '/dashboard',          icon: LayoutDashboard },
+  { label: '비목별 집행내역',     href: '/expenditure/인건비',  icon: FileText },
+  { label: '예산관리',           href: '/budget',              icon: BarChart2 },
+  { label: '단위과제 예산관리',   href: '/unit-budget',         icon: GitCompare },
+  { label: '선지원금',           href: '/advance-funds',       icon: Wallet },
   { label: '카드관리',       href: '/card',                icon: CreditCard },
   { label: 'WE-Meet 지원',  href: '/we-meet',             icon: HandCoins },
   { label: '소학회 지원',   href: '/small-club',          icon: Users },
