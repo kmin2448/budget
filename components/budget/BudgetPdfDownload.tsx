@@ -31,16 +31,16 @@ const PDF_TITLE_WRAP: CSSProperties = {
   textAlign: 'center', marginBottom: 18, paddingBottom: 10, borderBottom: '2px solid #374151',
 };
 const PDF_TITLE_MAIN: CSSProperties = {
-  display: 'block', fontSize: 17, fontWeight: 700, color: '#111827',
+  display: 'block', fontSize: 26, fontWeight: 700, color: '#111827',
   letterSpacing: '-0.5px', marginBottom: 5, lineHeight: 1.4,
 };
 const PDF_TITLE_DATE: CSSProperties = {
   display: 'block', fontSize: 10, color: '#6b7280', fontWeight: 400, lineHeight: 1.4,
 };
 const pdfSecLabel = (mt = 0): CSSProperties => ({
-  fontSize: 12, fontWeight: 700, color: '#374151',
+  fontSize: 17, fontWeight: 700, color: '#374151',
   borderBottom: '1.5px solid #9ca3af',
-  paddingBottom: 4, marginBottom: 7, marginTop: mt, lineHeight: 1.4,
+  paddingBottom: 5, marginBottom: 14, marginTop: mt, lineHeight: 1.4,
 });
 const PDF_TABLE: CSSProperties = { width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' };
 
@@ -232,7 +232,7 @@ export function BudgetPdfDownload({
             <span style={PDF_TITLE_MAIN}>예산변경 비교표</span>
             <span style={PDF_TITLE_DATE}>변경일자: {changedAt}</span>
           </div>
-          <div style={pdfSecLabel()}>1. 통합</div>
+          <div style={pdfSecLabel()}>■ 1. 통합</div>
           <table style={PDF_TABLE}>
             <thead>
               <tr>
@@ -298,7 +298,7 @@ export function BudgetPdfDownload({
             <span style={PDF_TITLE_DATE}>변경일자: {changedAt}</span>
           </div>
 
-          <div style={pdfSecLabel()}>2. 비목별</div>
+          <div style={pdfSecLabel()}>■ 2. 비목별</div>
           <table style={PDF_TABLE}>
             <thead>
               <tr>
@@ -347,7 +347,7 @@ export function BudgetPdfDownload({
             </tfoot>
           </table>
 
-          <div style={pdfSecLabel(28)}>3. 세목별</div>
+          <div style={pdfSecLabel(28)}>■ 3. 세목별</div>
           <table style={PDF_TABLE}>
             <thead>
               <tr>
