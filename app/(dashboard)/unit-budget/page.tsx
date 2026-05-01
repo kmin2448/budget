@@ -12,6 +12,7 @@ import {
 } from '@/hooks/useUnitBudget';
 import { useBudgetHistory, useDeleteHistory } from '@/hooks/useBudget';
 import { UnitBudgetTable } from '@/components/unit-budget/UnitBudgetTable';
+import { Tooltip } from '@/components/ui/tooltip';
 import { AdjustmentSidePanel } from '@/components/unit-budget/AdjustmentSidePanel';
 import { type AllocationDiffRow } from '@/components/unit-budget/AllocationPreview';
 import { UnitBudgetHistoryTable } from '@/components/unit-budget/UnitBudgetHistoryTable';
@@ -302,33 +303,39 @@ export default function UnitBudgetPage() {
             <span className="text-divider">|</span>
 
             {/* 버튼 1: 증감액 확정 */}
-            <button
-              onClick={() => setAdjConfirmOpen(true)}
-              disabled={!hasAdjustments || isPending}
-              className="flex items-center gap-1.5 rounded-[2px] bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {adjust.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              <span className="opacity-60 font-normal">1.</span> 증감액 확정
-            </button>
+            <Tooltip text="증감액에 대해 예산계획금액에 반영합니다.">
+              <button
+                onClick={() => setAdjConfirmOpen(true)}
+                disabled={!hasAdjustments || isPending}
+                className="flex items-center gap-1.5 rounded-[2px] bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {adjust.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                <span className="opacity-60 font-normal">1.</span> 증감액 확정
+              </button>
+            </Tooltip>
 
             {/* 버튼 2: 계획금액 → 편성액(공식) 건 확인 */}
-            <button
-              onClick={handlePreviewAllocation}
-              disabled={!dataReady || isPending}
-              className="flex items-center gap-1.5 rounded-[2px] border border-primary bg-white px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <span className="opacity-60 font-normal">2.</span> 계획금액 → 편성액(공식) 건 확인
-            </button>
+            <Tooltip text="예산계획과 편성예산이 다른 건에 대해 확인합니다.">
+              <button
+                onClick={handlePreviewAllocation}
+                disabled={!dataReady || isPending}
+                className="flex items-center gap-1.5 rounded-[2px] border border-primary bg-white px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="opacity-60 font-normal">2.</span> 계획금액 → 편성액(공식) 건 확인
+              </button>
+            </Tooltip>
 
             {/* 버튼 3: 편성액(공식) 확정 */}
-            <button
-              onClick={() => setAllocConfirmOpen(true)}
-              disabled={!allocPreviewShown || allocationDiffs.length === 0 || isPending}
-              className="flex items-center gap-1.5 rounded-[2px] border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {applyAlloc.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              <span className="opacity-60 font-normal">3.</span> 편성액(공식) 확정
-            </button>
+            <Tooltip text="예산계획에 맞춰 편성예산을 변경합니다.">
+              <button
+                onClick={() => setAllocConfirmOpen(true)}
+                disabled={!allocPreviewShown || allocationDiffs.length === 0 || isPending}
+                className="flex items-center gap-1.5 rounded-[2px] border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {applyAlloc.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                <span className="opacity-60 font-normal">3.</span> 편성액(공식) 확정
+              </button>
+            </Tooltip>
 
             {/* 증감 초기화 */}
             {hasAdjustments && (
