@@ -257,7 +257,6 @@ function RecordCard({
                 <tr className="border-b border-[#E3E3E0] bg-[#F8FAFC] text-text-secondary">
                   <th className="px-3 py-2 text-left font-medium">단위과제</th>
                   <th className="px-3 py-2 text-left font-medium">프로그램명</th>
-                  <th className="px-3 py-2 text-left font-medium">비목 &gt; 세목 &gt; 보조세목</th>
                   <th className="px-3 py-2 text-right font-medium">변경 전</th>
                   <th className="px-3 py-2 text-right font-medium">증감액</th>
                   <th className="px-3 py-2 text-right font-medium">변경 후</th>
@@ -275,16 +274,8 @@ function RecordCard({
                       <td className="px-3 py-2 font-medium text-primary break-keep">
                         {i === 0 ? unitName : ''}
                       </td>
-                      <td className="px-3 py-2 text-[#131310] max-w-[140px]">
+                      <td className="px-3 py-2 text-[#131310] max-w-[200px]">
                         <span className="block truncate" title={item.programName}>{item.programName || '—'}</span>
-                      </td>
-                      <td className="px-3 py-2 text-text-secondary max-w-[200px]">
-                        <span
-                          className="block truncate"
-                          title={[item.category, item.subcategory, item.subDetail].filter(Boolean).join(' > ')}
-                        >
-                          {[item.category, item.subcategory, item.subDetail].filter(Boolean).join(' > ')}
-                        </span>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-[#131310] whitespace-nowrap">
                         {formatKRW(item.before)}
@@ -301,7 +292,7 @@ function RecordCard({
               </tbody>
               <tfoot>
                 <tr className="border-t border-[#E3E3E0] bg-[#F3F3EE] font-semibold">
-                  <td colSpan={3} className="px-3 py-2 text-[#131310]">합계</td>
+                  <td colSpan={2} className="px-3 py-2 text-[#131310]">합계</td>
                   <td className="px-3 py-2 text-right tabular-nums text-[#131310] whitespace-nowrap">
                     {formatKRW(totalBefore)}
                   </td>
@@ -335,9 +326,8 @@ function RecordCard({
               <table style={PDF_TABLE}>
                 <thead>
                   <tr>
-                    <th style={pdfTh(false, { width: '14%' })}>단위과제</th>
-                    <th style={pdfTh(false, { width: '17%' })}>프로그램명</th>
-                    <th style={pdfTh(false, { width: '29%' })}>비목 &gt; 세목 &gt; 보조세목</th>
+                    <th style={pdfTh(false, { width: '25%' })}>단위과제</th>
+                    <th style={pdfTh(false, { width: '35%' })}>프로그램명</th>
                     <th style={pdfTh(true, { width: '14%' })}>변경 전</th>
                     <th style={pdfTh(true, { width: '12%' })}>증감액</th>
                     <th style={pdfTh(true, { width: '14%' })}>변경 후</th>
@@ -346,7 +336,6 @@ function RecordCard({
                 <tbody>
                   {Array.from(byUnit.entries()).flatMap(([unitName, unitItems]) =>
                     unitItems.map((item, i) => {
-                      const path = [item.category, item.subcategory, item.subDetail].filter(Boolean).join(' > ');
                       const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
                       return (
                         <tr key={`${unitName}-${i}`}>
@@ -354,7 +343,6 @@ function RecordCard({
                             {i === 0 ? unitName : ''}
                           </td>
                           <td style={pdfTdStyle(false, { background: bg, color: '#131310' })}>{item.programName || '—'}</td>
-                          <td style={pdfTdStyle(false, { background: bg, color: '#6b7280', fontSize: 9 })}>{path}</td>
                           <td style={pdfTdStyle(true, { background: bg, color: '#131310', whiteSpace: 'nowrap' })}>
                             {formatKRW(item.before)}
                           </td>
@@ -371,7 +359,7 @@ function RecordCard({
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={3} style={pdfFootTd()}>합계</td>
+                    <td colSpan={2} style={pdfFootTd()}>합계</td>
                     <td style={pdfFootTd(true)}>{formatKRW(totalBefore)}</td>
                     <td style={{ ...pdfFootTd(true), ...adjInlineColor(totalAdj) }}>
                       {totalAdj !== 0 ? (totalAdj > 0 ? '+' : '') + formatKRW(totalAdj) : '-'}

@@ -360,7 +360,6 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                         <tr className="border-b border-divider bg-[#F8FAFC]">
                           <th className="px-2 py-2 text-left font-medium text-text-secondary whitespace-nowrap">단위과제</th>
                           <th className="px-2 py-2 text-left font-medium text-text-secondary whitespace-nowrap">프로그램명</th>
-                          <th className="px-2 py-2 text-left font-medium text-text-secondary whitespace-nowrap">비목 &gt; 세목</th>
                           <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 전</th>
                           <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">증감액</th>
                           <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 후</th>
@@ -373,13 +372,8 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                               <td className="px-2 py-2 text-primary font-medium whitespace-nowrap">
                                 {i === 0 ? unitName : ''}
                               </td>
-                              <td className="px-2 py-2 text-[#131310] max-w-[90px]">
+                              <td className="px-2 py-2 text-[#131310] max-w-[120px]">
                                 <span className="block truncate" title={p.programName}>{p.programName || '—'}</span>
-                              </td>
-                              <td className="px-2 py-2 text-text-secondary max-w-[110px]">
-                                <span className="block truncate" title={`${p.category} > ${p.subcategory} > ${p.subDetail}`}>
-                                  {[p.category, p.subcategory, p.subDetail].filter(Boolean).join(' > ')}
-                                </span>
                               </td>
                               <td className="px-2 py-2 text-right tabular-nums text-[#131310] whitespace-nowrap">
                                 {formatKRW(p.before)}
@@ -394,7 +388,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                           ))
                         )}
                         <tr className="border-t-2 border-primary/20 bg-primary-bg">
-                          <td colSpan={3} className="px-2 py-2 font-semibold text-primary">합계</td>
+                          <td colSpan={2} className="px-2 py-2 font-semibold text-primary">합계</td>
                           <td className="px-2 py-2 text-right tabular-nums font-semibold text-primary whitespace-nowrap">{formatKRW(progTotal.before)}</td>
                           <td className={cn('px-2 py-2 text-right tabular-nums font-bold whitespace-nowrap', adjColor(progTotal.adj))}>{adjPrefix(progTotal.adj)}{formatKRW(progTotal.adj)}</td>
                           <td className="px-2 py-2 text-right tabular-nums font-semibold text-primary whitespace-nowrap">{formatKRW(progTotal.after)}</td>
@@ -498,9 +492,8 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
               <table style={PDF_TABLE}>
                 <thead>
                   <tr>
-                    <th style={pdfTh(false, { width: '14%' })}>단위과제</th>
-                    <th style={pdfTh(false, { width: '17%' })}>프로그램명</th>
-                    <th style={pdfTh(false, { width: '29%' })}>비목 &gt; 세목 &gt; 보조세목</th>
+                    <th style={pdfTh(false, { width: '25%' })}>단위과제</th>
+                    <th style={pdfTh(false, { width: '35%' })}>프로그램명</th>
                     <th style={pdfTh(true, { width: '14%' })}>변경 전</th>
                     <th style={pdfTh(true, { width: '12%' })}>증감액</th>
                     <th style={pdfTh(true, { width: '14%' })}>변경 후</th>
@@ -509,7 +502,6 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                 <tbody>
                   {Array.from(byUnit.entries()).map(([unitName, progs]) =>
                     progs.map((p, i) => {
-                      const path = [p.category, p.subcategory, p.subDetail].filter(Boolean).join(' > ');
                       const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
                       return (
                         <tr key={p.rowIndex}>
@@ -517,7 +509,6 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                             {i === 0 ? unitName : ''}
                           </td>
                           <td style={pdfTdStyle(false, { background: bg, color: '#131310' })}>{p.programName || '—'}</td>
-                          <td style={pdfTdStyle(false, { background: bg, color: '#6b7280', fontSize: 9 })}>{path}</td>
                           <td style={pdfTdStyle(true, { background: bg, color: '#131310', whiteSpace: 'nowrap' })}>
                             {formatKRW(p.before)}
                           </td>
@@ -534,7 +525,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={3} style={pdfFootTd()}>합계</td>
+                    <td colSpan={2} style={pdfFootTd()}>합계</td>
                     <td style={pdfFootTd(true)}>{formatKRW(progTotal.before)}</td>
                     <td style={{ ...pdfFootTd(true), ...adjInlineColor(progTotal.adj) }}>
                       {progTotal.adj !== 0 ? (progTotal.adj > 0 ? '+' : '') + formatKRW(progTotal.adj) : '-'}
