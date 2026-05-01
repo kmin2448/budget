@@ -8,9 +8,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatKRW, cn } from '@/lib/utils';
+import { formatKRW, parseKRW, cn } from '@/lib/utils';
 import type { ProgramRow } from '@/hooks/useDashboard';
-import { ChevronDown, ChevronRight, GripVertical, Trash2, CheckSquare, Square, Plus, ListChecks } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Trash2, CheckSquare, Square, Plus, ListChecks, Info } from 'lucide-react';
+import { KRWInput } from '@/components/ui/krw-input';
+
+const PENDING_ADJ_KEY = 'coss_dashboard_pending_adj';
 import { ProgramExpenditureSubTable } from './ProgramExpenditureSubTable';
 import { useSidebar } from '@/components/layout/SidebarContext';
 import {
@@ -216,10 +219,31 @@ export function ProgramTable({
   const [editingCell, setEditingCell] = useState<EditingCell>(null);
   const [localStatus, setLocalStatus] = useState<Record<number, { isCompleted?: boolean; isOnHold?: boolean }>>({});
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [pendingAdjs, setPendingAdjs] = useState<Record<number, number>>({});
 
   useEffect(() => {
     if (!editMode) setSelectedRows(new Set());
   }, [editMode]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PENDING_ADJ_KEY);
+      if (raw) setPendingAdjs(JSON.parse(raw) as Record<number, number>);
+    } catch { /* ignore */ }
+  }, []);
+
+  function savePendingAdj(rowIndex: number, value: number) {
+    setPendingAdjs((prev) => {
+      const next = { ...prev };
+      if (value === 0) {
+        delete next[rowIndex];
+      } else {
+        next[rowIndex] = value;
+      }
+      try { localStorage.setItem(PENDING_ADJ_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  }
 
   function toggleSelectRow(rowIndex: number, e: React.MouseEvent) {
     e.stopPropagation();
@@ -703,6 +727,52 @@ export function ProgramTable({
                                     rows={2}
                                   />
                                 </div>
+
+                                {/* 예산계획 증감액 입력 */}
+                                {(() => {
+                                  const budgetPlan = Number(getVal(row, 'budgetPlan')) || 0;
+                                  const pendingAdj = pendingAdjs[row.rowIndex] ?? 0;
+                                  const afterAmount = budgetPlan + pendingAdj;
+                                  return (
+                                    <div className="mt-1 space-y-1.5">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <div className="flex items-center gap-1.5 rounded border border-divider bg-white px-2.5 py-1 text-sm">
+                                          <span className="text-text-secondary text-xs whitespace-nowrap">예산계획</span>
+                                          <span className="tabular-nums font-medium text-[#131310]">{formatKRW(budgetPlan)}원</span>
+                                        </div>
+                                        <span className="text-text-secondary text-sm">+</span>
+                                        <div className="flex items-center gap-1 rounded border border-divider bg-white px-2 py-1">
+                                          <span className="text-text-secondary text-xs whitespace-nowrap">증감액</span>
+                                          <KRWInput
+                                            value={pendingAdj !== 0 ? formatKRW(pendingAdj) : ''}
+                                            onChange={(val) => savePendingAdj(row.rowIndex, parseKRW(val))}
+                                            allowNegative
+                                            disabled={!isLoggedIn}
+                                            placeholder="0"
+                                            className={cn(
+                                              'w-28 text-right tabular-nums text-sm bg-transparent focus:outline-none disabled:opacity-50',
+                                              pendingAdj > 0 && 'text-blue-600 font-medium',
+                                              pendingAdj < 0 && 'text-red-500 font-medium',
+                                            )}
+                                          />
+                                        </div>
+                                        <span className="text-text-secondary text-sm">=</span>
+                                        <div className="flex items-center gap-1.5 rounded border border-divider bg-white px-2.5 py-1 text-sm">
+                                          <span className="text-text-secondary text-xs whitespace-nowrap">변경후</span>
+                                          <span className={cn(
+                                            'tabular-nums font-semibold',
+                                            pendingAdj > 0 ? 'text-blue-600' : pendingAdj < 0 ? 'text-red-500' : 'text-[#131310]',
+                                          )}>{formatKRW(afterAmount)}원</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-start gap-1.5 rounded bg-amber-50 border border-amber-200 px-2.5 py-1.5 text-xs text-amber-700">
+                                        <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                        <span>여기에 입력한 증감액은 바로 예산계획금액에 반영되지 않습니다. <strong>단위과제 예산관리</strong>에서 증감액을 확인하고 <strong>확정</strong>해야 반영됩니다.</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+
                                 {/* 하단 메타 정보 */}
                                 <div className="pt-2 border-t border-divider mt-1 space-y-1.5 text-xs">
                                   {/* 소관/담당교원/담당직원 */}

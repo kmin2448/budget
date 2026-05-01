@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { RefreshCw, CheckCircle, AlertCircle, Loader2, RotateCcw } from 'lucide-react';
+
+const PENDING_ADJ_KEY = 'coss_dashboard_pending_adj';
 import { useSession } from 'next-auth/react';
 import {
   useUnitBudget,
@@ -31,7 +33,30 @@ export default function UnitBudgetPage() {
 
   // ── 증감 상태 ─────────────────────────────────────────────────────
   const [adjustments, setAdjustments] = useState<Record<number, number>>({});
+  const [pendingFromDashboard, setPendingFromDashboard] = useState<Set<number>>(new Set());
   const [adjConfirmOpen, setAdjConfirmOpen] = useState(false);
+
+  // localStorage에서 대시보드 pending 증감액 읽어 초기화
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PENDING_ADJ_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, number>;
+        const numericKeyed: Record<number, number> = {};
+        const pendingSet = new Set<number>();
+        for (const [k, v] of Object.entries(parsed)) {
+          if (v !== 0) {
+            numericKeyed[Number(k)] = v;
+            pendingSet.add(Number(k));
+          }
+        }
+        if (Object.keys(numericKeyed).length > 0) {
+          setAdjustments(numericKeyed);
+          setPendingFromDashboard(pendingSet);
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   // ── 배정금액 적용 상태 ────────────────────────────────────────────
   const [allocationDiffs, setAllocationDiffs] = useState<AllocationDiffRow[]>([]);
@@ -102,6 +127,8 @@ export default function UnitBudgetPage() {
       await adjust.mutateAsync({ items, changedAt });
       setSuccessMsg(`${items.length}건의 예산계획 증감이 완료되었습니다.`);
       setAdjustments({});
+      setPendingFromDashboard(new Set());
+      try { localStorage.removeItem(PENDING_ADJ_KEY); } catch { /* ignore */ }
       setAllocationDiffs([]);
       setAllocPreviewShown(false);
       // 확정 후 이력 탭으로 이동
@@ -287,6 +314,7 @@ export default function UnitBudgetPage() {
               unitTasks={unitTasks}
               adjustments={adjustments}
               onAdjustmentChange={handleAdjChange}
+              pendingFromDashboard={pendingFromDashboard}
             />
           )}
 

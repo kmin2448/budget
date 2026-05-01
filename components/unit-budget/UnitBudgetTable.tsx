@@ -6,10 +6,13 @@ import { cn, formatKRW, parseKRW } from '@/lib/utils';
 import { KRWInput } from '@/components/ui/krw-input';
 import type { UnitTask } from '@/types';
 
+const PENDING_ADJ_KEY = 'coss_dashboard_pending_adj';
+
 interface Props {
   unitTasks: UnitTask[];
   adjustments: Record<number, number>;
   onAdjustmentChange: (rowIndex: number, value: number) => void;
+  pendingFromDashboard?: Set<number>;
 }
 
 interface FlatRow {
@@ -55,7 +58,7 @@ function flattenUnit(unit: UnitTask): FlatRow[] {
   return result;
 }
 
-export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange }: Props) {
+export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange, pendingFromDashboard }: Props) {
   const [openUnits, setOpenUnits] = useState<Set<string>>(
     () => new Set(unitTasks.map((u) => u.name)),
   );
@@ -65,6 +68,23 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange }: 
 
   const isSearching = searchQuery.trim().length > 0;
   const q = searchQuery.trim().toLowerCase();
+
+  // 대시보드에서 넘어온 pending 값으로 displayValues 초기화
+  useEffect(() => {
+    if (!pendingFromDashboard || pendingFromDashboard.size === 0) return;
+    setDisplayValues((prev) => {
+      const next = { ...prev };
+      for (const rowIndex of Array.from(pendingFromDashboard)) {
+        const adj = adjustments[rowIndex];
+        if (adj !== undefined && adj !== 0 && !next[rowIndex]) {
+          next[rowIndex] = String(Math.abs(adj)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+          if (adj < 0) next[rowIndex] = `-${next[rowIndex]}`;
+        }
+      }
+      return next;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingFromDashboard]);
 
   useEffect(() => {
     const len = Object.keys(adjustments).length;
@@ -265,7 +285,10 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange }: 
                           <td className="px-3 py-1 text-right tabular-nums text-primary">
                             {row.officialBudget > 0 ? formatKRW(row.officialBudget) : '—'}
                           </td>
-                          <td className="px-2 py-1">
+                          <td className={cn(
+                            'px-2 py-1',
+                            isEditable && pendingFromDashboard?.has(row.rowIndex) && 'bg-red-100',
+                          )}>
                             {isEditable ? (
                               <KRWInput
                                 value={displayValues[row.rowIndex] ?? ''}
@@ -278,6 +301,7 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange }: 
                                   'focus:border-primary focus:bg-white focus:outline-none',
                                   adj > 0 && 'text-blue-600 font-medium',
                                   adj < 0 && 'text-red-500 font-medium',
+                                  pendingFromDashboard?.has(row.rowIndex) && 'bg-transparent',
                                 )}
                                 placeholder="—"
                               />
