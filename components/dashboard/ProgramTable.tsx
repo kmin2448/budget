@@ -617,18 +617,7 @@ export function ProgramTable({
                             />
                           </TableCell>
                           <TableCell className="py-2 text-right text-sm tabular-nums text-gray-700">
-                            <InlineEditCell
-                              rowIndex={row.rowIndex} field="budgetPlan"
-                              value={getVal(row, 'budgetPlan')}
-                              editMode={editMode}
-                              isChanged={isCellChanged(row.rowIndex, 'budgetPlan')}
-                              editingCell={editingCell} setEditingCell={setEditingCell}
-                              onCellChange={onCellChange}
-                              onAutoSave={onAutoSave}
-                              editKey={`${row.rowIndex}_col_budgetPlan`}
-                              displayValue={formatKRW(getVal(row, 'budgetPlan'))}
-                              className="text-right"
-                            />
+                            {formatKRW(getVal(row, 'budgetPlan'))}
                           </TableCell>
                           <TableCell className="py-2 text-right text-sm tabular-nums text-complete">
                             {formatKRW(row.executionComplete)}
@@ -860,17 +849,7 @@ export function ProgramTable({
                                     </div>
                                     <div className="flex h-5 items-center gap-1 text-gray-400">
                                       <span>예산계획</span>
-                                      <InlineEditCell
-                                        rowIndex={row.rowIndex} field="budgetPlan"
-                                        value={getVal(row, 'budgetPlan')}
-                                        editMode={editMode}
-                                        isChanged={isCellChanged(row.rowIndex, 'budgetPlan')}
-                                        editingCell={editingCell} setEditingCell={setEditingCell}
-                                        onCellChange={onCellChange}
-                                        onAutoSave={onAutoSave}
-                                        displayValue={<span className="tabular-nums">{formatKRW(Number(getVal(row, 'budgetPlan')))}원</span>}
-                                        className="flex items-center"
-                                      />
+                                      <span className="tabular-nums">{formatKRW(Number(getVal(row, 'budgetPlan')))}원</span>
                                     </div>
                                     {row.officialBudget > 0 && (
                                       <div className="flex h-5 items-center gap-1 text-primary">
