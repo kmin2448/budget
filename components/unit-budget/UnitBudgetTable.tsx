@@ -6,8 +6,6 @@ import { cn, formatKRW, parseKRW } from '@/lib/utils';
 import { KRWInput } from '@/components/ui/krw-input';
 import type { UnitTask } from '@/types';
 
-const PENDING_ADJ_KEY = 'coss_dashboard_pending_adj';
-
 interface Props {
   unitTasks: UnitTask[];
   adjustments: Record<number, number>;
