@@ -13,7 +13,7 @@ import {
 import { useBudgetHistory, useDeleteHistory } from '@/hooks/useBudget';
 import { UnitBudgetTable } from '@/components/unit-budget/UnitBudgetTable';
 import { AdjustmentSidePanel } from '@/components/unit-budget/AdjustmentSidePanel';
-import { AllocationPreview, type AllocationDiffRow } from '@/components/unit-budget/AllocationPreview';
+import { type AllocationDiffRow } from '@/components/unit-budget/AllocationPreview';
 import { UnitBudgetHistoryTable } from '@/components/unit-budget/UnitBudgetHistoryTable';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 
@@ -371,10 +371,6 @@ export default function UnitBudgetPage() {
             />
           )}
 
-          {/* 편성(공식)예산 동기화 미리보기 */}
-          {allocPreviewShown && dataReady && (
-            <AllocationPreview diffs={allocationDiffs} />
-          )}
         </section>
       )}
 
