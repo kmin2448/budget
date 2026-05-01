@@ -58,7 +58,7 @@ const PDF_SEC_LABEL: CSSProperties = {
   fontSize: 10, fontWeight: 600, color: '#6b7280', marginBottom: 4,
 };
 
-const PDF_TABLE: CSSProperties = { width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' };
+const PDF_TABLE: CSSProperties = { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' };
 
 const PDF_TABLE_WRAP: CSSProperties = {
   borderRadius: 4, overflow: 'hidden', border: '1px solid #e5e7eb',
@@ -324,12 +324,12 @@ function RecordCard({
               <table style={PDF_TABLE}>
                 <thead>
                   <tr>
-                    <th style={pdfTh()}>단위과제</th>
-                    <th style={pdfTh()}>프로그램명</th>
-                    <th style={pdfTh()}>비목 &gt; 세목 &gt; 보조세목</th>
-                    <th style={pdfTh(true)}>변경 전</th>
-                    <th style={pdfTh(true)}>증감액</th>
-                    <th style={pdfTh(true)}>변경 후</th>
+                    <th style={pdfTh(false, { width: '14%' })}>단위과제</th>
+                    <th style={pdfTh(false, { width: '17%' })}>프로그램명</th>
+                    <th style={pdfTh(false, { width: '29%' })}>비목 &gt; 세목 &gt; 보조세목</th>
+                    <th style={pdfTh(true, { width: '14%' })}>변경 전</th>
+                    <th style={pdfTh(true, { width: '12%' })}>증감액</th>
+                    <th style={pdfTh(true, { width: '14%' })}>변경 후</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -377,10 +377,10 @@ function RecordCard({
               <table style={PDF_TABLE}>
                 <thead>
                   <tr>
-                    <th style={pdfTh()}>비목</th>
-                    <th style={pdfTh(true)}>변경 전</th>
-                    <th style={pdfTh(true)}>증감액</th>
-                    <th style={pdfTh(true)}>변경 후</th>
+                    <th style={pdfTh(false, { width: '60%' })}>비목</th>
+                    <th style={pdfTh(true, { width: '14%' })}>변경 전</th>
+                    <th style={pdfTh(true, { width: '12%' })}>증감액</th>
+                    <th style={pdfTh(true, { width: '14%' })}>변경 후</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -423,11 +423,11 @@ function RecordCard({
               <table style={PDF_TABLE}>
                 <thead>
                   <tr>
-                    <th style={pdfTh()}>세목</th>
-                    <th style={pdfTh()}>보조세목</th>
-                    <th style={pdfTh(true)}>변경 전</th>
-                    <th style={pdfTh(true)}>증감액</th>
-                    <th style={pdfTh(true)}>변경 후</th>
+                    <th style={pdfTh(false, { width: '30%' })}>세목</th>
+                    <th style={pdfTh(false, { width: '30%' })}>보조세목</th>
+                    <th style={pdfTh(true, { width: '14%' })}>변경 전</th>
+                    <th style={pdfTh(true, { width: '12%' })}>증감액</th>
+                    <th style={pdfTh(true, { width: '14%' })}>변경 후</th>
                   </tr>
                 </thead>
                 <tbody>
