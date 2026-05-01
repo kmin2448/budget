@@ -21,7 +21,7 @@ interface Props {
 
 // ── PDF 전용 인라인 스타일 ───────────────────────────────────────────
 const PDF_PAGE: CSSProperties = {
-  width: 800,
+  width: 1080,
   padding: '22px 28px',
   background: '#ffffff',
   fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "Malgun Gothic", sans-serif',
@@ -53,25 +53,26 @@ const pdfTh = (w: string, right = false): CSSProperties => ({
   width: w, lineHeight: 1.4, verticalAlign: 'middle',
 });
 
-// td outer — 높이 고정 없이 상하 패딩만으로 높이를 잡음
+// td outer — 상하 패딩 대칭으로 세로 중앙 정렬 보장
 const pdfTd = (right = false, extra: CSSProperties = {}): CSSProperties => ({
   paddingTop: 5,
-  paddingBottom: 9,
+  paddingBottom: 5,
   paddingLeft: 5,
   paddingRight: 5,
   fontSize: 8,
-  whiteSpace: 'nowrap',
+  whiteSpace: right ? 'nowrap' : 'normal',
+  wordBreak: right ? 'normal' : 'keep-all',
   textAlign: right ? 'right' : 'left',
   ...extra,
 });
 
-// td 내부 flex wrapper — 텍스트 세로 중앙 정렬의 실질적 담당
+// td 내부 flex wrapper — 텍스트 세로 중앙 정렬
 const pdfInner = (right = false, extra: CSSProperties = {}): CSSProperties => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: right ? 'flex-end' : 'flex-start',
-  minHeight: '100%',
-  lineHeight: 'normal',
+  lineHeight: 1.4,
+  overflowWrap: right ? 'normal' : 'break-word',
   ...extra,
 });
 
@@ -188,7 +189,7 @@ export function BudgetPdfDownload({
       const { default: html2canvas } = await import('html2canvas');
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pdf = new (JsPDF as any)({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdf = new (JsPDF as any)({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       const pdfW: number = pdf.internal.pageSize.getWidth();
       const pdfH: number = pdf.internal.pageSize.getHeight();
       const margin   = 10;
@@ -301,13 +302,13 @@ export function BudgetPdfDownload({
           <table style={PDF_TABLE}>
             <thead>
               <tr>
-                <th style={pdfTh('24%')}>비목</th>
-                <th style={pdfTh('14%', true)}>편성액</th>
-                <th style={pdfTh('11%', true)}>증감액</th>
-                <th style={pdfTh('14%', true)}>변경후 편성액</th>
+                <th style={pdfTh('36%')}>비목</th>
+                <th style={pdfTh('13%', true)}>편성액</th>
+                <th style={pdfTh('9%', true)}>증감액</th>
+                <th style={pdfTh('13%', true)}>변경후 편성액</th>
                 <th style={pdfTh('8%', true)}>예산비율</th>
-                <th style={pdfTh('14%', true)}>집행금액</th>
-                <th style={pdfTh('15%', true)}>잔액</th>
+                <th style={pdfTh('10%', true)}>집행금액</th>
+                <th style={pdfTh('11%', true)}>잔액</th>
               </tr>
             </thead>
             <tbody>
@@ -350,11 +351,11 @@ export function BudgetPdfDownload({
           <table style={PDF_TABLE}>
             <thead>
               <tr>
-                <th style={pdfTh('27%')}>세목</th>
-                <th style={pdfTh('29%')}>보조세목</th>
-                <th style={pdfTh('16%', true)}>편성액</th>
-                <th style={pdfTh('12%', true)}>증감액</th>
-                <th style={pdfTh('16%', true)}>변경후 편성액</th>
+                <th style={pdfTh('18%')}>세목</th>
+                <th style={pdfTh('18%')}>보조세목</th>
+                <th style={pdfTh('13%', true)}>편성액</th>
+                <th style={pdfTh('9%', true)}>증감액</th>
+                <th style={pdfTh('42%', true)}>변경후 편성액</th>
               </tr>
             </thead>
             <tbody>

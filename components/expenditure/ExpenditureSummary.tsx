@@ -20,7 +20,7 @@ export function ExpenditureSummary({ budgetInfo, activeCategory }: ExpenditureSu
   const executionRate = budgetInfo.executionRate ?? 0;
 
   const items = [
-    { label: '배정예산', value: formatKRW(allocation),          cls: 'text-[#131310]' },
+    { label: '편성예산(공식)', value: formatKRW(allocation),     cls: 'text-[#131310]' },
     { label: '집행완료', value: formatKRW(executionComplete),   cls: 'text-complete' },
     { label: '집행예정', value: formatKRW(executionPlanned),    cls: 'text-planned'  },
     { label: '잔액',     value: formatKRW(balance),             cls: balance < 0 ? 'text-red-500' : 'text-[#131310]' },

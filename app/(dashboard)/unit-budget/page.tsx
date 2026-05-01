@@ -2,20 +2,32 @@
 
 import { useState, useCallback } from 'react';
 import { RefreshCw, CheckCircle, AlertCircle, Loader2, RotateCcw } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import {
   useUnitBudget,
   useUnitBudgetAdjust,
   useUnitBudgetApplyAllocation,
 } from '@/hooks/useUnitBudget';
+import { useBudgetHistory, useDeleteHistory } from '@/hooks/useBudget';
 import { UnitBudgetTable } from '@/components/unit-budget/UnitBudgetTable';
-import { AdjustmentSummary } from '@/components/unit-budget/AdjustmentSummary';
+import { AdjustmentSidePanel } from '@/components/unit-budget/AdjustmentSidePanel';
 import { AllocationPreview, type AllocationDiffRow } from '@/components/unit-budget/AllocationPreview';
+import { UnitBudgetHistoryTable } from '@/components/unit-budget/UnitBudgetHistoryTable';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 
+type MainTab = 'status' | 'history';
+
 export default function UnitBudgetPage() {
+  const { data: session } = useSession();
   const { data, isLoading, error, refetch } = useUnitBudget();
   const adjust      = useUnitBudgetAdjust();
   const applyAlloc  = useUnitBudgetApplyAllocation();
+
+  const { data: historyData, isLoading: historyLoading } = useBudgetHistory();
+  const deleteHistory = useDeleteHistory();
+
+  // ── 탭 상태 ───────────────────────────────────────────────────────
+  const [mainTab, setMainTab] = useState<MainTab>('status');
 
   // ── 증감 상태 ─────────────────────────────────────────────────────
   const [adjustments, setAdjustments] = useState<Record<number, number>>({});
@@ -33,6 +45,11 @@ export default function UnitBudgetPage() {
   const unitTasks    = data?.unitTasks ?? [];
   const hasAdjustments = Object.keys(adjustments).length > 0;
   const dataReady    = !isLoading && !error && unitTasks.length > 0;
+
+  // 권한 확인
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
+  const userPermissions = (session?.user as { permissions?: string[] } | undefined)?.permissions ?? [];
+  const canWrite = userRole === 'super_admin' || userPermissions.includes('budget:write');
 
   // ── 증감 핸들러 ──────────────────────────────────────────────────
   const handleAdjChange = useCallback((rowIndex: number, value: number) => {
@@ -87,6 +104,8 @@ export default function UnitBudgetPage() {
       setAdjustments({});
       setAllocationDiffs([]);
       setAllocPreviewShown(false);
+      // 확정 후 이력 탭으로 이동
+      setMainTab('history');
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : '증감 처리 중 오류가 발생했습니다.');
     }
@@ -133,14 +152,12 @@ export default function UnitBudgetPage() {
   const isPending = adjust.isPending || applyAlloc.isPending;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-4 p-6">
       {/* 페이지 헤더 */}
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex items-baseline gap-2">
           <h1 className="text-xl font-bold text-[#131310]">단위과제 예산관리</h1>
-          <p className="mt-0.5 text-sm text-text-secondary">
-            단위과제별 예산계획 현황 및 직접 증감
-          </p>
+          <p className="text-sm text-text-secondary">단위과제별 예산계획 현황 및 직접 증감</p>
         </div>
         <button
           onClick={() => { void refetch(); setAllocationDiffs([]); setAllocPreviewShown(false); }}
@@ -149,6 +166,28 @@ export default function UnitBudgetPage() {
           <RefreshCw className="h-3.5 w-3.5" />
           새로고침
         </button>
+      </div>
+
+      {/* 메인 탭 */}
+      <div className="flex border-b border-[#E3E3E0]">
+        {(
+          [
+            { key: 'status',  label: '예산현황' },
+            { key: 'history', label: '증감이력' },
+          ] as { key: MainTab; label: string }[]
+        ).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setMainTab(key)}
+            className={`relative px-5 py-2.5 text-sm font-medium transition-colors cursor-pointer
+              ${mainTab === key
+                ? 'text-primary after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-primary'
+                : 'text-text-secondary hover:text-[#131310]'
+              }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* 알림 메시지 */}
@@ -165,99 +204,121 @@ export default function UnitBudgetPage() {
         </div>
       )}
 
-      <section className="space-y-4">
-        {/* 섹션 헤더 */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-base font-semibold text-[#131310]">단위과제별 예산 현황</h2>
-            <p className="text-xs text-text-secondary mt-0.5">
-              증감액 열에 +/- 금액을 입력하면 하단에 변경 내역 요약이 표시됩니다.
-            </p>
+      {/* ── 예산현황 탭 ── */}
+      {mainTab === 'status' && (
+        <section className="space-y-4">
+          {/* 섹션 헤더 */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-base font-semibold text-[#131310]">단위과제별 예산 현황</h2>
+              <p className="text-xs text-text-secondary mt-0.5">
+                증감액 열에 +/- 금액을 입력하면 하단에 변경 내역 요약이 표시됩니다.
+                <span className="ml-2 text-red-500">붉은색 행은 계획금액과 편성(공식)예산이 다른 항목입니다.</span>
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* ── 3개 액션 버튼 ── */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 버튼 1: 증감액 확정 (계획금액 반영) */}
-          <button
-            onClick={() => setAdjConfirmOpen(true)}
-            disabled={!hasAdjustments || isPending}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {adjust.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            증감액 확정
-            <span className="font-normal opacity-80">(계획금액 반영)</span>
-          </button>
+          {/* ── 3개 액션 버튼 ── */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 버튼 1: 증감액 확정 (계획금액 반영) */}
+            <button
+              onClick={() => setAdjConfirmOpen(true)}
+              disabled={!hasAdjustments || isPending}
+              className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {adjust.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              증감액 확정
+              <span className="font-normal opacity-80">(계획금액 반영)</span>
+            </button>
 
-          {/* 구분선 */}
-          <span className="text-divider">|</span>
+            {/* 구분선 */}
+            <span className="text-divider">|</span>
 
-          {/* 버튼 2: 계획금액 → 배정금액 */}
-          <button
-            onClick={handlePreviewAllocation}
-            disabled={!dataReady || isPending}
-            className="flex items-center gap-1.5 rounded-lg border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            계획금액 → 배정금액
-          </button>
+            {/* 버튼 2: 계획금액 → 배정금액 */}
+            <button
+              onClick={handlePreviewAllocation}
+              disabled={!dataReady || isPending}
+              className="flex items-center gap-1.5 rounded-lg border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              계획금액 → 편성액(공식)
+            </button>
 
-          {/* 버튼 3: 배정금액 확정 */}
-          <button
-            onClick={() => setAllocConfirmOpen(true)}
-            disabled={!allocPreviewShown || allocationDiffs.length === 0 || isPending}
-            className="flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {applyAlloc.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            배정금액 확정
-          </button>
+            {/* 버튼 3: 배정금액 확정 */}
+            <button
+              onClick={() => setAllocConfirmOpen(true)}
+              disabled={!allocPreviewShown || allocationDiffs.length === 0 || isPending}
+              className="flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {applyAlloc.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              편성액(공식) 확정
+            </button>
 
-          {/* 증감 초기화 */}
-          {hasAdjustments && (
-            <>
-              <span className="text-divider">|</span>
-              <button
-                onClick={resetAdjustments}
-                className="flex items-center gap-1.5 rounded-lg border border-divider bg-white px-3 py-2 text-sm text-text-secondary hover:bg-divider transition-colors"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                증감 초기화
-              </button>
-            </>
+            {/* 증감 초기화 */}
+            {hasAdjustments && (
+              <>
+                <span className="text-divider">|</span>
+                <button
+                  onClick={resetAdjustments}
+                  className="flex items-center gap-1.5 rounded-lg border border-divider bg-white px-3 py-2 text-sm text-text-secondary hover:bg-divider transition-colors"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  증감 초기화
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* 테이블 */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16 text-text-secondary">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              데이터를 불러오는 중…
+            </div>
+          ) : error ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error instanceof Error ? error.message : '데이터 로드 실패'}
+            </div>
+          ) : unitTasks.length === 0 ? (
+            <div className="rounded-lg border border-divider bg-white px-4 py-8 text-center text-sm text-text-secondary">
+              단위과제 데이터가 없습니다.
+            </div>
+          ) : (
+            <UnitBudgetTable
+              unitTasks={unitTasks}
+              adjustments={adjustments}
+              onAdjustmentChange={handleAdjChange}
+            />
           )}
-        </div>
 
-        {/* 테이블 */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-text-secondary">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            데이터를 불러오는 중…
-          </div>
-        ) : error ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-            {error instanceof Error ? error.message : '데이터 로드 실패'}
-          </div>
-        ) : unitTasks.length === 0 ? (
-          <div className="rounded-lg border border-divider bg-white px-4 py-8 text-center text-sm text-text-secondary">
-            단위과제 데이터가 없습니다.
-          </div>
-        ) : (
-          <UnitBudgetTable
-            unitTasks={unitTasks}
-            adjustments={adjustments}
-            onAdjustmentChange={handleAdjChange}
-          />
-        )}
+          {/* 배정금액 변경 미리보기 (버튼 2 누른 후) */}
+          {allocPreviewShown && dataReady && (
+            <AllocationPreview diffs={allocationDiffs} />
+          )}
+        </section>
+      )}
 
-        {/* 배정금액 변경 미리보기 (버튼 2 누른 후) */}
-        {allocPreviewShown && dataReady && (
-          <AllocationPreview diffs={allocationDiffs} />
-        )}
+      {/* ── 증감이력 탭 ── */}
+      {mainTab === 'history' && (
+        <section>
+          {historyLoading ? (
+            <div className="flex items-center justify-center py-16 text-text-secondary">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              이력을 불러오는 중…
+            </div>
+          ) : (
+            <UnitBudgetHistoryTable
+              records={historyData ?? []}
+              canDelete={canWrite}
+              onDelete={async (id) => {
+                await deleteHistory.mutateAsync(id);
+              }}
+            />
+          )}
+        </section>
+      )}
 
-        {/* 증감액 변경 내역 요약 (버튼 1용, 항상 표시) */}
-        {dataReady && (
-          <AdjustmentSummary unitTasks={unitTasks} adjustments={adjustments} />
-        )}
-      </section>
+      {/* 고정 우측 패널: 증감액 변경 내역 요약 */}
+      <AdjustmentSidePanel unitTasks={unitTasks} adjustments={adjustments} />
 
       {/* 확정 모달: 증감액 확정 */}
       <ConfirmDialog

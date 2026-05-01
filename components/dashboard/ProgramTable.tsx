@@ -172,6 +172,24 @@ function InlineEditCell({
   );
 }
 
+// 다중 이름 필드에서 첫 번째 이름만 표시하고 나머지는 "..." 처리
+function formatMultiName(value: string): string | undefined {
+  const str = String(value ?? '').trim();
+  if (!str) return undefined;
+  const parts = str.split(/[,，、·/\n]/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length <= 1) return undefined; // 단일 이름은 기본 truncate 위임
+  return `${parts[0]}...`;
+}
+
+// 프로그램명 길이 임계값 — 이 문자열 길이(34자)를 초과하면 말줄임표 처리
+const PROGRAM_NAME_THRESHOLD = '서포터즈 자체 기획 행사 (데이터라이브러리 연계 학생 홍보 및'.length;
+
+function formatProgramName(value: string): string | undefined {
+  const str = String(value ?? '').trim();
+  if (str.length <= PROGRAM_NAME_THRESHOLD) return undefined;
+  return `${str.slice(0, PROGRAM_NAME_THRESHOLD)}...`;
+}
+
 // ── 메인 컴포넌트 ────────────────────────────────────────────────
 export function ProgramTable({
   rows, onDelete, onBulkDelete, canWrite, isLoggedIn = false,
@@ -364,21 +382,21 @@ export function ProgramTable({
       )}
 
         <DndContext sensors={sensors} collisionDetection={sameTypeCollision} onDragEnd={handleDragEnd}>
-          <Table className="table-fixed">
+          <Table className="w-full min-w-[1050px]">
             <TableHeader>
               <TableRow className="bg-sidebar hover:bg-sidebar">
-                <TableHead className={cn('text-text-secondary px-2', editMode ? 'w-20' : 'w-12')} />
-                <TableHead className={cn("text-text-secondary font-medium transition-all", collapsed ? "w-[490px]" : "w-[330px]")}>
+                <TableHead className={cn('shrink-0 px-2', editMode ? 'w-16' : 'w-10')} />
+                <TableHead className="min-w-[180px] text-text-secondary font-medium">
                   구분 / 프로그램명
                 </TableHead>
-                <TableHead className="w-16 text-text-secondary font-medium">소관</TableHead>
-                <TableHead className="w-32 text-text-secondary font-medium">담당교원</TableHead>
-                <TableHead className="text-text-secondary font-medium">담당직원</TableHead>
-                <TableHead className="w-32 text-right text-text-secondary font-medium">예산계획</TableHead>
-                <TableHead className="w-32 text-right text-text-secondary font-medium">집행완료</TableHead>
-                <TableHead className="w-32 text-right text-text-secondary font-medium">집행예정</TableHead>
+                <TableHead className="w-14 text-text-secondary font-medium">소관</TableHead>
+                <TableHead className="w-28 text-text-secondary font-medium">담당교원</TableHead>
+                <TableHead className="w-28 text-text-secondary font-medium">담당직원</TableHead>
+                <TableHead className="w-28 text-right text-text-secondary font-medium">예산계획</TableHead>
+                <TableHead className="w-28 text-right text-text-secondary font-medium">집행완료</TableHead>
+                <TableHead className="w-28 text-right text-text-secondary font-medium">집행예정</TableHead>
                 <TableHead className="w-16 text-right text-text-secondary font-medium">집행률</TableHead>
-                <TableHead className="w-24 text-center text-text-secondary font-medium">완료/보류</TableHead>
+                <TableHead className="w-[120px] text-center text-text-secondary font-medium">완료/보류</TableHead>
               </TableRow>
             </TableHeader>
             <SortableContext items={orderedGrouped.map((g) => `cat:${g.key}`)} strategy={verticalListSortingStrategy}>
@@ -388,10 +406,11 @@ export function ProgramTable({
               const catTotal = groupRows.reduce(
                 (acc, r) => ({
                   budgetPlan: acc.budgetPlan + r.budgetPlan,
+                  officialBudget: acc.officialBudget + r.officialBudget,
                   executionComplete: acc.executionComplete + r.executionComplete,
                   executionPlanned: acc.executionPlanned + r.executionPlanned,
                 }),
-                { budgetPlan: 0, executionComplete: 0, executionPlanned: 0 },
+                { budgetPlan: 0, officialBudget: 0, executionComplete: 0, executionPlanned: 0 },
               );
               const catRate =
                 catTotal.budgetPlan > 0
@@ -524,7 +543,9 @@ export function ProgramTable({
                               onCellChange={onCellChange}
                               onAutoSave={onAutoSave}
                               editKey={`${row.rowIndex}_col_programName`}
+                              displayValue={!collapsed ? formatProgramName(String(getVal(row, 'programName'))) : undefined}
                               className="truncate"
+                              showTitle
                             />
                           </TableCell>
                           <TableCell className="py-2 text-sm text-gray-600 overflow-hidden">
@@ -551,6 +572,7 @@ export function ProgramTable({
                               onCellChange={onCellChange}
                               onAutoSave={onAutoSave}
                               editKey={`${row.rowIndex}_col_teacher`}
+                              displayValue={!collapsed ? formatMultiName(String(getVal(row, 'teacher'))) : undefined}
                               className={collapsed ? "whitespace-normal break-keep" : "truncate"}
                               showTitle
                             />
@@ -565,6 +587,7 @@ export function ProgramTable({
                               onCellChange={onCellChange}
                               onAutoSave={onAutoSave}
                               editKey={`${row.rowIndex}_col_staff`}
+                              displayValue={!collapsed ? formatMultiName(String(getVal(row, 'staff'))) : undefined}
                               className={collapsed ? "whitespace-normal break-keep" : "truncate"}
                               showTitle
                             />
@@ -597,7 +620,7 @@ export function ProgramTable({
                               const isCompleted = localStatus[row.rowIndex]?.isCompleted ?? row.isCompleted ?? false;
                               const isOnHold = localStatus[row.rowIndex]?.isOnHold ?? row.isOnHold ?? false;
                               return (
-                                <div className="flex items-center justify-center" style={{ gap: '0.3px' }}>
+                                <div className="flex items-center justify-center gap-0.5">
                                   <button
                                     disabled={!isLoggedIn}
                                     title={isLoggedIn ? (isCompleted ? '완료 해제' : '완료 처리') : '로그인 필요'}
@@ -608,12 +631,12 @@ export function ProgramTable({
                                       onAutoSave?.(row.rowIndex, 'isCompleted', next ? 'TRUE' : 'FALSE');
                                     }}
                                     className={cn(
-                                      'flex items-center gap-0.5 rounded px-1 py-0.5 text-xs transition-colors',
+                                      'flex items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-xs transition-colors',
                                       isLoggedIn ? 'cursor-pointer hover:opacity-70' : 'cursor-default opacity-40',
-                                      isCompleted ? 'text-complete' : 'text-gray-300',
+                                      isCompleted ? 'bg-green-50 text-complete' : 'text-gray-300',
                                     )}
                                   >
-                                    {isCompleted ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                                    {isCompleted ? <CheckSquare className="h-3.5 w-3.5 shrink-0" /> : <Square className="h-3.5 w-3.5 shrink-0" />}
                                     <span>완료</span>
                                   </button>
                                   <button
@@ -626,12 +649,12 @@ export function ProgramTable({
                                       onAutoSave?.(row.rowIndex, 'isOnHold', next ? 'TRUE' : 'FALSE');
                                     }}
                                     className={cn(
-                                      'flex items-center gap-0.5 rounded px-1 py-0.5 text-xs transition-colors',
+                                      'flex items-center gap-0.5 whitespace-nowrap rounded px-1.5 py-0.5 text-xs transition-colors',
                                       isLoggedIn ? 'cursor-pointer hover:opacity-70' : 'cursor-default opacity-40',
-                                      isOnHold ? 'text-planned' : 'text-gray-300',
+                                      isOnHold ? 'bg-amber-50 text-planned' : 'text-gray-300',
                                     )}
                                   >
-                                    {isOnHold ? <CheckSquare className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
+                                    {isOnHold ? <CheckSquare className="h-3.5 w-3.5 shrink-0" /> : <Square className="h-3.5 w-3.5 shrink-0" />}
                                     <span>보류</span>
                                   </button>
                                 </div>
@@ -779,6 +802,12 @@ export function ProgramTable({
                                         className="flex items-center"
                                       />
                                     </div>
+                                    {row.officialBudget > 0 && (
+                                      <div className="flex h-5 items-center gap-1 text-primary">
+                                        <span>편성(공식)예산</span>
+                                        <span className="tabular-nums">{formatKRW(row.officialBudget)}원</span>
+                                      </div>
+                                    )}
                                     <div className="flex h-5 items-center gap-1 text-gray-400">
                                       <span>집행</span>
                                       <span className="tabular-nums">{formatKRW(row.executionComplete + row.executionPlanned)}원</span>

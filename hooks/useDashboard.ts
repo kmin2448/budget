@@ -9,19 +9,20 @@ export interface ProgramRow {
   budget: string;         // C열: 비목
   subCategory: string;    // D열: 보조비목(세목)
   subDetail: string;      // E열: 보조세목
-  additionalReflection?: string;     // R열: 추가 반영사항
-  additionalReflectionDate?: string; // S열: 추가 반영사항 작성일
-  isCompleted?: boolean;             // T열: 완료 여부
-  isOnHold?: boolean;                // U열: 보류 여부
+  additionalReflection?: string;     // S열: 추가 반영사항
+  additionalReflectionDate?: string; // T열: 추가 반영사항 작성일
+  isCompleted?: boolean;             // U열: 완료 여부
+  isOnHold?: boolean;                // V열: 보류 여부
   professor: string;      // F열: 소관
   note: string;           // I열: 비고
   teacher: string;        // J열: 담당교원
   staff: string;          // K열: 담당직원
   divisionCode: string;   // A열: 코드
-  budgetPlan: number;
-  executionComplete: number;
-  executionPlanned: number;
-  advanceFunds: number;
+  budgetPlan: number;     // L열: 예산계획
+  officialBudget: number; // M열: 편성(공식)예산
+  executionComplete: number; // P열: 집행완료
+  executionPlanned: number;  // Q열: 집행예정
+  advanceFunds: number;   // R열: 선지원금
   balance: number;
   executionRate: number;
 }
@@ -32,9 +33,9 @@ export interface DashboardSummary {
   indirectCost: number;         // I2: 간접비
   budgetPlanTarget: number;     // L2: 계획수립예산
   budgetPlan: number;           // L5: 예산계획 합계
-  executionComplete: number;    // O5: 집행완료 합계
-  executionPlanned: number;     // P5: 집행예정 합계
-  balance: number;              // N5: 잔액(예산계획 기준)
+  executionComplete: number;    // P5: 집행완료 합계
+  executionPlanned: number;     // Q5: 집행예정 합계
+  balance: number;              // O5: 잔액(예산계획 기준)
   mainBudgetBalance: number;    // H2 - (집행완료 + 간접비)
   mainBudgetExecutionRate: number; // (집행완료 + 간접비) / H2 × 100
   executionRate: number;        // (집행완료 + 집행예정) / 예산계획 × 100

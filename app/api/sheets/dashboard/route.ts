@@ -40,16 +40,16 @@ export async function GET(req: NextRequest) {
           `${SHEET}!I2`,   // 간접비
           `${SHEET}!L2`,   // 계획수립예산
           `${SHEET}!L5`,   // 예산계획 합계
-          `${SHEET}!O5`,   // 집행완료 합계
-          `${SHEET}!P5`,   // 집행예정 합계
-          `${SHEET}!N5`,   // 잔액 합계 (예산계획 기준)
+          `${SHEET}!P5`,   // 집행완료 합계 (M열 추가로 O→P)
+          `${SHEET}!Q5`,   // 집행예정 합계 (M열 추가로 P→Q)
+          `${SHEET}!O5`,   // 잔액 합계 (M열 추가로 N→O)
         ],
         valueRenderOption: 'UNFORMATTED_VALUE',
       }),
-      // 프로그램 행: A~U열, 6행~500행 (sentinel 행까지 동적 탐색)
+      // 프로그램 행: A~V열, 6행~500행 (M열 추가로 U→V)
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET}!A6:U500`,
+        range: `${SHEET}!A6:V500`,
         valueRenderOption: 'UNFORMATTED_VALUE',
       }),
     ]);
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
 
     // 프로그램 행 파싱
     // A: 구분(대분류), B: 프로그램명, C: 비목, D: 보조비목, E: 보조세목
-    // H: 구분코드, L: 예산계획, M: 예산현액, N: 잔액, O: 집행완료, P: 집행예정, Q: 선지원금
+    // H: 구분코드, L: 예산계획, M: 편성(공식)예산, N: 예산현액, O: 잔액, P: 집행완료, Q: 집행예정, R: 선지원금
     const SENTINEL = '새로운 집행 내역 작성시 이 행 위로 작성';
     const allRows = rowsRes.data.values ?? [];
     // sentinel 텍스트가 포함된 행 인덱스를 찾아 그 이전 행까지만 사용
@@ -106,14 +106,15 @@ export async function GET(req: NextRequest) {
         const note        = String(row[8] ?? '').trim();    // I: 비고
         const teacher     = String(row[9] ?? '').trim();    // J: 담당교원
         const staff       = String(row[10] ?? '').trim();   // K: 담당직원
-        const budgetPlanRow = Number(row[11] ?? 0);         // L: 예산계획
-        const execComplete  = Number(row[14] ?? 0);         // O: 집행완료
-        const execPlanned   = Number(row[15] ?? 0);         // P: 집행예정
-        const advanceFunds  = Number(row[16] ?? 0);         // Q: 선지원금
-        const additionalReflection     = String(row[17] ?? '').trim(); // R: 추가 반영사항
-        const additionalReflectionDate = sheetsSerialToDateStr(row[18]);         // S: 작성일
-        const isCompleted = row[19] === true || String(row[19] ?? '').toUpperCase() === 'TRUE'; // T: 완료여부
-        const isOnHold    = row[20] === true || String(row[20] ?? '').toUpperCase() === 'TRUE'; // U: 보류여부
+        const budgetPlanRow  = Number(row[11] ?? 0);        // L: 예산계획
+        const officialBudget = Number(row[12] ?? 0);        // M: 편성(공식)예산 (신규)
+        const execComplete   = Number(row[15] ?? 0);        // P: 집행완료 (M열 추가로 O→P)
+        const execPlanned    = Number(row[16] ?? 0);        // Q: 집행예정 (M열 추가로 P→Q)
+        const advanceFunds   = Number(row[17] ?? 0);        // R: 선지원금 (M열 추가로 Q→R)
+        const additionalReflection     = String(row[18] ?? '').trim(); // S: 추가 반영사항
+        const additionalReflectionDate = sheetsSerialToDateStr(row[19]);         // T: 작성일
+        const isCompleted = row[20] === true || String(row[20] ?? '').toUpperCase() === 'TRUE'; // U: 완료여부
+        const isOnHold    = row[21] === true || String(row[21] ?? '').toUpperCase() === 'TRUE'; // V: 보류여부
 
         return {
           rowIndex: idx + 6,
@@ -132,6 +133,7 @@ export async function GET(req: NextRequest) {
           staff,
           divisionCode,
           budgetPlan: budgetPlanRow,
+          officialBudget,
           executionComplete: execComplete,
           executionPlanned: execPlanned,
           advanceFunds,

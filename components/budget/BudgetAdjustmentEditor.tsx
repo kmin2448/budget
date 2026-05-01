@@ -8,6 +8,50 @@ import { KRWInput } from '@/components/ui/krw-input';
 import { formatKRW, parseKRW } from '@/lib/utils';
 import type { BudgetDetailRow, BudgetCategoryRow } from '@/types';
 
+interface AdjWarningDialogProps {
+  totalAdj: number;
+  onCancel: () => void;
+  onProceed: () => void;
+}
+
+function AdjWarningDialog({ totalAdj, onCancel, onProceed }: AdjWarningDialogProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl">
+        <div className="flex items-center gap-3 border-b px-5 py-4">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-600 text-lg font-bold">!</span>
+          <h2 className="text-base font-bold text-gray-900">증감액 합계 불일치</h2>
+        </div>
+        <div className="px-5 py-5 space-y-3 text-sm text-gray-700">
+          <p>
+            현재 증감액 합계가{' '}
+            <span className={`font-semibold ${totalAdj > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+              {totalAdj > 0 ? '+' : ''}{formatKRW(totalAdj)}원
+            </span>
+            으로 <span className="font-semibold text-red-600">0이 아닙니다.</span>
+          </p>
+          <p className="text-gray-500 text-xs leading-relaxed">
+            증감액 합계가 0이 아니면 전체 예산 총액이 변동됩니다.
+            입력값을 다시 확인하거나, 그래도 확정하려면 아래 버튼을 누르세요.
+          </p>
+        </div>
+        <div className="flex justify-end gap-2 border-t px-5 py-4">
+          <Button variant="outline" size="sm" onClick={onCancel}>
+            취소 (다시 확인)
+          </Button>
+          <Button
+            size="sm"
+            onClick={onProceed}
+            className="bg-amber-500 text-white hover:bg-amber-600"
+          >
+            그래도 확정
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   detailRows: BudgetDetailRow[];
   categoryRows: BudgetCategoryRow[];
@@ -27,6 +71,7 @@ export function BudgetAdjustmentEditor({
   const [edits, setEdits] = useState<Record<number, string>>(() =>
     Object.fromEntries(detailRows.map((r) => [r.rowOffset, r.adjustment !== 0 ? formatKRW(r.adjustment) : ''])),
   );
+  const [showWarning, setShowWarning] = useState(false);
 
   // 확정 후 refetch 완료 시 detailRows가 바뀌면 edits를 새 값으로 동기화
   useEffect(() => {
@@ -72,6 +117,15 @@ export function BudgetAdjustmentEditor({
     .map((r) => ({ rowOffset: r.rowOffset, value: r.adjustment }));
 
   const hasChanges = changedAdjustments.length > 0;
+  const totalAdjustment = previewRows.reduce((s, r) => s + r.adjustment, 0);
+
+  const handleConfirmClick = () => {
+    if (totalAdjustment !== 0) {
+      setShowWarning(true);
+    } else {
+      onConfirm(previewRows.map((r) => ({ rowOffset: r.rowOffset, value: r.adjustment })));
+    }
+  };
 
   // 비목별 그룹화
   const grouped = previewRows.reduce<Record<string, BudgetDetailRow[]>>((acc, row) => {
@@ -213,12 +267,23 @@ export function BudgetAdjustmentEditor({
         <Button
           size="sm"
           disabled={!hasChanges || isSaving}
-          onClick={() => onConfirm(previewRows.map((r) => ({ rowOffset: r.rowOffset, value: r.adjustment })))}
+          onClick={handleConfirmClick}
           className="bg-primary text-white hover:bg-primary-light"
         >
           변경 확정 (이력 기록)
         </Button>
       </div>
+
+      {showWarning && (
+        <AdjWarningDialog
+          totalAdj={totalAdjustment}
+          onCancel={() => setShowWarning(false)}
+          onProceed={() => {
+            setShowWarning(false);
+            onConfirm(previewRows.map((r) => ({ rowOffset: r.rowOffset, value: r.adjustment })));
+          }}
+        />
+      )}
     </div>
   );
 }

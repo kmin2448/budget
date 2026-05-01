@@ -80,8 +80,9 @@ export interface ExpenditureRow {
   subCategory: string;     // 보조비목 (D열)
   subDetail: string;       // 보조세목 (E열)
   budgetPlan: number;      // 예산계획 (L열)
-  executionComplete: number; // 집행완료 (O열)
-  executionPlanned: number;  // 집행예정 (P열)
+  officialBudget: number;  // 편성(공식)예산 (M열)
+  executionComplete: number; // 집행완료 (P열)
+  executionPlanned: number;  // 집행예정 (Q열)
 }
 
 // 예산 요약 카드
@@ -280,11 +281,13 @@ export interface UnitBudgetRow {
   subDetail: string;       // 보조세목
   allocation: number;      // ★취합 편성액
   budgetPlan: number;      // 프로그램 예산계획 합산
+  officialBudget: number;  // 편성(공식)예산 합산 (M열)
   rowOffset: number | null; // ★취합 시트 rowOffset (없으면 null)
   programs: {
     rowIndex: number;
     programName: string;
     budgetPlan: number;
+    officialBudget: number; // 편성(공식)예산 (M열)
   }[];
 }
 

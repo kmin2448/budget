@@ -479,7 +479,7 @@ function DateGroup({
 
 // ── 전체 이력 PDF 숨김 레이아웃 — BudgetPdfDownload Page1(통합)과 동일 포맷 ──
 const PDF_ALL_PAGE: CSSProperties = {
-  width: 706, padding: '22px 28px', background: '#ffffff',
+  width: 1080, padding: '22px 28px', background: '#ffffff',
   fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "Malgun Gothic", sans-serif',
   boxSizing: 'border-box',
 };
@@ -488,10 +488,10 @@ const PDF_TITLE_MAIN: CSSProperties  = { display: 'block', fontSize: 17, fontWei
 const PDF_TITLE_DATE: CSSProperties  = { display: 'block', fontSize: 10, color: '#6b7280', fontWeight: 400 };
 const PDF_SEC_LABEL: CSSProperties   = { fontSize: 12, fontWeight: 700, color: '#1F5C99', borderBottom: '1.5px solid #1F5C99', paddingBottom: 4, marginBottom: 7 };
 const PDF_TABLE: CSSProperties       = { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' };
-const PDF_TD: CSSProperties          = { padding: '4px 4px', fontSize: 8, lineHeight: 1.4, verticalAlign: 'middle', wordBreak: 'keep-all' };
-const PDF_TDR: CSSProperties         = { padding: '4px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', whiteSpace: 'nowrap' };
-const PDF_TFOOT_TD: CSSProperties    = { padding: '4px 4px', fontSize: 8.5, lineHeight: 1.4, verticalAlign: 'middle', background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700 };
-const PDF_TFOOT_TDR: CSSProperties   = { padding: '4px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700, whiteSpace: 'nowrap' };
+const PDF_TD: CSSProperties          = { padding: '5px 4px', fontSize: 8, lineHeight: 1.4, verticalAlign: 'middle', wordBreak: 'keep-all' };
+const PDF_TDR: CSSProperties         = { padding: '5px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', whiteSpace: 'nowrap' };
+const PDF_TFOOT_TD: CSSProperties    = { padding: '5px 4px', fontSize: 8.5, lineHeight: 1.4, verticalAlign: 'middle', background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700 };
+const PDF_TFOOT_TDR: CSSProperties   = { padding: '5px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700, whiteSpace: 'nowrap' };
 
 function pdfTh(w: string, right = false): CSSProperties {
   return { padding: '5px 4px', background: '#1F5C99', color: '#ffffff', fontWeight: 600, fontSize: 8.5, textAlign: right ? 'right' : 'left', width: w, lineHeight: 1.3, verticalAlign: 'middle' };
@@ -500,7 +500,7 @@ function pdfBgStyle(idx: number, hasAdj: boolean): CSSProperties {
   return { background: hasAdj ? '#eff6ff' : idx % 2 === 0 ? '#ffffff' : '#f8fafc', borderBottom: '1px solid #f0f0f0' };
 }
 function pdfAdjStyle(v: number): CSSProperties {
-  return { padding: '4px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', whiteSpace: 'nowrap', fontWeight: v !== 0 ? 600 : 400, color: v > 0 ? '#1d4ed8' : v < 0 ? '#dc2626' : '#9ca3af' };
+  return { padding: '5px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', whiteSpace: 'nowrap', fontWeight: v !== 0 ? 600 : 400, color: v > 0 ? '#1d4ed8' : v < 0 ? '#dc2626' : '#9ca3af' };
 }
 function pdfAdjStr(v: number) { return v !== 0 ? `${v > 0 ? '+' : ''}${formatKRW(v)}` : '-'; }
 
@@ -618,12 +618,12 @@ function AllHistoryPdfPageContent({
         <table style={PDF_TABLE}>
           <thead>
             <tr>
-              <th style={pdfTh('28%')}>비목</th>
-              <th style={pdfTh('16%', true)}>편성액</th>
-              <th style={pdfTh('13%', true)}>증감액</th>
-              <th style={pdfTh('16%', true)}>변경후 편성액</th>
+              <th style={pdfTh('36%')}>비목</th>
+              <th style={pdfTh('13%', true)}>편성액</th>
+              <th style={pdfTh('9%', true)}>증감액</th>
+              <th style={pdfTh('13%', true)}>변경후 편성액</th>
               <th style={pdfTh('14%', true)}>집행금액</th>
-              <th style={pdfTh('13%', true)}>잔액</th>
+              <th style={pdfTh('15%', true)}>잔액</th>
             </tr>
           </thead>
           <tbody>
@@ -711,7 +711,7 @@ export function BudgetHistoryTable({ records, canDelete, onDelete }: Props) {
       const { default: html2canvas } = await import('html2canvas');
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const pdf = new (JsPDF as any)({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdf = new (JsPDF as any)({ orientation: 'landscape', unit: 'mm', format: 'a4' });
       const pdfW: number  = pdf.internal.pageSize.getWidth();
       const pdfH: number  = pdf.internal.pageSize.getHeight();
       const margin    = 10;

@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     const [rowsRes, categories, subcategories, subDetails, allocations] = await Promise.all([
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${EXEC_SHEET}!A6:U500`,
+        range: `${EXEC_SHEET}!A6:V500`,
         valueRenderOption: 'UNFORMATTED_VALUE',
       }),
       safeRead(NAMED_RANGES.ENAARA_CATEGORY),
@@ -63,12 +63,13 @@ export async function GET(req: NextRequest) {
       const unitTask = String(row[1] ?? '').trim();
       if (!unitTask) continue;
 
-      const budget      = String(row[2] ?? '').trim();
-      const subCategory = String(row[3] ?? '').trim();
-      const subDetail   = String(row[4] ?? '').trim();
-      const programName = String(row[7] ?? '').trim();
-      const budgetPlan  = Number(row[11] ?? 0);
-      const rowIndex    = i + 6;
+      const budget         = String(row[2] ?? '').trim();
+      const subCategory    = String(row[3] ?? '').trim();
+      const subDetail      = String(row[4] ?? '').trim();
+      const programName    = String(row[7] ?? '').trim();
+      const budgetPlan     = Number(row[11] ?? 0);
+      const officialBudget = Number(row[12] ?? 0); // M열: 편성(공식)예산
+      const rowIndex       = i + 6;
 
       if (!unitTaskMap.has(unitTask)) {
         unitTaskMap.set(unitTask, new Map());
@@ -84,6 +85,7 @@ export async function GET(req: NextRequest) {
           subDetail,
           allocation: allocInfo?.allocation ?? 0,
           budgetPlan: 0,
+          officialBudget: 0,
           rowOffset: allocInfo?.rowOffset ?? null,
           programs: [],
         });
@@ -91,8 +93,9 @@ export async function GET(req: NextRequest) {
 
       const budgetRow = rowMap.get(rowKey)!;
       budgetRow.budgetPlan += budgetPlan;
+      budgetRow.officialBudget += officialBudget;
       if (programName) {
-        budgetRow.programs.push({ rowIndex, programName, budgetPlan });
+        budgetRow.programs.push({ rowIndex, programName, budgetPlan, officialBudget });
       }
     }
 

@@ -72,6 +72,7 @@ export async function getExpenditureRows(): Promise<ExpenditureRow[]> {
       subCategory: String(subCategories[i]?.[0] ?? ''),
       subDetail: String(subDetails[i]?.[0] ?? ''),
       budgetPlan: Number(budgetPlans[i]?.[0] ?? 0),
+      officialBudget: 0, // Named Range 미사용 — 직접 읽기 시 채워짐
       executionComplete: Number(completions[i]?.[0] ?? 0),
       executionPlanned: Number(planned[i]?.[0] ?? 0),
     });

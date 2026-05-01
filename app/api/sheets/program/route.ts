@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       }),
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${SHEET}!A6:Q500`,
+        range: `${SHEET}!A6:R500`,
         valueRenderOption: 'UNFORMATTED_VALUE',
       }),
     ]);
@@ -103,22 +103,23 @@ export async function POST(req: NextRequest) {
           : sentinelRowNumber - 1;           // sentinel 바로 위
     }
 
-    // O, P열(index 14, 15) 수식 복사 헬퍼 — 삽입된 새 행의 바로 윗 행에서 수식 복사
+    // P, Q열(index 15, 16) 수식 복사 헬퍼 — 삽입된 새 행의 바로 윗 행에서 수식 복사
+    // (M열 추가로 구 O→P, 구 P→Q)
     const buildFormulaCopyRequest = (srcRowIdx: number, destRowIdx: number) => ({
       copyPaste: {
         source: {
           sheetId,
           startRowIndex: srcRowIdx,   // 0-indexed, 복사 원본(윗 행)
           endRowIndex:   srcRowIdx + 1,
-          startColumnIndex: 14,       // O열
-          endColumnIndex:   16,       // P열(포함) → exclusive 끝은 16
+          startColumnIndex: 15,       // P열 (M열 추가로 구 O→P)
+          endColumnIndex:   17,       // Q열(포함) → exclusive 끝은 17
         },
         destination: {
           sheetId,
           startRowIndex: destRowIdx,  // 0-indexed, 붙여넣을 새 행
           endRowIndex:   destRowIdx + 1,
-          startColumnIndex: 14,
-          endColumnIndex:   16,
+          startColumnIndex: 15,
+          endColumnIndex:   17,
         },
         pasteType: 'PASTE_FORMULA',
         pasteOrientation: 'NORMAL',
@@ -191,7 +192,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── 데이터 기록 (A~L열, M·N은 ArrayFormula, O·P는 수식 복사로 처리) ──
+    // ── 데이터 기록 (A~L열, M은 편성(공식)예산, N·O는 ArrayFormula, P·Q는 수식 복사로 처리) ──
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEET}!A${newRowNumber}:L${newRowNumber}`,
@@ -300,10 +301,11 @@ const FIELD_COLUMN: Record<string, string> = {
   teacher: 'J',
   staff: 'K',
   budgetPlan: 'L',
-  additionalReflection: 'R',
-  additionalReflectionDate: 'S',
-  isCompleted: 'T',
-  isOnHold: 'U',
+  // M열: 편성(공식)예산 — 읽기 전용(수식), 인라인 편집 불가
+  additionalReflection: 'S',     // M열 추가로 R→S
+  additionalReflectionDate: 'T', // M열 추가로 S→T
+  isCompleted: 'U',              // M열 추가로 T→U
+  isOnHold: 'V',                 // M열 추가로 U→V
 };
 
 // 인라인 편집 일괄 저장
@@ -461,7 +463,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     const sheets = getSheetsClient();
-    const ranges = indices.map((idx) => `${SHEET}!A${idx}:U${idx}`);
+    const ranges = indices.map((idx) => `${SHEET}!A${idx}:V${idx}`);
 
     if (ranges.length === 1) {
       await sheets.spreadsheets.values.clear({
