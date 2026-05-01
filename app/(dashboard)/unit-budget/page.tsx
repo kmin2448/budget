@@ -308,16 +308,16 @@ export default function UnitBudgetPage() {
               className="flex items-center gap-1.5 rounded-[2px] bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {adjust.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              증감액 확정
+              <span className="opacity-60 font-normal">1.</span> 증감액 확정
             </button>
 
-            {/* 버튼 2: 계획금액 → 편성액(공식) 미리보기 */}
+            {/* 버튼 2: 계획금액 → 편성액(공식) 건 확인 */}
             <button
               onClick={handlePreviewAllocation}
               disabled={!dataReady || isPending}
               className="flex items-center gap-1.5 rounded-[2px] border border-primary bg-white px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              계획금액 → 편성액(공식)
+              <span className="opacity-60 font-normal">2.</span> 계획금액 → 편성액(공식) 건 확인
             </button>
 
             {/* 버튼 3: 편성액(공식) 확정 */}
@@ -327,7 +327,7 @@ export default function UnitBudgetPage() {
               className="flex items-center gap-1.5 rounded-[2px] border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {applyAlloc.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-              편성액(공식) 확정
+              <span className="opacity-60 font-normal">3.</span> 편성액(공식) 확정
             </button>
 
             {/* 증감 초기화 */}
