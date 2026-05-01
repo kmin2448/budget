@@ -355,24 +355,24 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                     단위과제 · 프로그램 간 변경 내역
                   </p>
                   <div className="overflow-x-auto rounded-[4px] border border-divider">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-xs table-fixed">
                       <thead>
                         <tr className="border-b border-divider bg-[#F8FAFC]">
-                          <th className="px-2 py-2 text-left font-medium text-text-secondary whitespace-nowrap">단위과제</th>
-                          <th className="px-2 py-2 text-left font-medium text-text-secondary whitespace-nowrap">프로그램명</th>
-                          <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 전</th>
-                          <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">증감액</th>
-                          <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 후</th>
+                          <th className="w-[22%] px-2 py-2 text-left font-medium text-text-secondary">단위과제</th>
+                          <th className="w-[27%] px-2 py-2 text-left font-medium text-text-secondary">프로그램명</th>
+                          <th className="w-[18%] px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 전</th>
+                          <th className="w-[15%] px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">증감액</th>
+                          <th className="w-[18%] px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 후</th>
                         </tr>
                       </thead>
                       <tbody>
                         {Array.from(byUnit.entries()).map(([unitName, progs]) =>
                           progs.map((p, i) => (
                             <tr key={p.rowIndex} className="border-b border-divider last:border-0 hover:bg-[#F8FAFC]">
-                              <td className="px-2 py-2 text-primary font-medium whitespace-nowrap">
+                              <td className="px-2 py-2 text-primary font-medium break-keep">
                                 {i === 0 ? unitName : ''}
                               </td>
-                              <td className="px-2 py-2 text-[#131310] max-w-[120px]">
+                              <td className="px-2 py-2 text-[#131310] overflow-hidden">
                                 <span className="block truncate" title={p.programName}>{p.programName || '—'}</span>
                               </td>
                               <td className="px-2 py-2 text-right tabular-nums text-[#131310] whitespace-nowrap">
@@ -404,13 +404,13 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                     비목별 변경 내역
                   </p>
                   <div className="overflow-x-auto rounded-[4px] border border-divider">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-xs table-fixed">
                       <thead>
                         <tr className="border-b border-divider bg-[#F8FAFC]">
-                          <th className="px-2 py-2 text-left font-medium text-text-secondary">비목</th>
-                          <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 전</th>
-                          <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">증감액</th>
-                          <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 후</th>
+                          <th className="w-[49%] px-2 py-2 text-left font-medium text-text-secondary">비목</th>
+                          <th className="w-[18%] px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 전</th>
+                          <th className="w-[15%] px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">증감액</th>
+                          <th className="w-[18%] px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 후</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -439,21 +439,21 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                     세목 · 보조세목 간 변경 내역
                   </p>
                   <div className="overflow-x-auto rounded-[4px] border border-divider">
-                    <table className="w-full text-xs">
+                    <table className="w-full text-xs table-fixed">
                       <thead>
                         <tr className="border-b border-divider bg-[#F8FAFC]">
-                          <th className="px-2 py-2 text-left font-medium text-text-secondary">세목</th>
-                          <th className="px-2 py-2 text-left font-medium text-text-secondary">보조세목</th>
-                          <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 전</th>
-                          <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">증감액</th>
-                          <th className="px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 후</th>
+                          <th className="w-[24%] px-2 py-2 text-left font-medium text-text-secondary">세목</th>
+                          <th className="w-[25%] px-2 py-2 text-left font-medium text-text-secondary">보조세목</th>
+                          <th className="w-[18%] px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 전</th>
+                          <th className="w-[15%] px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">증감액</th>
+                          <th className="w-[18%] px-2 py-2 text-right font-medium text-text-secondary whitespace-nowrap">변경 후</th>
                         </tr>
                       </thead>
                       <tbody>
                         {subDetailChanges.map((s, i) => (
                           <tr key={i} className="border-b border-divider last:border-0 hover:bg-[#F8FAFC]">
-                            <td className="px-2 py-2 text-[#131310]">{s.subcategory || '—'}</td>
-                            <td className="px-2 py-2 text-text-secondary">{s.subDetail || '—'}</td>
+                            <td className="px-2 py-2 text-[#131310] overflow-hidden"><span className="block truncate">{s.subcategory || '—'}</span></td>
+                            <td className="px-2 py-2 text-text-secondary overflow-hidden"><span className="block truncate">{s.subDetail || '—'}</span></td>
                             <td className="px-2 py-2 text-right tabular-nums text-[#131310] whitespace-nowrap">{formatKRW(s.before)}</td>
                             <td className={cn('px-2 py-2 text-right tabular-nums font-semibold whitespace-nowrap', adjColor(s.adj))}>{adjPrefix(s.adj)}{formatKRW(s.adj)}</td>
                             <td className="px-2 py-2 text-right tabular-nums font-medium text-[#131310] whitespace-nowrap">{formatKRW(s.after)}</td>
