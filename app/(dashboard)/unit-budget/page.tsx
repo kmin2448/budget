@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { RefreshCw, CheckCircle, AlertCircle, Loader2, RotateCcw, Search, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useSession } from 'next-auth/react';
 
 const PENDING_ADJ_KEY = 'coss_dashboard_pending_adj';
@@ -87,6 +88,9 @@ export default function UnitBudgetPage() {
   const [allocPreviewShown, setAllocPreviewShown] = useState(false);
   const [pendingOfficialBudgetRows, setPendingOfficialBudgetRows] = useState<Set<number>>(new Set());
 
+  // ── 단계 하이라이트 ───────────────────────────────────────────────
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
+
   // ── 검색 ─────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -158,6 +162,7 @@ export default function UnitBudgetPage() {
       try { localStorage.removeItem(PENDING_ADJ_KEY); } catch { /* ignore */ }
       setAllocationDiffs([]);
       setAllocPreviewShown(false);
+      setActiveStep(2);
       // 확정 후 이력 탭으로 이동
       setMainTab('history');
     } catch (err) {
@@ -192,6 +197,7 @@ export default function UnitBudgetPage() {
     setAllocPreviewShown(true);
     setSuccessMsg(null);
     setErrorMsg(null);
+    setActiveStep(3);
   };
 
   const handleAllocConfirm = async () => {
@@ -205,6 +211,7 @@ export default function UnitBudgetPage() {
       setAllocationDiffs([]);
       setAllocPreviewShown(false);
       setPendingOfficialBudgetRows(new Set());
+      setActiveStep(1);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : '편성(공식)예산 반영 중 오류가 발생했습니다.');
     }
@@ -308,37 +315,43 @@ export default function UnitBudgetPage() {
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {/* 버튼 1: 증감액 확정 */}
               <Tooltip text="증감액에 대해 예산계획금액에 반영합니다.">
-                <button
+                <Button
+                  size="sm"
+                  variant={activeStep === 1 ? 'default' : 'outline'}
                   onClick={() => setAdjConfirmOpen(true)}
                   disabled={!hasAdjustments || isPending}
-                  className="flex items-center gap-1.5 rounded-[2px] bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className={`gap-1.5${activeStep !== 1 ? ' text-gray-600' : ''}`}
                 >
                   {adjust.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                   <span className="opacity-60 font-normal">1.</span> 증감액 확정
-                </button>
+                </Button>
               </Tooltip>
 
               {/* 버튼 2: 계획금액 → 편성액(공식) 건 확인 */}
               <Tooltip text="예산계획과 편성예산이 다른 건에 대해 확인합니다.">
-                <button
+                <Button
+                  size="sm"
+                  variant={activeStep === 2 ? 'default' : 'outline'}
                   onClick={handlePreviewAllocation}
                   disabled={!dataReady || isPending}
-                  className="flex items-center gap-1.5 rounded-[2px] border border-primary bg-white px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className={`gap-1.5${activeStep !== 2 ? ' text-gray-600' : ''}`}
                 >
                   <span className="opacity-60 font-normal">2.</span> 계획금액 → 편성액(공식) 건 확인
-                </button>
+                </Button>
               </Tooltip>
 
               {/* 버튼 3: 편성액(공식) 확정 */}
               <Tooltip text="예산계획에 맞춰 편성예산을 변경합니다.">
-                <button
+                <Button
+                  size="sm"
+                  variant={activeStep === 3 ? 'default' : 'outline'}
                   onClick={() => setAllocConfirmOpen(true)}
                   disabled={!allocPreviewShown || allocationDiffs.length === 0 || isPending}
-                  className="flex items-center gap-1.5 rounded-[2px] border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className={`gap-1.5${activeStep !== 3 ? ' text-gray-600' : ''}`}
                 >
                   {applyAlloc.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                   <span className="opacity-60 font-normal">3.</span> 편성액(공식) 확정
-                </button>
+                </Button>
               </Tooltip>
 
               {/* 증감 초기화 */}
