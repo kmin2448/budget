@@ -513,7 +513,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                       const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
                       return (
                         <tr key={p.rowIndex}>
-                          <td style={pdfTdStyle(false, { background: bg, fontWeight: 500, color: '#1F5C99', whiteSpace: 'nowrap' })}>
+                          <td style={pdfTdStyle(false, { background: bg, fontWeight: 500, color: '#1F5C99', overflowWrap: 'break-word' })}>
                             {i === 0 ? unitName : ''}
                           </td>
                           <td style={pdfTdStyle(false, { background: bg, color: '#131310' })}>{p.programName || '—'}</td>

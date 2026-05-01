@@ -132,6 +132,13 @@ function RecordCard({
   const totalAdj    = items.reduce((s, i) => s + i.adjustment, 0);
   const totalAfter  = items.reduce((s, i) => s + i.after, 0);
 
+  // 단위과제별 그룹화 (화면 + PDF 공용)
+  const byUnit = new Map<string, AdjustmentItem[]>();
+  for (const item of items) {
+    if (!byUnit.has(item.unitName)) byUnit.set(item.unitName, []);
+    byUnit.get(item.unitName)!.push(item);
+  }
+
   // 비목별 집계
   const catMap = new Map<string, { before: number; adj: number; after: number }>();
   for (const item of items) {
@@ -257,36 +264,40 @@ function RecordCard({
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, i) => (
-                  <tr
-                    key={i}
-                    className={`border-b border-[#F0F0EE] last:border-0 hover:bg-[#FAFAF8] ${
-                      i % 2 === 0 ? 'bg-white' : 'bg-[#FAFAF8]'
-                    }`}
-                  >
-                    <td className="px-3 py-2 font-medium text-primary whitespace-nowrap">{item.unitName}</td>
-                    <td className="px-3 py-2 text-[#131310] max-w-[140px]">
-                      <span className="block truncate" title={item.programName}>{item.programName || '—'}</span>
-                    </td>
-                    <td className="px-3 py-2 text-text-secondary max-w-[200px]">
-                      <span
-                        className="block truncate"
-                        title={[item.category, item.subcategory, item.subDetail].filter(Boolean).join(' > ')}
-                      >
-                        {[item.category, item.subcategory, item.subDetail].filter(Boolean).join(' > ')}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-[#131310] whitespace-nowrap">
-                      {formatKRW(item.before)}
-                    </td>
-                    <td className={`px-3 py-2 text-right tabular-nums font-semibold whitespace-nowrap ${adjColor(item.adjustment)}`}>
-                      {adjStr(item.adjustment)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold text-[#131310] whitespace-nowrap">
-                      {formatKRW(item.after)}
-                    </td>
-                  </tr>
-                ))}
+                {Array.from(byUnit.entries()).flatMap(([unitName, unitItems]) =>
+                  unitItems.map((item, i) => (
+                    <tr
+                      key={`${unitName}-${i}`}
+                      className={`border-b border-[#F0F0EE] last:border-0 hover:bg-[#FAFAF8] ${
+                        i % 2 === 0 ? 'bg-white' : 'bg-[#FAFAF8]'
+                      }`}
+                    >
+                      <td className="px-3 py-2 font-medium text-primary break-keep">
+                        {i === 0 ? unitName : ''}
+                      </td>
+                      <td className="px-3 py-2 text-[#131310] max-w-[140px]">
+                        <span className="block truncate" title={item.programName}>{item.programName || '—'}</span>
+                      </td>
+                      <td className="px-3 py-2 text-text-secondary max-w-[200px]">
+                        <span
+                          className="block truncate"
+                          title={[item.category, item.subcategory, item.subDetail].filter(Boolean).join(' > ')}
+                        >
+                          {[item.category, item.subcategory, item.subDetail].filter(Boolean).join(' > ')}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[#131310] whitespace-nowrap">
+                        {formatKRW(item.before)}
+                      </td>
+                      <td className={`px-3 py-2 text-right tabular-nums font-semibold whitespace-nowrap ${adjColor(item.adjustment)}`}>
+                        {adjStr(item.adjustment)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold text-[#131310] whitespace-nowrap">
+                        {formatKRW(item.after)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
               <tfoot>
                 <tr className="border-t border-[#E3E3E0] bg-[#F3F3EE] font-semibold">
@@ -333,28 +344,30 @@ function RecordCard({
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item, i) => {
-                    const path = [item.category, item.subcategory, item.subDetail].filter(Boolean).join(' > ');
-                    const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
-                    return (
-                      <tr key={i}>
-                        <td style={pdfTdStyle(false, { background: bg, fontWeight: 500, color: '#1F5C99', whiteSpace: 'nowrap' })}>
-                          {item.unitName}
-                        </td>
-                        <td style={pdfTdStyle(false, { background: bg, color: '#131310' })}>{item.programName || '—'}</td>
-                        <td style={pdfTdStyle(false, { background: bg, color: '#6b7280', fontSize: 9 })}>{path}</td>
-                        <td style={pdfTdStyle(true, { background: bg, color: '#131310', whiteSpace: 'nowrap' })}>
-                          {formatKRW(item.before)}
-                        </td>
-                        <td style={{ ...pdfTdStyle(true), background: bg, whiteSpace: 'nowrap', fontWeight: item.adjustment !== 0 ? 600 : 400, ...adjInlineColor(item.adjustment) }}>
-                          {item.adjustment !== 0 ? (item.adjustment > 0 ? '+' : '') + formatKRW(item.adjustment) : '-'}
-                        </td>
-                        <td style={pdfTdStyle(true, { background: bg, color: '#131310', fontWeight: 500, whiteSpace: 'nowrap' })}>
-                          {formatKRW(item.after)}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {Array.from(byUnit.entries()).flatMap(([unitName, unitItems]) =>
+                    unitItems.map((item, i) => {
+                      const path = [item.category, item.subcategory, item.subDetail].filter(Boolean).join(' > ');
+                      const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+                      return (
+                        <tr key={`${unitName}-${i}`}>
+                          <td style={pdfTdStyle(false, { background: bg, fontWeight: 500, color: '#1F5C99', overflowWrap: 'break-word' })}>
+                            {i === 0 ? unitName : ''}
+                          </td>
+                          <td style={pdfTdStyle(false, { background: bg, color: '#131310' })}>{item.programName || '—'}</td>
+                          <td style={pdfTdStyle(false, { background: bg, color: '#6b7280', fontSize: 9 })}>{path}</td>
+                          <td style={pdfTdStyle(true, { background: bg, color: '#131310', whiteSpace: 'nowrap' })}>
+                            {formatKRW(item.before)}
+                          </td>
+                          <td style={{ ...pdfTdStyle(true), background: bg, whiteSpace: 'nowrap', fontWeight: item.adjustment !== 0 ? 600 : 400, ...adjInlineColor(item.adjustment) }}>
+                            {item.adjustment !== 0 ? (item.adjustment > 0 ? '+' : '') + formatKRW(item.adjustment) : '-'}
+                          </td>
+                          <td style={pdfTdStyle(true, { background: bg, color: '#131310', fontWeight: 500, whiteSpace: 'nowrap' })}>
+                            {formatKRW(item.after)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
                 <tfoot>
                   <tr>
