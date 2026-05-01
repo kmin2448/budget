@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { RefreshCw, CheckCircle, AlertCircle, Loader2, RotateCcw } from 'lucide-react';
 
 const PENDING_ADJ_KEY = 'coss_dashboard_pending_adj';
@@ -36,6 +36,9 @@ export default function UnitBudgetPage() {
   const [pendingFromDashboard, setPendingFromDashboard] = useState<Set<number>>(new Set());
   const [adjConfirmOpen, setAdjConfirmOpen] = useState(false);
 
+  // 초기 마운트 시 localStorage sync를 한 번 건너뛰기 위한 ref
+  const skipNextSyncRef = useRef(true);
+
   // localStorage에서 대시보드 pending 증감액 읽어 초기화
   useEffect(() => {
     try {
@@ -57,6 +60,25 @@ export default function UnitBudgetPage() {
       }
     } catch { /* ignore */ }
   }, []);
+
+  // adjustments 변경 시 localStorage에 역동기화 (대시보드에서도 반영)
+  useEffect(() => {
+    if (skipNextSyncRef.current) {
+      skipNextSyncRef.current = false;
+      return;
+    }
+    try {
+      const toSave: Record<number, number> = {};
+      for (const [k, v] of Object.entries(adjustments)) {
+        if (v !== 0) toSave[Number(k)] = v;
+      }
+      if (Object.keys(toSave).length > 0) {
+        localStorage.setItem(PENDING_ADJ_KEY, JSON.stringify(toSave));
+      } else {
+        localStorage.removeItem(PENDING_ADJ_KEY);
+      }
+    } catch { /* ignore */ }
+  }, [adjustments]);
 
   // ── 배정금액 적용 상태 ────────────────────────────────────────────
   const [allocationDiffs, setAllocationDiffs] = useState<AllocationDiffRow[]>([]);
