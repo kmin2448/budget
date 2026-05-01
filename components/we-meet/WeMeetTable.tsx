@@ -119,7 +119,7 @@ export function WeMeetTable({
       </div>
 
       {/* 테이블 */}
-      <div className="overflow-x-auto rounded-lg border border-[#E3E3E0]">
+      <div className="overflow-x-auto rounded-[2px] border border-[#E3E3E0]">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-[#F3F3EE]">

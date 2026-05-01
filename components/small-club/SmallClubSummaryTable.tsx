@@ -280,7 +280,7 @@ export function SmallClubSummaryTable({
     <div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleAdvisorDragStart} onDragEnd={handleAdvisorDragEnd}>
         <SortableContext items={advisorOrder} strategy={verticalListSortingStrategy}>
-          <div className="overflow-x-auto rounded-lg border border-[#E3E3E0]">
+          <div className="overflow-x-auto rounded-[2px] border border-[#E3E3E0]">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-[#F3F3EE]">
@@ -541,7 +541,7 @@ export function SmallClubSummaryTable({
                                             {execs.length === 0 ? (
                                               <p className="py-3 text-center text-xs text-gray-400">집행내역이 없습니다.</p>
                                             ) : (
-                                              <div className="overflow-x-auto rounded-md border border-[#E3E3E0]">
+                                              <div className="overflow-x-auto rounded-[2px] border border-[#E3E3E0]">
                                                 <table className="w-full border-collapse text-xs">
                                                   <thead>
                                                     <tr className="bg-[#F3F3EE]">

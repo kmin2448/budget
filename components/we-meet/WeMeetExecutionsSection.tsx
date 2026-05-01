@@ -1032,7 +1032,7 @@ export function WeMeetExecutionsSection({ canWrite }: Props) {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="overflow-x-auto rounded-lg border border-[#E3E3E0]">
+          <div className="overflow-x-auto rounded-[2px] border border-[#E3E3E0]">
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-[#F3F3EE]">

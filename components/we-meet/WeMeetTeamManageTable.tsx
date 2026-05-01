@@ -215,11 +215,11 @@ export function WeMeetTeamManageTable({
 
       {/* 지도교수별 아코디언 */}
       {teamInfos.length === 0 ? (
-        <div className="rounded-lg border border-[#E3E3E0] bg-white px-4 py-8 text-center text-sm text-gray-400">
+        <div className="rounded-[2px] border border-[#E3E3E0] bg-white px-4 py-8 text-center text-sm text-gray-400">
           팀 데이터가 없습니다. 팀을 추가해 주세요.
         </div>
       ) : (
-        <div className="rounded-lg border border-[#E3E3E0] overflow-hidden divide-y divide-[#E3E3E0]">
+        <div className="rounded-[2px] border border-[#E3E3E0] overflow-hidden divide-y divide-[#E3E3E0]">
           {orderedAdvisorGroups.map(({ advisor, teams }) => {
             const isOpen = openAdvisors.has(advisor);
 
