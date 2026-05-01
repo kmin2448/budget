@@ -366,6 +366,7 @@ export default function UnitBudgetPage() {
               onAdjustmentChange={handleAdjChange}
               pendingFromDashboard={pendingFromDashboard}
               pendingOfficialBudgetRows={pendingOfficialBudgetRows}
+              showOnlyPendingSync={allocPreviewShown && pendingOfficialBudgetRows.size > 0}
               searchQuery={searchQuery}
             />
           )}

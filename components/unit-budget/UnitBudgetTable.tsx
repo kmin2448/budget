@@ -12,6 +12,7 @@ interface Props {
   onAdjustmentChange: (rowIndex: number, value: number) => void;
   pendingFromDashboard?: Set<number>;
   pendingOfficialBudgetRows?: Set<number>;
+  showOnlyPendingSync?: boolean;
   searchQuery: string;
 }
 
@@ -61,6 +62,7 @@ function flattenUnit(unit: UnitTask): FlatRow[] {
 export function UnitBudgetTable({
   unitTasks, adjustments, onAdjustmentChange,
   pendingFromDashboard, pendingOfficialBudgetRows,
+  showOnlyPendingSync,
   searchQuery,
 }: Props) {
   const [openUnits, setOpenUnits] = useState<Set<string>>(
@@ -128,16 +130,32 @@ export function UnitBudgetTable({
     );
   };
 
-  const visibleUnitTasks = isSearching
-    ? unitTasks.filter((unit) => flattenUnit(unit).some(matchesSearch))
-    : unitTasks;
+  const matchesPendingSync = (row: FlatRow): boolean => {
+    if (!showOnlyPendingSync || !pendingOfficialBudgetRows) return true;
+    return pendingOfficialBudgetRows.has(row.rowIndex);
+  };
+
+  const matchesAll = (row: FlatRow) => matchesSearch(row) && matchesPendingSync(row);
+
+  const visibleUnitTasks = unitTasks.filter((unit) =>
+    flattenUnit(unit).some(matchesAll),
+  );
 
   const totalMatchCount = isSearching
-    ? visibleUnitTasks.reduce((sum, unit) => sum + flattenUnit(unit).filter(matchesSearch).length, 0)
+    ? visibleUnitTasks.reduce((sum, unit) => sum + flattenUnit(unit).filter(matchesAll).length, 0)
+    : null;
+
+  const pendingSyncCount = showOnlyPendingSync && pendingOfficialBudgetRows
+    ? pendingOfficialBudgetRows.size
     : null;
 
   return (
     <div className="space-y-3">
+      {showOnlyPendingSync && pendingSyncCount !== null && (
+        <p className="text-xs text-sky-700 bg-sky-50 border border-sky-200 rounded-[2px] px-3 py-1.5">
+          <span className="font-semibold">{pendingSyncCount}건</span>의 불일치 항목만 표시 중 — 편성액(공식) 확정 후 전체 목록으로 돌아옵니다.
+        </p>
+      )}
       {isSearching && (
         <p className="text-xs text-text-secondary">
           <span className="font-semibold text-primary">{totalMatchCount}건</span> 검색됨
@@ -165,17 +183,21 @@ export function UnitBudgetTable({
             </tr>
           </thead>
           <tbody>
-            {isSearching && visibleUnitTasks.length === 0 ? (
+            {visibleUnitTasks.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-sm text-text-secondary">
-                  &ldquo;{searchQuery}&rdquo;에 해당하는 항목이 없습니다.
+                  {isSearching
+                    ? `"${searchQuery}"에 해당하는 항목이 없습니다.`
+                    : showOnlyPendingSync
+                      ? '불일치 항목이 없습니다.'
+                      : '데이터가 없습니다.'}
                 </td>
               </tr>
             ) : (
               visibleUnitTasks.map((unit) => {
-                const isOpen = isSearching ? true : openUnits.has(unit.name);
+                const isOpen = (isSearching || showOnlyPendingSync) ? true : openUnits.has(unit.name);
                 const allRows = flattenUnit(unit);
-                const displayRows = isSearching ? allRows.filter(matchesSearch) : allRows;
+                const displayRows = allRows.filter(matchesAll);
                 const unitAdjTotal = allRows.reduce((sum, r) => sum + (adjustments[r.rowIndex] ?? 0), 0);
 
                 const mismatchCount = allRows.filter(
@@ -193,12 +215,12 @@ export function UnitBudgetTable({
                     >
                       <td className="px-3 py-1.5 font-semibold text-primary" colSpan={4}>
                         <span className="flex items-center gap-1.5">
-                          {!isSearching && (isOpen
+                          {!isSearching && !showOnlyPendingSync && (isOpen
                             ? <ChevronDown className="h-4 w-4 shrink-0" />
                             : <ChevronRight className="h-4 w-4 shrink-0" />)}
                           {unit.name}
                           <span className="ml-1 text-xs font-normal text-text-secondary">
-                            {isSearching
+                            {(isSearching || showOnlyPendingSync)
                               ? `(${displayRows.length}/${allRows.length}개 항목)`
                               : `(${allRows.length}개 항목)`}
                           </span>
