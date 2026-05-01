@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import { ChevronLeft, ChevronRight, FileText, FileSpreadsheet } from 'lucide-react';
 import { cn, formatKRW } from '@/lib/utils';
 import type { UnitTask } from '@/types';
@@ -45,9 +46,86 @@ function adjPrefix(v: number) {
   return v > 0 ? '+' : '';
 }
 
+// ── PDF 인라인 스타일 (증감이력 PDF와 동일한 스타일) ──────────────
+const PDF_PAGE: CSSProperties = {
+  width: 794,
+  padding: '24px 28px',
+  background: '#ffffff',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "Malgun Gothic", sans-serif',
+  boxSizing: 'border-box',
+};
+
+const PDF_TITLE_WRAP: CSSProperties = {
+  borderBottom: '1px solid #e5e7eb',
+  paddingBottom: 12,
+  marginBottom: 16,
+};
+
+const PDF_TITLE_MAIN: CSSProperties = {
+  display: 'block', fontSize: 15, fontWeight: 700, color: '#131310',
+};
+
+const PDF_TITLE_DATE: CSSProperties = {
+  display: 'block', fontSize: 10, color: '#6b7280', fontWeight: 400, marginTop: 2,
+};
+
+const PDF_SEC_LABEL: CSSProperties = {
+  fontSize: 10, fontWeight: 600, color: '#6b7280', marginBottom: 4,
+};
+
+const PDF_TABLE: CSSProperties = { width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' };
+
+const PDF_TABLE_WRAP: CSSProperties = {
+  borderRadius: 4, overflow: 'hidden', border: '1px solid #e5e7eb',
+};
+
+function pdfTh(right = false, extra: CSSProperties = {}): CSSProperties {
+  return {
+    padding: '8px',
+    background: '#F8FAFC',
+    color: '#6b7280',
+    fontWeight: 500,
+    fontSize: 10,
+    textAlign: right ? 'right' : 'left',
+    lineHeight: 1.4,
+    borderBottom: '1px solid #e5e7eb',
+    whiteSpace: 'nowrap' as const,
+    ...extra,
+  };
+}
+
+function pdfTdStyle(right = false, extra: CSSProperties = {}): CSSProperties {
+  return {
+    padding: '8px',
+    fontSize: 10,
+    textAlign: right ? 'right' : 'left',
+    lineHeight: 1.4,
+    borderBottom: '1px solid #f3f3f3',
+    ...extra,
+  };
+}
+
+function pdfFootTd(right = false, extra: CSSProperties = {}): CSSProperties {
+  return {
+    padding: '8px',
+    fontSize: 10,
+    fontWeight: 600,
+    textAlign: right ? 'right' : 'left',
+    background: '#EBF3FA',
+    borderTop: '2px solid rgba(31, 92, 153, 0.2)',
+    color: '#1F5C99',
+    whiteSpace: right ? ('nowrap' as const) : ('normal' as const),
+    ...extra,
+  };
+}
+
+function adjInlineColor(v: number): CSSProperties {
+  return { color: v > 0 ? '#2563EB' : v < 0 ? '#EF4444' : '#9ca3af' };
+}
+
 export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
   const [isOpen, setIsOpen] = useState(false);
-  const printRef = useRef<HTMLDivElement>(null);
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   const { programChanges, categoryChanges, subDetailChanges } = useMemo(() => {
     const programs: ProgramChange[] = [];
@@ -112,29 +190,36 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
   const changeCount = programChanges.length;
   const today = new Date().toLocaleDateString('ko-KR');
 
-  // ── PDF 다운로드 ─────────────────────────────────────────────────
+  // ── PDF 다운로드 (증감이력과 동일한 인라인 CSS 방식) ─────────────
   const handleDownloadPdf = async () => {
-    if (!printRef.current) return;
-    const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-      import('html2canvas'),
-      import('jspdf'),
-    ]);
+    const el = pdfRef.current;
+    if (!el) return;
+    const jsPDFMod = await import('jspdf');
+    const JsPDF = jsPDFMod.jsPDF ?? (jsPDFMod as unknown as { default: { jsPDF: unknown } }).default?.jsPDF;
+    if (!JsPDF) return;
+    const { default: html2canvas } = await import('html2canvas');
 
-    const canvas = await html2canvas(printRef.current, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pdf = new (JsPDF as any)({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const margin = 10;
+    const pageW: number = pdf.internal.pageSize.getWidth();
+    const pageH: number = pdf.internal.pageSize.getHeight();
+    const contentW = pageW - margin * 2;
+    const pageContentH = pageH - margin * 2;
+
+    const canvas = await html2canvas(el, {
       scale: 2,
       useCORS: true,
       logging: false,
+      scrollX: 0,
+      scrollY: 0,
       backgroundColor: '#ffffff',
+      width: el.scrollWidth,
+      height: el.scrollHeight,
     });
 
     const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const margin = 10;
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const contentW = pageW - margin * 2;
     const contentH = (canvas.height * contentW) / canvas.width;
-    const pageContentH = pageH - margin * 2;
 
     pdf.addImage(imgData, 'PNG', margin, margin, contentW, contentH);
 
@@ -251,9 +336,8 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
 
         {/* 스크롤 가능한 콘텐츠 */}
         <div className="flex-1 overflow-y-auto">
-          <div ref={printRef} className="p-4 space-y-4 bg-white">
+          <div className="p-4 space-y-4 bg-white">
 
-            {/* PDF/Excel에 포함될 제목 */}
             <div className="border-b border-divider pb-3">
               <h2 className="text-base font-bold text-[#131310]">예산변경내역</h2>
               <p className="text-xs text-text-secondary mt-0.5">{today} 기준</p>
@@ -269,9 +353,6 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                 <div className="space-y-1.5">
                   <p className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
                     단위과제 · 프로그램 간 변경 내역
-                    {programChanges.length === 1 && (
-                      <span className="font-normal text-text-secondary">※ 변경사항이 없습니다.</span>
-                    )}
                   </p>
                   <div className="overflow-x-auto rounded-[4px] border border-divider">
                     <table className="w-full text-xs">
@@ -327,9 +408,6 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                 <div className="space-y-1.5">
                   <p className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
                     비목별 변경 내역
-                    {categoryChanges.length === 1 && (
-                      <span className="font-normal text-text-secondary">※ 변경사항이 없습니다.</span>
-                    )}
                   </p>
                   <div className="overflow-x-auto rounded-[4px] border border-divider">
                     <table className="w-full text-xs">
@@ -365,9 +443,6 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                 <div className="space-y-1.5">
                   <p className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
                     세목 · 보조세목 간 변경 내역
-                    {subDetailChanges.length === 1 && (
-                      <span className="font-normal text-text-secondary">※ 변경사항이 없습니다.</span>
-                    )}
                   </p>
                   <div className="overflow-x-auto rounded-[4px] border border-divider">
                     <table className="w-full text-xs">
@@ -403,6 +478,168 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
               </>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* PDF 캡처용 숨김 영역 — 증감이력과 동일한 인라인 CSS 방식 */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }} aria-hidden="true">
+        <div ref={pdfRef} style={PDF_PAGE}>
+
+          {/* 헤더 */}
+          <div style={PDF_TITLE_WRAP}>
+            <span style={PDF_TITLE_MAIN}>예산변경내역</span>
+            <span style={PDF_TITLE_DATE}>{today} 기준</span>
+          </div>
+
+          {/* Section 1: 단위과제·프로그램 간 변경 내역 */}
+          <div style={{ marginBottom: 16 }}>
+            <p style={PDF_SEC_LABEL}>단위과제 · 프로그램 간 변경 내역</p>
+            <div style={PDF_TABLE_WRAP}>
+              <table style={PDF_TABLE}>
+                <thead>
+                  <tr>
+                    <th style={pdfTh()}>단위과제</th>
+                    <th style={pdfTh()}>프로그램명</th>
+                    <th style={pdfTh()}>비목 &gt; 세목 &gt; 보조세목</th>
+                    <th style={pdfTh(true)}>변경 전</th>
+                    <th style={pdfTh(true)}>증감액</th>
+                    <th style={pdfTh(true)}>변경 후</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from(byUnit.entries()).map(([unitName, progs]) =>
+                    progs.map((p, i) => {
+                      const path = [p.category, p.subcategory, p.subDetail].filter(Boolean).join(' > ');
+                      const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+                      return (
+                        <tr key={p.rowIndex}>
+                          <td style={pdfTdStyle(false, { background: bg, fontWeight: 500, color: '#1F5C99', whiteSpace: 'nowrap' })}>
+                            {i === 0 ? unitName : ''}
+                          </td>
+                          <td style={pdfTdStyle(false, { background: bg, color: '#131310' })}>{p.programName || '—'}</td>
+                          <td style={pdfTdStyle(false, { background: bg, color: '#6b7280', fontSize: 9 })}>{path}</td>
+                          <td style={pdfTdStyle(true, { background: bg, color: '#131310', whiteSpace: 'nowrap' })}>
+                            {formatKRW(p.before)}
+                          </td>
+                          <td style={{ ...pdfTdStyle(true), background: bg, whiteSpace: 'nowrap', fontWeight: p.adj !== 0 ? 600 : 400, ...adjInlineColor(p.adj) }}>
+                            {p.adj !== 0 ? (p.adj > 0 ? '+' : '') + formatKRW(p.adj) : '-'}
+                          </td>
+                          <td style={pdfTdStyle(true, { background: bg, color: '#131310', fontWeight: 500, whiteSpace: 'nowrap' })}>
+                            {formatKRW(p.after)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3} style={pdfFootTd()}>합계</td>
+                    <td style={pdfFootTd(true)}>{formatKRW(progTotal.before)}</td>
+                    <td style={{ ...pdfFootTd(true), ...adjInlineColor(progTotal.adj) }}>
+                      {progTotal.adj !== 0 ? (progTotal.adj > 0 ? '+' : '') + formatKRW(progTotal.adj) : '-'}
+                    </td>
+                    <td style={pdfFootTd(true)}>{formatKRW(progTotal.after)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 2: 비목별 변경 내역 */}
+          <div style={{ marginBottom: 16 }}>
+            <p style={PDF_SEC_LABEL}>비목별 변경 내역</p>
+            <div style={PDF_TABLE_WRAP}>
+              <table style={PDF_TABLE}>
+                <thead>
+                  <tr>
+                    <th style={pdfTh()}>비목</th>
+                    <th style={pdfTh(true)}>변경 전</th>
+                    <th style={pdfTh(true)}>증감액</th>
+                    <th style={pdfTh(true)}>변경 후</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categoryChanges.map((c, i) => {
+                    const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+                    return (
+                      <tr key={c.category}>
+                        <td style={pdfTdStyle(false, { background: bg, color: '#131310', fontWeight: 500 })}>{c.category}</td>
+                        <td style={pdfTdStyle(true, { background: bg, color: '#131310', whiteSpace: 'nowrap' })}>
+                          {formatKRW(c.before)}
+                        </td>
+                        <td style={{ ...pdfTdStyle(true), background: bg, whiteSpace: 'nowrap', fontWeight: c.adj !== 0 ? 600 : 400, ...adjInlineColor(c.adj) }}>
+                          {c.adj !== 0 ? (c.adj > 0 ? '+' : '') + formatKRW(c.adj) : '-'}
+                        </td>
+                        <td style={pdfTdStyle(true, { background: bg, color: '#131310', fontWeight: 500, whiteSpace: 'nowrap' })}>
+                          {formatKRW(c.after)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td style={pdfFootTd()}>합계</td>
+                    <td style={pdfFootTd(true)}>{formatKRW(catTotal.before)}</td>
+                    <td style={{ ...pdfFootTd(true), ...adjInlineColor(catTotal.adj) }}>
+                      {catTotal.adj !== 0 ? (catTotal.adj > 0 ? '+' : '') + formatKRW(catTotal.adj) : '-'}
+                    </td>
+                    <td style={pdfFootTd(true)}>{formatKRW(catTotal.after)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 3: 세목·보조세목 간 변경 내역 */}
+          <div>
+            <p style={PDF_SEC_LABEL}>세목 · 보조세목 간 변경 내역</p>
+            <div style={PDF_TABLE_WRAP}>
+              <table style={PDF_TABLE}>
+                <thead>
+                  <tr>
+                    <th style={pdfTh()}>세목</th>
+                    <th style={pdfTh()}>보조세목</th>
+                    <th style={pdfTh(true)}>변경 전</th>
+                    <th style={pdfTh(true)}>증감액</th>
+                    <th style={pdfTh(true)}>변경 후</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subDetailChanges.map((s, i) => {
+                    const bg = i % 2 === 0 ? '#ffffff' : '#f8fafc';
+                    return (
+                      <tr key={i}>
+                        <td style={pdfTdStyle(false, { background: bg, color: '#131310' })}>{s.subcategory || '—'}</td>
+                        <td style={pdfTdStyle(false, { background: bg, color: '#6b7280' })}>{s.subDetail || '—'}</td>
+                        <td style={pdfTdStyle(true, { background: bg, color: '#131310', whiteSpace: 'nowrap' })}>
+                          {formatKRW(s.before)}
+                        </td>
+                        <td style={{ ...pdfTdStyle(true), background: bg, whiteSpace: 'nowrap', fontWeight: s.adj !== 0 ? 600 : 400, ...adjInlineColor(s.adj) }}>
+                          {s.adj !== 0 ? (s.adj > 0 ? '+' : '') + formatKRW(s.adj) : '-'}
+                        </td>
+                        <td style={pdfTdStyle(true, { background: bg, color: '#131310', fontWeight: 500, whiteSpace: 'nowrap' })}>
+                          {formatKRW(s.after)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={2} style={pdfFootTd()}>합계</td>
+                    <td style={pdfFootTd(true)}>{formatKRW(subTotal.before)}</td>
+                    <td style={{ ...pdfFootTd(true), ...adjInlineColor(subTotal.adj) }}>
+                      {subTotal.adj !== 0 ? (subTotal.adj > 0 ? '+' : '') + formatKRW(subTotal.adj) : '-'}
+                    </td>
+                    <td style={pdfFootTd(true)}>{formatKRW(subTotal.after)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
