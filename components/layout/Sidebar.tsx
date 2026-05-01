@@ -34,17 +34,20 @@ import {
 import { useSidebar } from './SidebarContext';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
 
-const navItems = [
-  { label: '대시보드',           href: '/dashboard',          icon: LayoutDashboard },
-  { label: '비목별 집행내역',     href: '/expenditure/인건비',  icon: FileText },
-  { label: '예산관리',           href: '/budget',              icon: BarChart2 },
-  { label: '단위과제 예산관리',   href: '/unit-budget',         icon: GitCompare },
-  { label: '선지원금',           href: '/advance-funds',       icon: Wallet },
-  { label: '카드관리',       href: '/card',                icon: CreditCard },
-  { label: 'WE-Meet 지원',  href: '/we-meet',             icon: HandCoins },
-  { label: '소학회 지원',   href: '/small-club',          icon: Users },
-  { label: '자료실',         href: '/library',             icon: FolderOpen },
-  { label: '권한관리',       href: '/admin',               icon: Settings },
+const navItemsMain = [
+  { label: '대시보드',        href: '/dashboard',         icon: LayoutDashboard },
+  { label: '비목별 집행내역', href: '/expenditure/인건비', icon: FileText },
+  { label: '선지원금',        href: '/advance-funds',     icon: Wallet },
+  { label: '카드관리',        href: '/card',              icon: CreditCard },
+  { label: 'WE-Meet 지원',   href: '/we-meet',           icon: HandCoins },
+  { label: '소학회 지원',     href: '/small-club',        icon: Users },
+  { label: '자료실',          href: '/library',           icon: FolderOpen },
+];
+
+const navItemsAdmin = [
+  { label: '예산관리',        href: '/budget',      icon: BarChart2 },
+  { label: '단위과제 예산관리', href: '/unit-budget', icon: GitCompare },
+  { label: '권한관리',        href: '/admin',       icon: Settings },
 ];
 
 function UserSection({ collapsed, onClose }: { collapsed?: boolean; onClose?: () => void }) {
@@ -203,40 +206,45 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
 
       {/* 네비게이션 */}
       <nav className="flex-1 overflow-y-auto px-2 py-3">
-        <ul className="space-y-0.5">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive =
-              item.href === '/dashboard'
-                ? pathname === '/dashboard'
-                : pathname.startsWith(item.href.split('/').slice(0, 2).join('/'));
+        {[navItemsMain, navItemsAdmin].map((group, gi) => (
+          <div key={gi}>
+            {gi > 0 && <div className="my-2 border-t border-divider" />}
+            <ul className="space-y-0.5">
+              {group.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  item.href === '/dashboard'
+                    ? pathname === '/dashboard'
+                    : pathname.startsWith(item.href.split('/').slice(0, 2).join('/'));
 
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  title={collapsed ? item.label : undefined}
-                  onClick={onClose}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
-                    collapsed && !onClose ? 'justify-center px-0' : '',
-                    isActive
-                      ? 'bg-primary-bg text-primary'
-                      : 'text-text-secondary hover:bg-divider hover:text-[#131310]',
-                  )}
-                >
-                  <Icon
-                    className={cn(
-                      'h-4 w-4 shrink-0 transition-colors',
-                      isActive ? 'text-primary' : 'text-text-secondary',
-                    )}
-                  />
-                  {(!collapsed || onClose) && <span className="truncate">{item.label}</span>}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      title={collapsed ? item.label : undefined}
+                      onClick={onClose}
+                      className={cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+                        collapsed && !onClose ? 'justify-center px-0' : '',
+                        isActive
+                          ? 'bg-primary-bg text-primary'
+                          : 'text-text-secondary hover:bg-divider hover:text-[#131310]',
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          'h-4 w-4 shrink-0 transition-colors',
+                          isActive ? 'text-primary' : 'text-text-secondary',
+                        )}
+                      />
+                      {(!collapsed || onClose) && <span className="truncate">{item.label}</span>}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       {/* 하단 유저 섹션 */}
