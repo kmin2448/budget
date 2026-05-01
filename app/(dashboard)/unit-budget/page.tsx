@@ -367,7 +367,6 @@ export default function UnitBudgetPage() {
               pendingFromDashboard={pendingFromDashboard}
               pendingOfficialBudgetRows={pendingOfficialBudgetRows}
               searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
             />
           )}
 

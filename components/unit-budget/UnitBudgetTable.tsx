@@ -13,7 +13,6 @@ interface Props {
   pendingFromDashboard?: Set<number>;
   pendingOfficialBudgetRows?: Set<number>;
   searchQuery: string;
-  onSearchChange: (v: string) => void;
 }
 
 interface FlatRow {
@@ -62,7 +61,7 @@ function flattenUnit(unit: UnitTask): FlatRow[] {
 export function UnitBudgetTable({
   unitTasks, adjustments, onAdjustmentChange,
   pendingFromDashboard, pendingOfficialBudgetRows,
-  searchQuery, onSearchChange,
+  searchQuery,
 }: Props) {
   const [openUnits, setOpenUnits] = useState<Set<string>>(
     () => new Set(unitTasks.map((u) => u.name)),
