@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, Fragment } from 'react';
-import { ChevronDown, ChevronRight, AlertTriangle, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { cn, formatKRW, parseKRW } from '@/lib/utils';
 import { KRWInput } from '@/components/ui/krw-input';
 import type { UnitTask } from '@/types';
@@ -11,6 +11,9 @@ interface Props {
   adjustments: Record<number, number>;
   onAdjustmentChange: (rowIndex: number, value: number) => void;
   pendingFromDashboard?: Set<number>;
+  pendingOfficialBudgetRows?: Set<number>;
+  searchQuery: string;
+  onSearchChange: (v: string) => void;
 }
 
 interface FlatRow {
@@ -56,13 +59,16 @@ function flattenUnit(unit: UnitTask): FlatRow[] {
   return result;
 }
 
-export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange, pendingFromDashboard }: Props) {
+export function UnitBudgetTable({
+  unitTasks, adjustments, onAdjustmentChange,
+  pendingFromDashboard, pendingOfficialBudgetRows,
+  searchQuery, onSearchChange,
+}: Props) {
   const [openUnits, setOpenUnits] = useState<Set<string>>(
     () => new Set(unitTasks.map((u) => u.name)),
   );
   const [displayValues, setDisplayValues] = useState<Record<number, string>>({});
   const prevAdjLen = useRef(Object.keys(adjustments).length);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const isSearching = searchQuery.trim().length > 0;
   const q = searchQuery.trim().toLowerCase();
@@ -133,35 +139,14 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange, pe
 
   return (
     <div className="space-y-3">
-      {/* 검색 입력 */}
-      <div className="flex items-center gap-3">
-        <div className="relative w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="프로그램명, 비목, 세목으로 검색..."
-            className="w-full rounded-[2px] border border-divider bg-white pl-9 pr-8 py-2 text-sm placeholder:text-text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
-          />
-          {isSearching && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-[#131310] transition-colors"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+      {isSearching && (
+        <p className="text-xs text-text-secondary">
+          <span className="font-semibold text-primary">{totalMatchCount}건</span> 검색됨
+          {visibleUnitTasks.length > 0 && (
+            <span className="ml-1">· {visibleUnitTasks.length}개 단위과제</span>
           )}
-        </div>
-        {isSearching && (
-          <span className="text-xs text-text-secondary">
-            <span className="font-semibold text-primary">{totalMatchCount}건</span> 검색됨
-            {visibleUnitTasks.length > 0 && (
-              <span className="ml-1">· {visibleUnitTasks.length}개 단위과제</span>
-            )}
-          </span>
-        )}
-      </div>
+        </p>
+      )}
 
       <div className="overflow-x-auto rounded-[2px] border border-divider bg-white">
         <table className="w-full text-sm">
@@ -184,7 +169,6 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange, pe
             {isSearching && visibleUnitTasks.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-10 text-center text-sm text-text-secondary">
-                  <Search className="mx-auto mb-2 h-5 w-5 opacity-30" />
                   &ldquo;{searchQuery}&rdquo;에 해당하는 항목이 없습니다.
                 </td>
               </tr>
@@ -252,7 +236,9 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange, pe
                     {isOpen && displayRows.map((row, idx) => {
                       const adj = adjustments[row.rowIndex] ?? 0;
                       const isEditable = row.rowIndex !== -1;
+                      const isPendingSync = isEditable && pendingOfficialBudgetRows?.has(row.rowIndex);
                       const isMismatch =
+                        !isPendingSync &&
                         row.budgetPlan !== row.officialBudget &&
                         (row.budgetPlan > 0 || row.officialBudget > 0);
                       return (
@@ -260,11 +246,13 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange, pe
                           key={`${unit.name}-${row.rowIndex}-${idx}`}
                           className={cn(
                             'border-b border-divider transition-colors',
-                            isMismatch
-                              ? 'bg-red-50 hover:bg-red-100'
-                              : idx % 2 === 0
-                                ? 'bg-white hover:bg-[#EEF4FB]'
-                                : 'bg-[#FCFCFC] hover:bg-[#EEF4FB]',
+                            isPendingSync
+                              ? 'bg-sky-100 hover:bg-sky-200'
+                              : isMismatch
+                                ? 'bg-red-50 hover:bg-red-100'
+                                : idx % 2 === 0
+                                  ? 'bg-white hover:bg-[#EEF4FB]'
+                                  : 'bg-[#FCFCFC] hover:bg-[#EEF4FB]',
                           )}
                         >
                           <td className="px-3 py-1 pl-8 text-xs text-[#131310]">{row.programName || '—'}</td>

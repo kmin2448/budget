@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { RefreshCw, CheckCircle, AlertCircle, Loader2, RotateCcw } from 'lucide-react';
+import { RefreshCw, CheckCircle, AlertCircle, Loader2, RotateCcw, Search, X } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 const PENDING_ADJ_KEY = 'coss_dashboard_pending_adj';
-import { useSession } from 'next-auth/react';
 import {
   useUnitBudget,
   useUnitBudgetAdjust,
@@ -84,6 +84,10 @@ export default function UnitBudgetPage() {
   const [allocationDiffs, setAllocationDiffs] = useState<AllocationDiffRow[]>([]);
   const [allocConfirmOpen, setAllocConfirmOpen] = useState(false);
   const [allocPreviewShown, setAllocPreviewShown] = useState(false);
+  const [pendingOfficialBudgetRows, setPendingOfficialBudgetRows] = useState<Set<number>>(new Set());
+
+  // ── 검색 ─────────────────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState('');
 
   // ── 공통 메시지 ───────────────────────────────────────────────────
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -160,24 +164,30 @@ export default function UnitBudgetPage() {
     }
   };
 
-  // ── 배정금액 적용 핸들러 ─────────────────────────────────────────
+  // ── 편성(공식)예산 동기화 핸들러 ────────────────────────────────
   const handlePreviewAllocation = () => {
     const diffs: AllocationDiffRow[] = [];
+    const pendingSet = new Set<number>();
     for (const unit of unitTasks) {
       for (const row of unit.rows) {
-        if (row.rowOffset !== null && row.budgetPlan !== row.allocation) {
-          diffs.push({
-            category:    row.category,
-            subcategory: row.subcategory,
-            subDetail:   row.subDetail,
-            rowOffset:   row.rowOffset,
-            before:      row.allocation,
-            after:       row.budgetPlan,
-          });
+        for (const prog of row.programs) {
+          if (prog.rowIndex !== -1 && prog.budgetPlan !== prog.officialBudget) {
+            diffs.push({
+              rowIndex:    prog.rowIndex,
+              programName: prog.programName,
+              category:    row.category,
+              subcategory: row.subcategory,
+              subDetail:   row.subDetail,
+              before:      prog.officialBudget,
+              after:       prog.budgetPlan,
+            });
+            pendingSet.add(prog.rowIndex);
+          }
         }
       }
     }
     setAllocationDiffs(diffs);
+    setPendingOfficialBudgetRows(pendingSet);
     setAllocPreviewShown(true);
     setSuccessMsg(null);
     setErrorMsg(null);
@@ -190,11 +200,12 @@ export default function UnitBudgetPage() {
     const changedAt = new Date().toISOString().slice(0, 10);
     try {
       await applyAlloc.mutateAsync({ items: allocationDiffs, changedAt });
-      setSuccessMsg(`${allocationDiffs.length}건의 배정금액이 업데이트되었습니다.`);
+      setSuccessMsg(`${allocationDiffs.length}건의 편성(공식)예산이 계획금액으로 업데이트되었습니다.`);
       setAllocationDiffs([]);
       setAllocPreviewShown(false);
+      setPendingOfficialBudgetRows(new Set());
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : '배정금액 반영 중 오류가 발생했습니다.');
+      setErrorMsg(err instanceof Error ? err.message : '편성(공식)예산 반영 중 오류가 발생했습니다.');
     }
   };
 
@@ -255,48 +266,65 @@ export default function UnitBudgetPage() {
 
       {/* ── 예산현황 탭 ── */}
       {mainTab === 'status' && (
-        <section className="space-y-4">
+        <section className="space-y-3">
           {/* 섹션 헤더 */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-base font-semibold text-[#131310]">단위과제별 예산 현황</h2>
-              <p className="text-xs text-text-secondary mt-0.5">
-                증감액 열에 +/- 금액을 입력하면 하단에 변경 내역 요약이 표시됩니다.
-                <span className="ml-2 text-red-500">붉은색 행은 계획금액과 편성(공식)예산이 다른 항목입니다.</span>
-              </p>
-            </div>
+          <div>
+            <h2 className="text-base font-semibold text-[#131310]">단위과제별 예산 현황</h2>
+            <p className="text-xs text-text-secondary mt-0.5">
+              증감액 열에 +/- 금액을 입력하면 우측 패널에 변경 내역이 표시됩니다.
+              <span className="ml-2 text-red-500">붉은색 행: 계획금액 ≠ 편성(공식)예산.</span>
+              <span className="ml-1 text-sky-600">하늘색 행: 편성(공식)예산 동기화 대기 중.</span>
+            </p>
           </div>
 
-          {/* ── 3개 액션 버튼 ── */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* 버튼 1: 증감액 확정 (계획금액 반영) */}
+          {/* ── 검색 + 버튼 한 줄 ── */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 검색창 */}
+            <div className="relative w-64 shrink-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="프로그램명, 비목, 세목..."
+                className="w-full rounded-[2px] border border-divider bg-white pl-9 pr-8 py-1.5 text-sm placeholder:text-text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-[#131310] transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <span className="text-divider">|</span>
+
+            {/* 버튼 1: 증감액 확정 */}
             <button
               onClick={() => setAdjConfirmOpen(true)}
               disabled={!hasAdjustments || isPending}
-              className="flex items-center gap-1.5 rounded-[2px] bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-[2px] bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {adjust.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               증감액 확정
-              <span className="font-normal opacity-80">(계획금액 반영)</span>
             </button>
 
-            {/* 구분선 */}
-            <span className="text-divider">|</span>
-
-            {/* 버튼 2: 계획금액 → 배정금액 */}
+            {/* 버튼 2: 계획금액 → 편성액(공식) 미리보기 */}
             <button
               onClick={handlePreviewAllocation}
               disabled={!dataReady || isPending}
-              className="flex items-center gap-1.5 rounded-[2px] border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-[2px] border border-primary bg-white px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               계획금액 → 편성액(공식)
             </button>
 
-            {/* 버튼 3: 배정금액 확정 */}
+            {/* 버튼 3: 편성액(공식) 확정 */}
             <button
               onClick={() => setAllocConfirmOpen(true)}
               disabled={!allocPreviewShown || allocationDiffs.length === 0 || isPending}
-              className="flex items-center gap-1.5 rounded-[2px] border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-[2px] border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {applyAlloc.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               편성액(공식) 확정
@@ -308,10 +336,10 @@ export default function UnitBudgetPage() {
                 <span className="text-divider">|</span>
                 <button
                   onClick={resetAdjustments}
-                  className="flex items-center gap-1.5 rounded-[2px] border border-divider bg-white px-3 py-2 text-sm text-text-secondary hover:bg-divider transition-colors"
+                  className="flex items-center gap-1.5 rounded-[2px] border border-divider bg-white px-3 py-1.5 text-sm text-text-secondary hover:bg-divider transition-colors"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
-                  증감 초기화
+                  초기화
                 </button>
               </>
             )}
@@ -337,10 +365,13 @@ export default function UnitBudgetPage() {
               adjustments={adjustments}
               onAdjustmentChange={handleAdjChange}
               pendingFromDashboard={pendingFromDashboard}
+              pendingOfficialBudgetRows={pendingOfficialBudgetRows}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
             />
           )}
 
-          {/* 배정금액 변경 미리보기 (버튼 2 누른 후) */}
+          {/* 편성(공식)예산 동기화 미리보기 */}
           {allocPreviewShown && dataReady && (
             <AllocationPreview diffs={allocationDiffs} />
           )}
@@ -381,11 +412,11 @@ export default function UnitBudgetPage() {
         onClose={() => setAdjConfirmOpen(false)}
       />
 
-      {/* 확정 모달: 배정금액 확정 */}
+      {/* 확정 모달: 편성(공식)예산 확정 */}
       <ConfirmDialog
         open={allocConfirmOpen}
-        title="배정금액 확정"
-        description={`${allocationDiffs.length}건의 항목에 대해 ★취합 편성액(F열)을 예산계획 금액으로 업데이트하시겠습니까? 변경이력에 저장됩니다.`}
+        title="편성(공식)예산 확정"
+        description={`${allocationDiffs.length}건의 프로그램에 대해 편성(공식)예산(M열)을 계획금액으로 업데이트하시겠습니까? 변경이력에 저장됩니다.`}
         confirmLabel="확정"
         loading={applyAlloc.isPending}
         onConfirm={() => void handleAllocConfirm()}

@@ -9,10 +9,11 @@ import type { BudgetType } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
-const STAR_SHEET = "'★취합'";
+const EXEC_SHEET = "'집행내역 정리'";
 
 interface ApplyItem {
-  rowOffset: number;
+  rowIndex: number;
+  programName: string;
   category: string;
   subcategory: string;
   subDetail: string;
@@ -57,9 +58,9 @@ export async function POST(req: NextRequest) {
     const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
     const sheets = getSheetsClient();
 
-    // ★취합 F열 일괄 업데이트 (rowOffset + 3 = 실제 행 번호)
+    // 집행내역 정리 M열 일괄 업데이트 (rowIndex = 실제 행 번호)
     const writeData = validItems.map((item) => ({
-      range: `${STAR_SHEET}!F${item.rowOffset + 3}`,
+      range: `${EXEC_SHEET}!M${item.rowIndex}`,
       values: [[item.after]],
     }));
 
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
     const totalAdj    = totalAfter - totalBefore;
 
     const snapshotObj = {
-      type: 'allocation-apply',
+      type: 'official-budget-sync',
       items: validItems,
     };
 

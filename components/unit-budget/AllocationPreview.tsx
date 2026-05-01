@@ -3,10 +3,11 @@
 import { cn, formatKRW } from '@/lib/utils';
 
 export interface AllocationDiffRow {
+  rowIndex: number;
+  programName: string;
   category: string;
   subcategory: string;
   subDetail: string;
-  rowOffset: number;
   before: number;
   after: number;
 }
@@ -50,11 +51,11 @@ export function AllocationPreview({ diffs }: Props) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-divider bg-[#FAFAFA]">
+            <th className="px-3 py-2 text-left text-xs font-medium text-text-secondary">프로그램명</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-text-secondary">비목</th>
             <th className="px-3 py-2 text-left text-xs font-medium text-text-secondary">세목</th>
-            <th className="px-3 py-2 text-left text-xs font-medium text-text-secondary">보조세목</th>
-            <th className="px-3 py-2 text-right text-xs font-medium text-text-secondary w-[130px]">현재 배정금액</th>
-            <th className="px-3 py-2 text-right text-xs font-medium text-text-secondary w-[130px]">새 배정금액</th>
+            <th className="px-3 py-2 text-right text-xs font-medium text-text-secondary w-[130px]">현재 편성(공식)</th>
+            <th className="px-3 py-2 text-right text-xs font-medium text-text-secondary w-[130px]">변경 후 (계획금액)</th>
             <th className="px-3 py-2 text-right text-xs font-medium text-text-secondary w-[120px]">증감</th>
           </tr>
         </thead>
@@ -62,7 +63,7 @@ export function AllocationPreview({ diffs }: Props) {
           {diffs.length === 0 ? (
             <tr>
               <td colSpan={6} className="px-4 py-4 text-center text-xs text-text-secondary">
-                변동사항 없음 — 계획금액과 배정금액이 모두 일치합니다.
+                변동사항 없음 — 계획금액과 편성(공식)예산이 모두 일치합니다.
               </td>
             </tr>
           ) : (
@@ -77,12 +78,12 @@ export function AllocationPreview({ diffs }: Props) {
                       const d = row.after - row.before;
                       return (
                         <tr
-                          key={`${row.category}-${row.subcategory}-${row.subDetail}`}
+                          key={`${row.rowIndex}-${row.programName}`}
                           className="border-b border-divider hover:bg-[#F8FAFC]"
                         >
-                          <td className="px-3 py-2 text-xs text-[#131310]">{i === 0 ? cat : ''}</td>
+                          <td className="px-3 py-2 text-xs text-[#131310]">{row.programName || '—'}</td>
+                          <td className="px-3 py-2 text-xs text-text-secondary">{i === 0 ? cat : ''}</td>
                           <td className="px-3 py-2 text-xs text-text-secondary">{row.subcategory || '—'}</td>
-                          <td className="px-3 py-2 text-xs text-text-secondary">{row.subDetail || '—'}</td>
                           <td className="px-3 py-2 text-right text-xs tabular-nums text-[#131310]">
                             {formatKRW(row.before)}
                           </td>

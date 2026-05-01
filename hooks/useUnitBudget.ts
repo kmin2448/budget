@@ -43,7 +43,8 @@ interface AdjustPayload {
 }
 
 interface ApplyAllocationItem {
-  rowOffset: number;
+  rowIndex: number;
+  programName: string;
   category: string;
   subcategory: string;
   subDetail: string;
