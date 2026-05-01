@@ -56,13 +56,14 @@ const PDF_PAGE: CSSProperties = {
 };
 
 const PDF_TITLE_WRAP: CSSProperties = {
+  textAlign: 'center',
   borderBottom: '1px solid #e5e7eb',
   paddingBottom: 12,
   marginBottom: 16,
 };
 
 const PDF_TITLE_MAIN: CSSProperties = {
-  display: 'block', fontSize: 15, fontWeight: 700, color: '#131310',
+  display: 'block', fontSize: 23, fontWeight: 700, color: '#131310',
 };
 
 const PDF_TITLE_DATE: CSSProperties = {
@@ -70,7 +71,7 @@ const PDF_TITLE_DATE: CSSProperties = {
 };
 
 const PDF_SEC_LABEL: CSSProperties = {
-  fontSize: 10, fontWeight: 600, color: '#6b7280', marginBottom: 4,
+  fontSize: 15, fontWeight: 700, color: '#374151', marginBottom: 12, marginTop: 20,
 };
 
 const PDF_TABLE: CSSProperties = { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' };
@@ -487,7 +488,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
 
           {/* Section 1: 단위과제·프로그램 간 변경 내역 */}
           <div style={{ marginBottom: 16 }}>
-            <p style={PDF_SEC_LABEL}>단위과제 · 프로그램 간 변경 내역</p>
+            <p style={PDF_SEC_LABEL}>■ 단위과제 · 프로그램 간 변경 내역</p>
             <div style={PDF_TABLE_WRAP}>
               <table style={PDF_TABLE}>
                 <thead>
@@ -539,7 +540,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
 
           {/* Section 2: 비목별 변경 내역 */}
           <div style={{ marginBottom: 16 }}>
-            <p style={PDF_SEC_LABEL}>비목별 변경 내역</p>
+            <p style={PDF_SEC_LABEL}>■ 비목별 변경 내역</p>
             <div style={PDF_TABLE_WRAP}>
               <table style={PDF_TABLE}>
                 <thead>
@@ -585,7 +586,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
 
           {/* Section 3: 세목·보조세목 간 변경 내역 */}
           <div>
-            <p style={PDF_SEC_LABEL}>세목 · 보조세목 간 변경 내역</p>
+            <p style={PDF_SEC_LABEL}>■ 세목 · 보조세목 간 변경 내역</p>
             <div style={PDF_TABLE_WRAP}>
               <table style={PDF_TABLE}>
                 <thead>
