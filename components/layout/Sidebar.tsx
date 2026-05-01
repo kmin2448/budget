@@ -208,7 +208,7 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         {[navItemsMain, navItemsAdmin].map((group, gi) => (
           <div key={gi}>
-            {gi > 0 && <div className="my-2 border-t border-divider" />}
+            {gi > 0 && <div className="my-2 border-t border-[#C8C8C5]" />}
             <ul className="space-y-0.5">
               {group.map((item) => {
                 const Icon = item.icon;
