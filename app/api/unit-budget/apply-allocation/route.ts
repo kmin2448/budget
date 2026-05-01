@@ -58,11 +58,22 @@ export async function POST(req: NextRequest) {
     const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
     const sheets = getSheetsClient();
 
-    // 집행내역 정리 M열 일괄 업데이트 (rowIndex = 실제 행 번호)
-    const writeData = validItems.map((item) => ({
-      range: `${EXEC_SHEET}!M${item.rowIndex}`,
-      values: [[item.after]],
-    }));
+    // 시트에서 L열 값을 직접 읽어 M열에 덮어쓰기
+    const lRanges = validItems.map((item) => `${EXEC_SHEET}!L${item.rowIndex}`);
+    const readRes = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: SPREADSHEET_ID,
+      ranges: lRanges,
+      valueRenderOption: 'UNFORMATTED_VALUE',
+    });
+    const lValues = readRes.data.valueRanges ?? [];
+
+    const writeData = validItems.map((item, idx) => {
+      const lVal = Number(lValues[idx]?.values?.[0]?.[0] ?? item.after);
+      return {
+        range: `${EXEC_SHEET}!M${item.rowIndex}`,
+        values: [[lVal]],
+      };
+    });
 
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
