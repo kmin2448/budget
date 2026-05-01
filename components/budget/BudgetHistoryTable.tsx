@@ -483,24 +483,24 @@ const PDF_ALL_PAGE: CSSProperties = {
   fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, "Malgun Gothic", sans-serif',
   boxSizing: 'border-box',
 };
-const PDF_TITLE_WRAP: CSSProperties  = { textAlign: 'center', marginBottom: 18, paddingBottom: 10, borderBottom: '2px solid #1F5C99' };
-const PDF_TITLE_MAIN: CSSProperties  = { display: 'block', fontSize: 17, fontWeight: 700, color: '#111827', letterSpacing: '-0.5px', marginBottom: 5 };
-const PDF_TITLE_DATE: CSSProperties  = { display: 'block', fontSize: 10, color: '#6b7280', fontWeight: 400 };
-const PDF_SEC_LABEL: CSSProperties   = { fontSize: 12, fontWeight: 700, color: '#1F5C99', borderBottom: '1.5px solid #1F5C99', paddingBottom: 4, marginBottom: 7 };
+const PDF_TITLE_WRAP: CSSProperties  = { textAlign: 'center', marginBottom: 18, paddingBottom: 10, borderBottom: '2px solid #374151' };
+const PDF_TITLE_MAIN: CSSProperties  = { display: 'block', fontSize: 26, fontWeight: 700, color: '#111827', letterSpacing: '-0.5px', marginBottom: 5, lineHeight: 1.4 };
+const PDF_TITLE_DATE: CSSProperties  = { display: 'block', fontSize: 10, color: '#6b7280', fontWeight: 400, lineHeight: 1.4 };
+const PDF_SEC_LABEL: CSSProperties   = { fontSize: 17, fontWeight: 700, color: '#374151', borderBottom: '1.5px solid #9ca3af', paddingBottom: 5, marginBottom: 14, lineHeight: 1.4 };
 const PDF_TABLE: CSSProperties       = { width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' };
 const PDF_TD: CSSProperties          = { padding: '5px 4px', fontSize: 8, lineHeight: 1.4, verticalAlign: 'middle', wordBreak: 'keep-all' };
 const PDF_TDR: CSSProperties         = { padding: '5px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', whiteSpace: 'nowrap' };
-const PDF_TFOOT_TD: CSSProperties    = { padding: '5px 4px', fontSize: 8.5, lineHeight: 1.4, verticalAlign: 'middle', background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700 };
-const PDF_TFOOT_TDR: CSSProperties   = { padding: '5px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700, whiteSpace: 'nowrap' };
+const PDF_TFOOT_TD: CSSProperties    = { padding: '5px 4px', fontSize: 8.5, lineHeight: 1.4, verticalAlign: 'middle', background: '#e5e7eb', borderTop: '2px solid #374151', fontWeight: 700 };
+const PDF_TFOOT_TDR: CSSProperties   = { padding: '5px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', background: '#e5e7eb', borderTop: '2px solid #374151', fontWeight: 700, whiteSpace: 'nowrap' };
 
 function pdfTh(w: string, right = false): CSSProperties {
-  return { padding: '5px 4px', background: '#1F5C99', color: '#ffffff', fontWeight: 600, fontSize: 8.5, textAlign: right ? 'right' : 'left', width: w, lineHeight: 1.3, verticalAlign: 'middle' };
+  return { padding: '5px 4px', background: '#4b5563', color: '#ffffff', fontWeight: 600, fontSize: 8.5, textAlign: right ? 'right' : 'left', width: w, lineHeight: 1.3, verticalAlign: 'middle' };
 }
 function pdfBgStyle(idx: number, hasAdj: boolean): CSSProperties {
-  return { background: hasAdj ? '#eff6ff' : idx % 2 === 0 ? '#ffffff' : '#f8fafc', borderBottom: '1px solid #f0f0f0' };
+  return { background: hasAdj ? '#f0f0f0' : idx % 2 === 0 ? '#ffffff' : '#f8fafc', borderBottom: '1px solid #e5e7eb' };
 }
 function pdfAdjStyle(v: number): CSSProperties {
-  return { padding: '5px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', whiteSpace: 'nowrap', fontWeight: v !== 0 ? 600 : 400, color: v > 0 ? '#1d4ed8' : v < 0 ? '#dc2626' : '#9ca3af' };
+  return { padding: '5px 4px', fontSize: 8.5, textAlign: 'right', lineHeight: 1.4, verticalAlign: 'middle', whiteSpace: 'nowrap', fontWeight: v !== 0 ? 600 : 400, color: v > 0 ? '#374151' : v < 0 ? '#6b7280' : '#9ca3af' };
 }
 function pdfAdjStr(v: number) { return v !== 0 ? `${v > 0 ? '+' : ''}${formatKRW(v)}` : '-'; }
 
@@ -550,7 +550,7 @@ function AllHistoryPdfPageContent({
       </div>
 
       {/* 섹션 레이블 */}
-      <div style={PDF_SEC_LABEL}>1. 통합</div>
+      <div style={PDF_SEC_LABEL}>■ 1. 통합</div>
 
       {hasDetail ? (
         /* 비목+세목+보조세목 통합 테이블 (BudgetPdfDownload Page1과 동일) */
@@ -574,12 +574,12 @@ function AllHistoryPdfPageContent({
                 const bg = pdfBgStyle(i, row.adjustment !== 0);
                 return (
                   <tr key={`${record.id}-${row.rowOffset}`}>
-                    <td style={{ ...PDF_TD, ...bg, fontWeight: 600, color: '#1F5C99' }}>
+                    <td style={{ ...PDF_TD, ...bg, fontWeight: 600, color: '#374151' }}>
                       {i === 0 && (
                         <>
                           <div>{category}</div>
                           {(catRow?.adjustment ?? 0) !== 0 && (
-                            <div style={{ fontSize: 7, color: (catRow?.adjustment ?? 0) > 0 ? '#1d4ed8' : '#dc2626' }}>
+                            <div style={{ fontSize: 7, color: (catRow?.adjustment ?? 0) > 0 ? '#374151' : '#6b7280' }}>
                               {(catRow?.adjustment ?? 0) > 0 ? '+' : ''}{formatKRW(catRow?.adjustment ?? 0)}
                             </div>
                           )}
@@ -594,7 +594,7 @@ function AllHistoryPdfPageContent({
                     <td style={{ ...PDF_TDR, ...bg }}>
                       {i === 0 && catRow ? formatKRW(catRow.executionComplete + catRow.executionPlanned) : ''}
                     </td>
-                    <td style={{ ...PDF_TDR, ...bg, color: i === 0 && (catRow?.balance ?? 0) < 0 ? '#dc2626' : '#374151' }}>
+                    <td style={{ ...PDF_TDR, ...bg, color: '#374151' }}>
                       {i === 0 && catRow ? formatKRW(catRow.balance) : ''}
                     </td>
                   </tr>
@@ -606,10 +606,10 @@ function AllHistoryPdfPageContent({
             <tr>
               <td colSpan={3} style={PDF_TFOOT_TD}>합계</td>
               <td style={PDF_TFOOT_TDR}>{formatKRW(totalBefore)}</td>
-              <td style={{ ...pdfAdjStyle(totalAdj), background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700 }}>{pdfAdjStr(totalAdj)}</td>
+              <td style={{ ...pdfAdjStyle(totalAdj), background: '#e5e7eb', borderTop: '2px solid #374151', fontWeight: 700 }}>{pdfAdjStr(totalAdj)}</td>
               <td style={PDF_TFOOT_TDR}>{formatKRW(totalAfter)}</td>
               <td style={PDF_TFOOT_TDR}>{formatKRW(totalExec)}</td>
-              <td style={{ ...PDF_TFOOT_TDR, color: totalBal < 0 ? '#dc2626' : '#374151' }}>{formatKRW(totalBal)}</td>
+              <td style={PDF_TFOOT_TDR}>{formatKRW(totalBal)}</td>
             </tr>
           </tfoot>
         </table>
@@ -631,12 +631,12 @@ function AllHistoryPdfPageContent({
               const bg = pdfBgStyle(i, row.adjustment !== 0);
               return (
                 <tr key={row.category}>
-                  <td style={{ ...PDF_TD, ...bg, fontWeight: 500, color: '#1F5C99' }}>{row.category}</td>
+                  <td style={{ ...PDF_TD, ...bg, fontWeight: 500, color: '#374151' }}>{row.category}</td>
                   <td style={{ ...PDF_TDR, ...bg, color: '#374151' }}>{formatKRW(row.allocation)}</td>
                   <td style={{ ...pdfAdjStyle(row.adjustment), ...bg }}>{pdfAdjStr(row.adjustment)}</td>
                   <td style={{ ...PDF_TDR, ...bg, fontWeight: 600, color: '#111827' }}>{formatKRW(row.afterAllocation)}</td>
                   <td style={{ ...PDF_TDR, ...bg }}>{formatKRW(row.executionComplete + row.executionPlanned)}</td>
-                  <td style={{ ...PDF_TDR, ...bg, color: row.balance < 0 ? '#dc2626' : '#374151' }}>{formatKRW(row.balance)}</td>
+                  <td style={{ ...PDF_TDR, ...bg, color: '#374151' }}>{formatKRW(row.balance)}</td>
                 </tr>
               );
             })}
@@ -645,10 +645,10 @@ function AllHistoryPdfPageContent({
             <tr>
               <td style={PDF_TFOOT_TD}>합계</td>
               <td style={PDF_TFOOT_TDR}>{formatKRW(totalBefore)}</td>
-              <td style={{ ...pdfAdjStyle(totalAdj), background: '#f1f5f9', borderTop: '2px solid #374151', fontWeight: 700 }}>{pdfAdjStr(totalAdj)}</td>
+              <td style={{ ...pdfAdjStyle(totalAdj), background: '#e5e7eb', borderTop: '2px solid #374151', fontWeight: 700 }}>{pdfAdjStr(totalAdj)}</td>
               <td style={PDF_TFOOT_TDR}>{formatKRW(totalAfter)}</td>
               <td style={PDF_TFOOT_TDR}>{formatKRW(totalExec)}</td>
-              <td style={{ ...PDF_TFOOT_TDR, color: totalBal < 0 ? '#dc2626' : '#374151' }}>{formatKRW(totalBal)}</td>
+              <td style={PDF_TFOOT_TDR}>{formatKRW(totalBal)}</td>
             </tr>
           </tfoot>
         </table>
