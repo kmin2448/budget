@@ -232,7 +232,7 @@ function RecordCard({
             <button
               onClick={() => void handleDownloadPdf()}
               disabled={pdfLoading || items.length === 0}
-              className="flex items-center gap-1 rounded border border-[#E3E3E0] bg-white px-2 py-1 text-xs text-text-secondary hover:border-primary hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 rounded-[2px] border border-[#E3E3E0] bg-white px-2 py-1 text-xs text-text-secondary hover:border-primary hover:text-primary transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <FileDown className="h-3 w-3" />
               {pdfLoading ? '생성 중…' : 'PDF'}
@@ -240,7 +240,7 @@ function RecordCard({
             {canDelete && (
               <button
                 onClick={() => setConfirmOpen(true)}
-                className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                className="rounded-[2px] p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
                 title="이력 삭제"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -496,7 +496,7 @@ export function UnitBudgetHistoryTable({ records, canDelete, onDelete }: Props) 
 
   if (adjRecords.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-gray-300 py-12 text-center">
+      <div className="rounded-[2px] border border-dashed border-gray-300 py-12 text-center">
         <History className="mx-auto mb-3 h-8 w-8 text-gray-300" />
         <p className="text-sm text-gray-500">아직 증감액 확정 이력이 없습니다.</p>
         <p className="mt-1 text-xs text-gray-400">증감액 확정 버튼을 사용하면 이력이 기록됩니다.</p>

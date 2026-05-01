@@ -210,7 +210,7 @@ export default function UnitBudgetPage() {
         </div>
         <button
           onClick={() => { void refetch(); setAllocationDiffs([]); setAllocPreviewShown(false); }}
-          className="flex items-center gap-1.5 rounded-lg border border-divider bg-white px-3 py-1.5 text-sm text-text-secondary hover:bg-divider transition-colors"
+          className="flex items-center gap-1.5 rounded-[2px] border border-divider bg-white px-3 py-1.5 text-sm text-text-secondary hover:bg-divider transition-colors"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           새로고침
@@ -241,13 +241,13 @@ export default function UnitBudgetPage() {
 
       {/* 알림 메시지 */}
       {successMsg && (
-        <div className="flex items-start gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="flex items-start gap-2 rounded-[2px] border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {successMsg}
         </div>
       )}
       {errorMsg && (
-        <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <div className="flex items-start gap-2 rounded-[2px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           {errorMsg}
         </div>
@@ -273,7 +273,7 @@ export default function UnitBudgetPage() {
             <button
               onClick={() => setAdjConfirmOpen(true)}
               disabled={!hasAdjustments || isPending}
-              className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-[2px] bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-light transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {adjust.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               증감액 확정
@@ -287,7 +287,7 @@ export default function UnitBudgetPage() {
             <button
               onClick={handlePreviewAllocation}
               disabled={!dataReady || isPending}
-              className="flex items-center gap-1.5 rounded-lg border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-[2px] border border-primary bg-white px-4 py-2 text-sm font-semibold text-primary hover:bg-primary-bg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               계획금액 → 편성액(공식)
             </button>
@@ -296,7 +296,7 @@ export default function UnitBudgetPage() {
             <button
               onClick={() => setAllocConfirmOpen(true)}
               disabled={!allocPreviewShown || allocationDiffs.length === 0 || isPending}
-              className="flex items-center gap-1.5 rounded-lg border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-[2px] border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {applyAlloc.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               편성액(공식) 확정
@@ -308,7 +308,7 @@ export default function UnitBudgetPage() {
                 <span className="text-divider">|</span>
                 <button
                   onClick={resetAdjustments}
-                  className="flex items-center gap-1.5 rounded-lg border border-divider bg-white px-3 py-2 text-sm text-text-secondary hover:bg-divider transition-colors"
+                  className="flex items-center gap-1.5 rounded-[2px] border border-divider bg-white px-3 py-2 text-sm text-text-secondary hover:bg-divider transition-colors"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   증감 초기화
@@ -324,11 +324,11 @@ export default function UnitBudgetPage() {
               데이터를 불러오는 중…
             </div>
           ) : error ? (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="rounded-[2px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
               {error instanceof Error ? error.message : '데이터 로드 실패'}
             </div>
           ) : unitTasks.length === 0 ? (
-            <div className="rounded-lg border border-divider bg-white px-4 py-8 text-center text-sm text-text-secondary">
+            <div className="rounded-[2px] border border-divider bg-white px-4 py-8 text-center text-sm text-text-secondary">
               단위과제 데이터가 없습니다.
             </div>
           ) : (

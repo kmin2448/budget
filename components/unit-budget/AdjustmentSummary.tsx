@@ -154,7 +154,7 @@ export function AdjustmentSummary({ unitTasks, adjustments }: Props) {
       <h3 className="text-sm font-semibold text-[#131310]">변경 내역 요약</h3>
 
       {/* Section 1: 단위과제-프로그램 간 변경 내역 */}
-      <div className="overflow-hidden rounded-lg border border-divider bg-white">
+      <div className="overflow-hidden rounded-[2px] border border-divider bg-white">
         <div className="border-b border-divider bg-[#F8FAFC] px-4 py-2.5">
           <p className="text-xs font-semibold text-text-secondary">단위과제 · 프로그램 간 변경 내역</p>
         </div>
@@ -221,7 +221,7 @@ export function AdjustmentSummary({ unitTasks, adjustments }: Props) {
       </div>
 
       {/* Section 2: 비목별 변경내역 */}
-      <div className="overflow-hidden rounded-lg border border-divider bg-white">
+      <div className="overflow-hidden rounded-[2px] border border-divider bg-white">
         <div className="border-b border-divider bg-[#F8FAFC] px-4 py-2.5">
           <p className="text-xs font-semibold text-text-secondary">비목별 변경 내역</p>
         </div>
@@ -261,7 +261,7 @@ export function AdjustmentSummary({ unitTasks, adjustments }: Props) {
       </div>
 
       {/* Section 3: 세목&보조세목 간 변경 내역 (비목 열 없음) */}
-      <div className="overflow-hidden rounded-lg border border-divider bg-white">
+      <div className="overflow-hidden rounded-[2px] border border-divider bg-white">
         <div className="border-b border-divider bg-[#F8FAFC] px-4 py-2.5">
           <p className="text-xs font-semibold text-text-secondary">세목 · 보조세목 간 변경 내역</p>
         </div>

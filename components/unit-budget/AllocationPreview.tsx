@@ -37,7 +37,7 @@ export function AllocationPreview({ diffs }: Props) {
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border border-amber-200 bg-white">
+    <div className="overflow-hidden rounded-[2px] border border-amber-200 bg-white">
       <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5">
         <p className="text-xs font-semibold text-amber-700">
           배정금액 변경 미리보기

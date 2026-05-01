@@ -282,7 +282,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
         onClick={() => setIsOpen((v) => !v)}
         className={cn(
           'absolute -left-10 top-1/2 -translate-y-1/2',
-          'flex flex-col items-center gap-1.5 rounded-l-lg',
+          'flex flex-col items-center gap-1.5 rounded-l-[2px]',
           'border border-r-0 border-divider bg-white px-2.5 py-4',
           'shadow-md hover:bg-primary-bg transition-colors',
           changeCount > 0 && 'border-l-primary/40',
@@ -317,7 +317,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
               onClick={handleDownloadPdf}
               disabled={changeCount === 0}
               title="PDF로 저장"
-              className="flex items-center gap-1 rounded px-2 py-1 text-xs text-text-secondary hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 rounded-[2px] px-2 py-1 text-xs text-text-secondary hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <FileText className="h-3.5 w-3.5" />
               PDF
@@ -326,7 +326,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
               onClick={handleDownloadExcel}
               disabled={changeCount === 0}
               title="엑셀로 저장"
-              className="flex items-center gap-1 rounded px-2 py-1 text-xs text-text-secondary hover:bg-green-50 hover:text-green-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex items-center gap-1 rounded-[2px] px-2 py-1 text-xs text-text-secondary hover:bg-green-50 hover:text-green-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <FileSpreadsheet className="h-3.5 w-3.5" />
               Excel
@@ -354,7 +354,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                   <p className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
                     단위과제 · 프로그램 간 변경 내역
                   </p>
-                  <div className="overflow-x-auto rounded-[4px] border border-divider">
+                  <div className="overflow-x-auto rounded-[2px] border border-divider">
                     <table className="w-full text-xs table-fixed">
                       <thead>
                         <tr className="border-b border-divider bg-[#F8FAFC]">
@@ -403,7 +403,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                   <p className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
                     비목별 변경 내역
                   </p>
-                  <div className="overflow-x-auto rounded-[4px] border border-divider">
+                  <div className="overflow-x-auto rounded-[2px] border border-divider">
                     <table className="w-full text-xs table-fixed">
                       <thead>
                         <tr className="border-b border-divider bg-[#F8FAFC]">
@@ -438,7 +438,7 @@ export function AdjustmentSidePanel({ unitTasks, adjustments }: Props) {
                   <p className="text-xs font-semibold text-text-secondary flex items-center gap-1.5">
                     세목 · 보조세목 간 변경 내역
                   </p>
-                  <div className="overflow-x-auto rounded-[4px] border border-divider">
+                  <div className="overflow-x-auto rounded-[2px] border border-divider">
                     <table className="w-full text-xs table-fixed">
                       <thead>
                         <tr className="border-b border-divider bg-[#F8FAFC]">

@@ -142,7 +142,7 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange, pe
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="프로그램명, 비목, 세목으로 검색..."
-            className="w-full rounded-lg border border-divider bg-white pl-9 pr-8 py-2 text-sm placeholder:text-text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
+            className="w-full rounded-[2px] border border-divider bg-white pl-9 pr-8 py-2 text-sm placeholder:text-text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-colors"
           />
           {isSearching && (
             <button
@@ -163,7 +163,7 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange, pe
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-divider bg-white">
+      <div className="overflow-x-auto rounded-[2px] border border-divider bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-divider bg-[#F8FAFC]">
@@ -220,7 +220,7 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange, pe
                               : `(${allRows.length}개 항목)`}
                           </span>
                           {mismatchCount > 0 && (
-                            <span className="ml-1 inline-flex items-center gap-0.5 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
+                            <span className="ml-1 inline-flex items-center gap-0.5 rounded-[2px] bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600">
                               <AlertTriangle className="h-2.5 w-2.5" />
                               {mismatchCount}건 불일치
                             </span>
@@ -293,7 +293,7 @@ export function UnitBudgetTable({ unitTasks, adjustments, onAdjustmentChange, pe
                                 onChange={(val) => handleChange(row.rowIndex, val)}
                                 allowNegative={true}
                                 className={cn(
-                                  'w-full text-right tabular-nums text-sm rounded px-1.5 py-0.5 transition-colors',
+                                  'w-full text-right tabular-nums text-sm rounded-[2px]px-1.5 py-0.5 transition-colors',
                                   'border border-transparent bg-transparent',
                                   'hover:border-divider hover:bg-white',
                                   'focus:border-primary focus:bg-white focus:outline-none',
