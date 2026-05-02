@@ -64,7 +64,7 @@ function UserSection({ collapsed, onClose }: { collapsed?: boolean; onClose?: ()
   return (
     <div className="border-t border-divider px-3 py-3">
       {isExpanded && isSuperAdmin && (
-        <p className="mb-1 text-right text-[7px] text-gray-400">
+        <p className="mb-1 text-center text-[9px] text-gray-400">
           v{APP_VERSION}
         </p>
       )}

@@ -747,7 +747,16 @@ export function InvoiceBatchUploader({
           {/* 업로드 결과 */}
           {results.length > 0 && (
             <div className="mt-4 border-t pt-4">
-              <h3 className="text-sm font-semibold mb-2">업로드 결과</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold">업로드 결과</h3>
+                <button
+                  type="button"
+                  onClick={() => setResults([])}
+                  className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  지우기
+                </button>
+              </div>
               <ul className="space-y-2 max-h-60 overflow-y-auto">
                 {results.map((res, i) => (
                   <li
