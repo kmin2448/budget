@@ -24,22 +24,24 @@ interface MatchCandidate {
   category: string;
   rowIndex: number;
   description: string;
-  score: number;
+  programName: string;
+  sourceMonthIndex: number;
 }
 
 export interface FileItem {
   file: File;
   parsing: boolean;
-  // 확정된 매칭 정보 (자동 or 수동 선택 후)
+  // 확정된 매칭 정보
   category?: string;
   matchedRowIndex?: number;
   matchedDesc?: string;
   expenseDate?: string;
-  sourceMonthIndex?: number; // 금액이 현재 위치한 월 인덱스 (I~T열, 0=3월)
-  fileAmount?: number;       // 매칭된 금액
+  sourceMonthIndex?: number;
+  fileAmount?: number;
+  vendor?: string;
   // 매칭 결과
-  autoMatched?: boolean;         // true: 금액 일치 자동 매칭
-  candidates?: MatchCandidate[]; // false: 후보군 선택 필요
+  autoMatched?: boolean;
+  candidates?: MatchCandidate[];
   error?: string;
 }
 
@@ -92,12 +94,13 @@ export function InvoiceBatchUploader({
                 ...item,
                 parsing: false,
                 autoMatched: true,
-                expenseDate: r.expenseDate,
-                category: r.matched.category,
-                matchedRowIndex: r.matched.rowIndex,
-                matchedDesc: r.matched.description,
-                sourceMonthIndex: r.matched.sourceMonthIndex ?? -1,
-                fileAmount: r.fileAmount,
+                expenseDate: r.expenseDate as string | undefined,
+                vendor: r.vendor as string | undefined,
+                category: r.matched.category as string,
+                matchedRowIndex: r.matched.rowIndex as number,
+                matchedDesc: r.matched.description as string,
+                sourceMonthIndex: (r.matched.sourceMonthIndex as number) ?? -1,
+                fileAmount: r.fileAmount as number | undefined,
               };
             } else if (r.status === 'candidates' && Array.isArray(r.candidates) && r.candidates.length > 0) {
               const first = r.candidates[0] as MatchCandidate;
@@ -105,11 +108,14 @@ export function InvoiceBatchUploader({
                 ...item,
                 parsing: false,
                 autoMatched: false,
-                expenseDate: r.expenseDate,
+                expenseDate: r.expenseDate as string | undefined,
+                vendor: r.vendor as string | undefined,
+                fileAmount: r.fileAmount as number | undefined,
                 candidates: r.candidates as MatchCandidate[],
                 category: first.category,
                 matchedRowIndex: first.rowIndex,
                 matchedDesc: first.description,
+                sourceMonthIndex: first.sourceMonthIndex,
               };
             } else {
               return {
@@ -117,13 +123,16 @@ export function InvoiceBatchUploader({
                 parsing: false,
                 autoMatched: false,
                 candidates: [],
-                error: r.error || '금액이 일치하는 항목 없음. 수동 매칭이 필요합니다.',
+                expenseDate: r.expenseDate as string | undefined,
+                vendor: r.vendor as string | undefined,
+                fileAmount: r.fileAmount as number | undefined,
+                error: (r.error as string) || '금액이 일치하는 항목 없음. 수동 매칭이 필요합니다.',
               };
             }
           }),
         );
       } else {
-        const msg = data.error || `서버 에러 (${res.status})`;
+        const msg = (data.error as string) || `서버 에러 (${res.status})`;
         setFileItems((prev) =>
           prev.map((item) => ({ ...item, parsing: false, error: msg })),
         );
@@ -140,7 +149,6 @@ export function InvoiceBatchUploader({
 
   async function openManualMatch(fileIndex: number) {
     const defaultCat = currentCategory || '';
-    // 파일에서 파싱된 집행일자를 기본값으로 사용
     const defaultDate = fileItems[fileIndex]?.expenseDate ?? '';
     setManualUI((prev) => ({
       ...prev,
@@ -166,8 +174,8 @@ export function InvoiceBatchUploader({
     }));
     try {
       const res = await fetch(`/api/sheets/expenditure-rows?category=${encodeURIComponent(category)}`);
-      const data = await res.json();
-      const rows: ManualMatchState['rows'] = data.rows ?? [];
+      const data = await res.json() as { rows?: ManualMatchState['rows'] };
+      const rows = data.rows ?? [];
       setManualUI((prev) => ({
         ...prev,
         [fileIndex]: {
@@ -231,13 +239,19 @@ export function InvoiceBatchUploader({
     closeManualMatch(index);
   };
 
-  // 후보군 드롭다운 변경
+  // 후보군 드롭다운 변경 (index 기반, sourceMonthIndex 포함)
   const handleCandidateSelect = (
-    index: number, category: string, rowIndex: number, description: string,
+    fileIndex: number,
+    category: string,
+    rowIndex: number,
+    description: string,
+    sourceMonthIndex: number,
   ) => {
     setFileItems((prev) =>
       prev.map((item, i) =>
-        i === index ? { ...item, category, matchedRowIndex: rowIndex, matchedDesc: description } : item,
+        i === fileIndex
+          ? { ...item, category, matchedRowIndex: rowIndex, matchedDesc: description, sourceMonthIndex }
+          : item,
       ),
     );
   };
@@ -249,7 +263,13 @@ export function InvoiceBatchUploader({
     setResults([]);
 
     const formData = new FormData();
-    const payloadInfo: Record<string, { category: string; rowIndex: number; expenseDate?: string; sourceMonthIndex?: number; fileAmount?: number }> = {};
+    const payloadInfo: Record<string, {
+      category: string;
+      rowIndex: number;
+      expenseDate?: string;
+      sourceMonthIndex?: number;
+      fileAmount?: number;
+    }> = {};
     let validCount = 0;
 
     fileItems.forEach((item) => {
@@ -276,7 +296,7 @@ export function InvoiceBatchUploader({
 
     try {
       const res = await fetch('/api/drive/invoice-batch-upload', { method: 'POST', body: formData });
-      const data = await res.json();
+      const data = await res.json() as { results?: BatchUploadResult[]; error?: string };
       if (res.ok) {
         setResults(data.results ?? []);
         if (onUploadComplete) onUploadComplete();
@@ -291,7 +311,6 @@ export function InvoiceBatchUploader({
     }
   };
 
-  // ── 파일 아이템 상태 분류 ────────────────────────────────────────────
   const hasUploadable = fileItems.some((f) => !f.parsing && !f.error && f.category && f.matchedRowIndex !== undefined);
 
   // ── 수동 매칭 UI 렌더 ────────────────────────────────────────────────
@@ -306,7 +325,6 @@ export function InvoiceBatchUploader({
       >
         <p className="font-medium text-gray-700">수동 매칭 — 비목과 지출 행을 직접 선택하세요</p>
 
-        {/* 비목 선택 */}
         <select
           value={ui.category}
           onChange={(e) => fetchManualRows(fileIndex, e.target.value)}
@@ -318,7 +336,6 @@ export function InvoiceBatchUploader({
           ))}
         </select>
 
-        {/* 행 선택 */}
         {ui.loading ? (
           <div className="flex items-center gap-1 text-gray-400">
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -342,12 +359,11 @@ export function InvoiceBatchUploader({
             ))}
           </select>
         ) : ui.category ? (
-          <span className="text-gray-400">해당 비목에 행이 없습니다.</span>
+          <span className="text-gray-400">청구서 미연결 행이 없습니다.</span>
         ) : null}
 
-        {/* 집행일자 (선택) */}
         <div className="space-y-0.5">
-          <label className="text-xs text-gray-500">집행일자 (yymmdd, 수정 가능)</label>
+          <label className="text-xs text-gray-500">집행일자 (yymmdd)</label>
           <input
             type="text"
             placeholder="예: 260415"
@@ -363,7 +379,6 @@ export function InvoiceBatchUploader({
           />
         </div>
 
-        {/* 확인 / 취소 */}
         <div className="flex justify-end gap-1">
           <button
             onClick={() => closeManualMatch(fileIndex)}
@@ -395,7 +410,9 @@ export function InvoiceBatchUploader({
             <span className="text-primary shrink-0">■</span>
             다중 청구서 매칭 및 업로드
           </h2>
-          <span className="text-xs text-gray-400 whitespace-nowrap">PDF를 올리면 집행금액 기준으로 시트 행에 자동 연결합니다. 금액 불일치 시 후보군에서 직접 선택합니다.</span>
+          <span className="text-xs text-gray-400 whitespace-nowrap">
+            파일명 분석으로 집행 건과 금액 매칭합니다. 형식: (yymmdd)건명_집행처_(금액).pdf
+          </span>
         </div>
         {isOpen ? <ChevronUp className="h-5 w-5 text-gray-500" /> : <ChevronDown className="h-5 w-5 text-gray-500" />}
       </div>
@@ -414,7 +431,7 @@ export function InvoiceBatchUploader({
           >
             <UploadCloud className="h-8 w-8 text-gray-400 mb-2" />
             <p className="text-sm font-medium text-gray-700">클릭하거나 PDF 파일을 이곳으로 드래그</p>
-            <p className="text-xs text-gray-500 mt-1">파일명 형식 무관 — 내용에서 자동 파싱 후 금액 매칭</p>
+            <p className="text-xs text-gray-500 mt-1">파일명: (yymmdd)건명_집행처_(금액).pdf — 금액 기준 자동 매칭</p>
             <input
               type="file" multiple accept="application/pdf" ref={inputRef}
               className="hidden" onChange={handleFileChange} value=""
@@ -440,7 +457,8 @@ export function InvoiceBatchUploader({
               <ul className="max-h-[32rem] overflow-y-auto space-y-2 pr-1">
                 {fileItems.map((item, i) => {
                   const isManualOpen = !!manualUI[i];
-                  const isManuallyMatched = !item.error && !item.autoMatched && item.category && item.matchedRowIndex !== undefined && (!item.candidates || item.candidates.length === 0);
+                  const hasMultipleCandidates = !item.error && !item.autoMatched && item.candidates && item.candidates.length > 0;
+                  const isManuallyMatched = !item.error && !item.autoMatched && item.category && item.matchedRowIndex !== undefined && !hasMultipleCandidates;
 
                   return (
                     <li
@@ -479,10 +497,13 @@ export function InvoiceBatchUploader({
                           <span className="text-xs text-gray-500 mt-1 pl-5">시트에서 매칭 중…</span>
                         )}
 
-                        {/* 오류 + 수동 매칭 버튼 */}
+                        {/* 오류 + 수동 매칭 */}
                         {!item.parsing && item.error && (
                           <div className="mt-1 pl-5 space-y-1">
                             <span className="text-xs text-red-600">{item.error}</span>
+                            {item.vendor && (
+                              <p className="text-xs text-gray-500">집행처(파일명): {item.vendor}</p>
+                            )}
                             {!isManualOpen ? (
                               <button
                                 type="button"
@@ -512,7 +533,9 @@ export function InvoiceBatchUploader({
                             {item.expenseDate && (
                               <p className="text-blue-600">집행일자: {item.expenseDate}</p>
                             )}
-                            {/* 자동 매칭도 수동 재매칭 가능 */}
+                            {item.vendor && (
+                              <p className="text-gray-500">집행처(파일명): {item.vendor}</p>
+                            )}
                             {!isManualOpen && (
                               <button
                                 type="button"
@@ -555,33 +578,40 @@ export function InvoiceBatchUploader({
                           </div>
                         )}
 
-                        {/* 후보군 선택 (금액 불일치) */}
-                        {!item.parsing && !item.error && !item.autoMatched && item.candidates && item.candidates.length > 0 && (
+                        {/* 후보군 선택 (금액 일치 건이 여러 개) */}
+                        {!item.parsing && !item.error && hasMultipleCandidates && (
                           <div className="mt-1 pl-5 text-xs space-y-1">
                             <span className="inline-block bg-amber-100 text-amber-800 rounded px-1.5 py-0.5 font-medium">
-                              금액 불일치 — 항목을 직접 선택하세요
+                              금액 일치 건이 여러 개입니다 — 해당 건을 선택하세요
                             </span>
                             {item.expenseDate && (
                               <p className="text-blue-600">집행일자: {item.expenseDate}</p>
                             )}
+                            {item.vendor && (
+                              <p className="text-gray-500">집행처(파일명): {item.vendor}</p>
+                            )}
                             <select
                               className="w-full border border-amber-300 p-1.5 rounded bg-white text-gray-800 text-xs focus:ring-2 focus:ring-amber-400 outline-none"
-                              value={`${item.category}|${item.matchedRowIndex}|${item.matchedDesc}`}
+                              value={String(
+                                Math.max(
+                                  0,
+                                  item.candidates!.findIndex(
+                                    (c) => c.rowIndex === item.matchedRowIndex && c.category === item.category,
+                                  ),
+                                ),
+                              )}
                               onChange={(e) => {
-                                const [c, r, d] = e.target.value.split('|');
-                                handleCandidateSelect(i, c, Number(r), d);
+                                const idx = Number(e.target.value);
+                                const c = item.candidates![idx];
+                                handleCandidateSelect(i, c.category, c.rowIndex, c.description, c.sourceMonthIndex);
                               }}
                             >
-                              {item.candidates.map((c) => (
-                                <option
-                                  key={`${c.category}-${c.rowIndex}`}
-                                  value={`${c.category}|${c.rowIndex}|${c.description}`}
-                                >
-                                  [{c.category}] {c.description} (행 {c.rowIndex}, 유사도 {c.score}%)
+                              {item.candidates!.map((c, ci) => (
+                                <option key={`${c.category}-${c.rowIndex}`} value={String(ci)}>
+                                  [{c.category}]{c.programName ? ` [${c.programName}]` : ''} {c.description} (행 {c.rowIndex})
                                 </option>
                               ))}
                             </select>
-                            {/* 후보군에 없는 경우 수동 매칭으로 전환 */}
                             {!isManualOpen ? (
                               <button
                                 type="button"

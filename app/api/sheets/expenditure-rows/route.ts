@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getSheetsClient } from '@/lib/google/sheets';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { CATEGORY_SHEETS, CATEGORY_DATA_START_ROW, CATEGORY_DATA_END_ROW_MAP } from '@/constants/sheets';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
     const sheets = getSheetsClient();
     const isPersonnel = category === '인건비';
     const endRow = CATEGORY_DATA_END_ROW_MAP[category as keyof typeof CATEGORY_DATA_END_ROW_MAP];
-    const endCol = isPersonnel ? 'M' : 'H'; // 수동 매칭용: 건명까지만
+    const endCol = isPersonnel ? 'M' : 'H';
     const range = `'${category}'!A${CATEGORY_DATA_START_ROW}:${endCol}${endRow}`;
 
     const res = await sheets.spreadsheets.values.get({
@@ -31,6 +32,17 @@ export async function GET(req: NextRequest) {
       range,
       valueRenderOption: 'FORMATTED_VALUE',
     });
+
+    // 이미 파일이 연결된 행 조회 → 수동 매칭 목록에서 제외
+    const supabase = createServerSupabaseClient();
+    const { data: uploadedFiles } = await supabase
+      .from('expenditure_files')
+      .select('row_index')
+      .eq('sheet_name', category);
+
+    const uploadedRowIndices = new Set(
+      (uploadedFiles ?? []).map((f: { row_index: number }) => f.row_index),
+    );
 
     const rows = (res.data.values ?? [])
       .map((row, idx) => ({
@@ -40,7 +52,7 @@ export async function GET(req: NextRequest) {
           ? String(row[0] ?? '').trim()
           : String(row[2] ?? '').trim(),
       }))
-      .filter((r) => r.description || r.programName);
+      .filter((r) => (r.description || r.programName) && !uploadedRowIndices.has(r.rowIndex));
 
     return NextResponse.json({ rows });
   } catch (err) {

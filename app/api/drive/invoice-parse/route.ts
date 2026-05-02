@@ -3,12 +3,11 @@ import { auth } from '@/lib/auth';
 import { checkPermission } from '@/lib/permissions';
 import { PERMISSIONS } from '@/types';
 import { getSheetsClient } from '@/lib/google/sheets';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { CATEGORY_SHEETS, CATEGORY_DATA_START_ROW, CATEGORY_DATA_END_ROW_MAP } from '@/constants/sheets';
-import { parseInvoicePdf } from '@/lib/pdf-invoice-parser';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID!;
 
-// ── 타입 ──────────────────────────────────────────────────────────────
 interface ExpRow {
   category: string;
   rowIndex: number;
@@ -22,20 +21,53 @@ interface MatchCandidate {
   category: string;
   rowIndex: number;
   description: string;
-  score: number;
-  sourceMonthIndex: number; // 금액이 현재 위치한 월 인덱스 (-1: 합계 매칭 또는 미확인)
+  programName: string;
+  sourceMonthIndex: number;
 }
 
-// ── 설명 유사도 (0~100) ───────────────────────────────────────────────
-function descScore(target: string, exp: string): number {
-  if (!target || !exp) return 0;
-  if (exp.includes(target) || target.includes(exp)) return 100;
-  const tg = target.replace(/\s/g, '');
-  const ex = exp.replace(/\s/g, '');
-  let hit = 0;
-  const exSet = new Set(ex);
-  new Set(tg).forEach((c) => { if (exSet.has(c)) hit++; });
-  return Math.floor((hit / Math.max(tg.length, ex.length)) * 100);
+// 파일명 파싱: (yymmdd)건명_집행처_(금액).pdf
+// 공백/하이픈도 구분자로 허용 (유연한 정규화)
+function parseInvoiceFilename(fileName: string): {
+  date: string;
+  description: string;
+  vendor: string;
+  amount: number;
+} | null {
+  const name = fileName.trim();
+
+  // 전체 형식: (yymmdd)건명_집행처_(금액).pdf
+  // (.+) greedy → 마지막 [_-]집행처[_-] 패턴을 기준으로 분리
+  const fullMatch = name.match(
+    /^\(\s*(\d{6})\s*\)\s*(.+)[_\s-]([^_\s-]+)[_\s-]\(\s*([\d,]+)\s*\)\.pdf$/i,
+  );
+
+  if (fullMatch) {
+    return {
+      date: fullMatch[1].trim(),
+      description: fullMatch[2].trim().replace(/[_\-\s]+$/, ''),
+      vendor: fullMatch[3].trim(),
+      amount: Number(fullMatch[4].replace(/,/g, '')),
+    };
+  }
+
+  // Fallback: 날짜 + 금액만 추출 (집행처 구분자 없는 경우)
+  const dateM = name.match(/^\((\d{2,8})\)/);
+  const amtM  = name.match(/\(([\d,]+)\)\.pdf$/i);
+
+  if (dateM && amtM) {
+    const middle = name
+      .replace(/^\(\d{2,8}\)\s*/, '')
+      .replace(/\s*\([\d,]+\)\.pdf$/i, '')
+      .trim();
+    return {
+      date: dateM[1].trim(),
+      description: middle,
+      vendor: '',
+      amount: Number(amtM[1].replace(/,/g, '')),
+    };
+  }
+
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -58,7 +90,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '파일이 없습니다.' }, { status: 400 });
     }
 
-    // ── 1. 구글 시트에서 집행내역 로드 ───────────────────────────────
+    // ── 1. Google Sheets 집행내역 로드 ───────────────────────────────
     const sheets = getSheetsClient();
     const targetCategories: readonly string[] =
       currentCategory && (CATEGORY_SHEETS as readonly string[]).includes(currentCategory)
@@ -104,87 +136,58 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    // ── 3. 파일별 매칭 ───────────────────────────────────────────────
+    // ── 3. 이미 파일이 연결된 행 조회 → 매칭 제외 ───────────────────
+    const supabase = createServerSupabaseClient();
+    const { data: uploadedFiles } = await supabase
+      .from('expenditure_files')
+      .select('sheet_name, row_index');
+
+    const uploadedSet = new Set(
+      (uploadedFiles ?? []).map(
+        (f: { sheet_name: string; row_index: number }) => `${f.sheet_name}:${f.row_index}`,
+      ),
+    );
+
+    const availableRows = expRows.filter(
+      (r) => !uploadedSet.has(`${r.category}:${r.rowIndex}`),
+    );
+
+    // ── 4. 파일별 파싱 및 금액 기반 매칭 ────────────────────────────
     const results = [];
 
     for (const file of files) {
       const fileName = file.name;
+      const parsed = parseInvoiceFilename(fileName);
 
-      // ── 1단계: 파일명 파싱 ────────────────────────────────────────────
-      // 지원 형식:
-      //   신) (yymmdd) 건명 (거래처(성명))(금액).pdf
-      //   구) (yymmdd) 건명_거래처_(금액).pdf
-      const dateMatch   = fileName.match(/^\((\d{2,8})\)/);
-      const amountMatch = fileName.match(/\(([\d,]+)\)\.pdf$/i);
-
-      let expenseDateRaw: string;
-      let fileAmount: number;
-      let targetDesc: string;
-
-      if (dateMatch && amountMatch) {
-        // 파일명 형식이 맞으면 파일명에서 추출
-        expenseDateRaw = dateMatch[1].trim();
-        fileAmount     = Number(amountMatch[1].replace(/,/g, ''));
-
-        const inner = fileName
-          .replace(/^\(\d{2,8}\)\s*/, '')
-          .replace(/\s*\([\d,]+\)\.pdf$/i, '')
-          .replace(/\s*\([^)]{1,30}\)\s*$/, '')
-          .replace(/[\s_]+[^\s_]{2,20}[_\s]*$/, '')
-          .trim();
-        targetDesc = inner || fileName.replace(/\.pdf$/i, '');
-      } else {
-        // ── 2단계: PDF 내용 파싱으로 fallback ──────────────────────────
-        try {
-          const arrayBuf = await file.arrayBuffer();
-          const buf = Buffer.from(arrayBuf);
-          const parsed = await parseInvoicePdf(buf);
-
-          if (parsed.amountStr === '금액미상') {
-            results.push({
-              originalName: fileName,
-              status: 'error',
-              error: `PDF 내용에서 금액을 인식하지 못했습니다. 파일명 형식(날짜)(금액).pdf으로도 확인해 주세요.`,
-            });
-            continue;
-          }
-
-          expenseDateRaw = parsed.dateStr !== '일자미상' ? parsed.dateStr : '';
-          fileAmount     = Number(parsed.amountStr.replace(/,/g, ''));
-          targetDesc     = parsed.descStr !== '건명미상' ? parsed.descStr : fileName.replace(/\.pdf$/i, '');
-        } catch {
-          results.push({
-            originalName: fileName,
-            status: 'error',
-            error: 'PDF 파싱에 실패했습니다. 파일이 손상되었거나 스캔 이미지일 수 있습니다.',
-          });
-          continue;
-        }
+      if (!parsed || parsed.amount === 0) {
+        results.push({
+          originalName: fileName,
+          status: 'error',
+          error: '파일명에서 금액을 인식하지 못했습니다. 형식: (yymmdd)건명_집행처_(금액).pdf',
+        });
+        continue;
       }
 
-      // 월 인덱스 (3월=0 ... 2월=11)
+      const { date: expenseDateRaw, amount: fileAmount, vendor } = parsed;
+
+      // 집행월 인덱스 (3월=0 … 2월=11)
       let monthIndex = -1;
       if (expenseDateRaw.length >= 4) {
         const m = parseInt(expenseDateRaw.substring(2, 4), 10);
         if (!isNaN(m) && m >= 1 && m <= 12) monthIndex = (m - 3 + 12) % 12;
       }
 
-      // ── 금액 일치 후보 ────────────────────────────────────────────
+      // 금액 일치 후보 수집 (이미 업로드된 행 제외)
       const amountMatched: MatchCandidate[] = [];
-      // ── 금액 불일치이지만 설명 유사 후보 ─────────────────────────
-      const descOnly: MatchCandidate[] = [];
 
-      for (const exp of expRows) {
+      for (const exp of availableRows) {
         const amtMatch =
           fileAmount > 0 &&
           (exp.totalAmount === fileAmount ||
             (monthIndex !== -1 && exp.monthlyAmounts[monthIndex] === fileAmount) ||
             exp.monthlyAmounts.some((v) => v === fileAmount));
 
-        const ds = descScore(targetDesc, exp.description);
-
         if (amtMatch) {
-          // 금액이 현재 위치한 월 인덱스 추적
           let srcIdx = -1;
           if (monthIndex !== -1 && exp.monthlyAmounts[monthIndex] === fileAmount) {
             srcIdx = monthIndex;
@@ -196,20 +199,14 @@ export async function POST(req: NextRequest) {
             category: exp.category,
             rowIndex: exp.rowIndex,
             description: exp.description,
-            score: 1000 + ds + (monthIndex !== -1 && exp.monthlyAmounts[monthIndex] === fileAmount ? 100 : 0),
+            programName: exp.programName,
             sourceMonthIndex: srcIdx,
           });
-        } else if (ds >= 40) {
-          // 금액 불일치이지만 설명이 40% 이상 유사
-          descOnly.push({ category: exp.category, rowIndex: exp.rowIndex, description: exp.description, score: ds, sourceMonthIndex: -1 });
         }
       }
 
-      amountMatched.sort((a, b) => b.score - a.score);
-      descOnly.sort((a, b) => b.score - a.score);
-
-      if (amountMatched.length > 0) {
-        // ── 금액 일치 → 자동 매칭 ──────────────────────────────────
+      if (amountMatched.length === 1) {
+        // 1:1 자동 매칭
         const best = amountMatched[0];
         results.push({
           originalName: fileName,
@@ -219,25 +216,35 @@ export async function POST(req: NextRequest) {
             category: best.category,
             rowIndex: best.rowIndex,
             description: best.description,
+            programName: best.programName,
             sourceMonthIndex: best.sourceMonthIndex,
           },
           expenseDate: expenseDateRaw,
           fileAmount,
+          vendor,
         });
-      } else {
-        // ── 금액 불일치 → 후보군 제시 (최대 5개) ──────────────────
+      } else if (amountMatched.length > 1) {
+        // 다중 매칭 → 후보 목록 제시
         results.push({
           originalName: fileName,
-          status: descOnly.length > 0 ? 'candidates' : 'error',
+          status: 'candidates',
           autoMatched: false,
-          candidates: descOnly.slice(0, 5).map(({ category, rowIndex, description, score }) => ({
-            category,
-            rowIndex,
-            description,
-            score,
-          })),
+          candidates: amountMatched,
           expenseDate: expenseDateRaw,
-          error: descOnly.length === 0 ? '금액이 일치하는 항목 없음. 수동 매칭이 필요합니다.' : undefined,
+          fileAmount,
+          vendor,
+        });
+      } else {
+        // 매칭 실패 → 수동 매칭 필요
+        results.push({
+          originalName: fileName,
+          status: 'error',
+          autoMatched: false,
+          candidates: [],
+          expenseDate: expenseDateRaw,
+          fileAmount,
+          vendor,
+          error: '금액이 일치하는 항목이 없습니다. 수동 매칭을 통해 직접 선택해 주세요.',
         });
       }
     }
