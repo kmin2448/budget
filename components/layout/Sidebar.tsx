@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
+import { APP_VERSION } from '@/constants/version';
 
 const navItemsMain = [
   { label: '대시보드',        href: '/dashboard',         icon: LayoutDashboard },
@@ -58,9 +59,15 @@ function UserSection({ collapsed, onClose }: { collapsed?: boolean; onClose?: ()
     : 'U';
 
   const isExpanded = !collapsed || !!onClose;
+  const isSuperAdmin = (session?.user as { role?: string } | undefined)?.role === 'super_admin';
 
   return (
     <div className="border-t border-divider px-3 py-3">
+      {isExpanded && isSuperAdmin && (
+        <p className="mb-1 text-right text-[7px] text-gray-400">
+          v{APP_VERSION}
+        </p>
+      )}
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(

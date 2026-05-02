@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "push": "git add . && git commit -m 'update' && git push",
+    "push": "node scripts/bump-version.js && git add . && git commit -m 'update' && git push",
     "test": "jest --passWithNoTests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
