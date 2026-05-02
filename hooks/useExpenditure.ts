@@ -127,7 +127,7 @@ export function useDeleteFile(category: string) {
       const res = await fetch('/api/drive/expenditure-upload', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, rowIndex }),
+        body: JSON.stringify({ category, rowIndex, sheetType: budgetType }),
       });
       if (!res.ok) {
         const body = await res.json() as { error?: string };

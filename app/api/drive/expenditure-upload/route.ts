@@ -4,8 +4,11 @@ import { auth } from '@/lib/auth';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { checkPermission } from '@/lib/permissions';
 import { PERMISSIONS } from '@/types';
-import { CATEGORY_SHEETS } from '@/constants/sheets';
+import { CATEGORY_SHEETS, PERSONNEL_CATEGORY } from '@/constants/sheets';
 import { uploadToUserDrive, deleteFromUserDrive } from '@/lib/google/drive';
+import { getSheetsClient } from '@/lib/google/sheets';
+import { getSpreadsheetId } from '@/lib/google/getSheetId';
+import type { BudgetType } from '@/types';
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -25,8 +28,8 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const body = await req.json() as { category?: string; rowIndex?: number };
-    const { category, rowIndex } = body;
+    const body = await req.json() as { category?: string; rowIndex?: number; sheetType?: string };
+    const { category, rowIndex, sheetType = 'main' } = body;
 
     if (!category || rowIndex === undefined) {
       return NextResponse.json({ error: '필수 파라미터 누락 (category, rowIndex)' }, { status: 400 });
@@ -44,17 +47,33 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: '파일 정보를 찾을 수 없습니다.' }, { status: 404 });
     }
 
+    // Drive 파일 삭제 (이미 없어도 무시)
     try {
       await deleteFromUserDrive({ accessToken: session.accessToken, fileId: existing.drive_file_id });
     } catch {
       // Drive에 파일이 이미 없어도 DB 레코드는 삭제
     }
 
+    // Supabase 레코드 삭제
     await supabase
       .from('expenditure_files')
       .delete()
       .eq('sheet_name', category)
       .eq('row_index', rowIndex);
+
+    // 인건비가 아닌 경우 Google Sheets B열(집행일자) 초기화
+    if (category !== PERSONNEL_CATEGORY) {
+      try {
+        const spreadsheetId = await getSpreadsheetId(sheetType as BudgetType);
+        const sheets = getSheetsClient();
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId,
+          range: `'${category}'!B${rowIndex}`,
+        });
+      } catch {
+        // 시트 초기화 실패는 무시 (파일 삭제는 이미 완료)
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
