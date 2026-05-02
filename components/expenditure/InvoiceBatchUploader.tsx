@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CATEGORY_SHEETS } from '@/constants/sheets';
+import { useSession } from 'next-auth/react';
+import { useBudgetType } from '@/contexts/BudgetTypeContext';
 
 // ── 타입 ──────────────────────────────────────────────────────────────
 
@@ -63,6 +65,8 @@ export function InvoiceBatchUploader({
   onUploadComplete?: () => void;
   currentCategory?: string;
 }) {
+  const { data: session } = useSession();
+  const { budgetType } = useBudgetType();
   const [isOpen, setIsOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
@@ -273,9 +277,16 @@ export function InvoiceBatchUploader({
     );
   };
 
-  // ── 업로드 (파일 1개씩 순차 전송 — Vercel 4.5 MB 한도 회피) ─────────
+  // ── 업로드 (브라우저 → Drive 직접 전송, 서버는 메타데이터만 처리) ────
   const handleUpload = async () => {
     if (fileItems.length === 0) return;
+
+    const accessToken = (session as { accessToken?: string } | null)?.accessToken;
+    if (!accessToken) {
+      alert('로그인 세션이 만료되었습니다. 다시 로그인해 주세요.');
+      return;
+    }
+
     setUploading(true);
     setResults([]);
 
@@ -292,44 +303,96 @@ export function InvoiceBatchUploader({
     const allResults: BatchUploadResult[] = [];
 
     for (const item of uploadable) {
-      const fd = new FormData();
-      fd.append('files', item.file);
-      fd.append(
-        'payload',
-        JSON.stringify({
-          [item.file.name]: {
+      try {
+        // 1. 서버에서 Drive 폴더 ID 조회 (없으면 생성)
+        const folderRes = await fetch(
+          `/api/drive/folder-id?category=${encodeURIComponent(item.category!)}&sheetType=${budgetType}`,
+        );
+        if (!folderRes.ok) throw new Error('Drive 폴더 조회 실패');
+        const { folderId } = await folderRes.json() as { folderId: string };
+
+        // 2. Google Drive Resumable Upload 세션 시작
+        const initRes = await fetch(
+          `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+              'X-Upload-Content-Type': 'application/pdf',
+            },
+            body: JSON.stringify({
+              name: item.file.name,
+              parents: [folderId],
+              mimeType: 'application/pdf',
+            }),
+          },
+        );
+        if (!initRes.ok) throw new Error('Drive 업로드 세션 시작 실패');
+        const sessionUri = initRes.headers.get('Location');
+        if (!sessionUri) throw new Error('Drive 업로드 세션 URI 없음');
+
+        // 3. 파일 본문 직접 전송 (크기 제한 없음)
+        const uploadRes = await fetch(sessionUri, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/pdf' },
+          body: item.file,
+        });
+        if (!uploadRes.ok) throw new Error(`Drive 파일 업로드 실패 (${uploadRes.status})`);
+        const uploaded = await uploadRes.json() as { id?: string; webViewLink?: string };
+        const fileId = uploaded.id;
+        if (!fileId) throw new Error('Drive 파일 ID 없음');
+
+        // 4. 링크 공개 읽기 권한 설정
+        await fetch(
+          `https://www.googleapis.com/drive/v3/files/${fileId}/permissions`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+          },
+        );
+
+        const webViewLink =
+          uploaded.webViewLink ?? `https://drive.google.com/file/d/${fileId}/view`;
+
+        // 5. 서버에 메타데이터 저장 (Supabase + Google Sheets)
+        const metaRes = await fetch('/api/drive/invoice-batch-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileId,
+            webViewLink,
+            fileName: item.file.name,
             category: item.category,
             rowIndex: item.matchedRowIndex,
             expenseDate: item.expenseDate,
             sourceMonthIndex: item.sourceMonthIndex,
             fileAmount: item.fileAmount,
-          },
-        }),
-      );
-
-      try {
-        const res = await fetch('/api/drive/invoice-batch-upload', { method: 'POST', body: fd });
-        const text = await res.text();
+          }),
+        });
+        const text = await metaRes.text();
         let data: { results?: BatchUploadResult[]; error?: string };
-        try {
-          data = JSON.parse(text) as typeof data;
-        } catch {
-          data = { error: `서버 응답 오류 (${res.status})` };
-        }
-        if (res.ok && data.results) {
+        try { data = JSON.parse(text) as typeof data; }
+        catch { data = { error: `서버 응답 오류 (${metaRes.status})` }; }
+
+        if (metaRes.ok && data.results) {
           allResults.push(...data.results);
         } else {
           allResults.push({
             originalName: item.file.name,
             status: 'error',
-            error: data.error ?? `업로드 실패 (${res.status})`,
+            error: data.error ?? `메타데이터 저장 실패 (${metaRes.status})`,
           });
         }
       } catch (err) {
         allResults.push({
           originalName: item.file.name,
           status: 'error',
-          error: err instanceof Error ? err.message : '네트워크 오류',
+          error: err instanceof Error ? err.message : '업로드 오류',
         });
       }
     }

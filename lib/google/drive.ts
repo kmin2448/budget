@@ -116,6 +116,20 @@ export async function uploadToLibraryDrive(params: {
   };
 }
 
+/** 비목별 Drive 폴더 ID 조회/생성 (클라이언트 직접 업로드용) */
+export async function getCategoryFolderId(params: {
+  accessToken: string;
+  categoryName: string;
+  subFolderName?: string;
+}): Promise<string> {
+  const drive = getDriveClient(params.accessToken);
+  const rootFolderId = await getOrCreateFolder(drive, ROOT_FOLDER_NAME);
+  const parentFolderId = params.subFolderName
+    ? await getOrCreateFolder(drive, params.subFolderName, rootFolderId)
+    : rootFolderId;
+  return getOrCreateFolder(drive, params.categoryName, parentFolderId);
+}
+
 /** Drive 파일 삭제 */
 export async function deleteFromUserDrive(params: {
   accessToken: string;
