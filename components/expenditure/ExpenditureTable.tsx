@@ -370,7 +370,7 @@ export function ExpenditureTable({
                   >
                     <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
                   </a>
-                  {showActions && (
+                  {canWrite && (
                     <button
                       onClick={() => onDeleteFile(row)}
                       className="rounded p-0.5 text-gray-300 hover:bg-red-50 hover:text-red-400"
@@ -485,7 +485,7 @@ export function ExpenditureTable({
                     <ExternalLink className="h-3 w-3" />
                     열기
                   </a>
-                  {showActions && (
+                  {canWrite && (
                     <button
                       onClick={() => onDeleteFile(row)}
                       className="rounded p-0.5 text-gray-300 hover:bg-red-50 hover:text-red-400"
