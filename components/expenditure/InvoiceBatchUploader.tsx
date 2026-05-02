@@ -273,59 +273,71 @@ export function InvoiceBatchUploader({
     );
   };
 
-  // ── 업로드 ──────────────────────────────────────────────────────────
+  // ── 업로드 (파일 1개씩 순차 전송 — Vercel 4.5 MB 한도 회피) ─────────
   const handleUpload = async () => {
     if (fileItems.length === 0) return;
     setUploading(true);
     setResults([]);
 
-    const formData = new FormData();
-    const payloadInfo: Record<string, {
-      category: string;
-      rowIndex: number;
-      expenseDate?: string;
-      sourceMonthIndex?: number;
-      fileAmount?: number;
-    }> = {};
-    let validCount = 0;
+    const uploadable = fileItems.filter(
+      (item) => !item.error && item.category && item.matchedRowIndex !== undefined,
+    );
 
-    fileItems.forEach((item) => {
-      if (!item.error && item.category && item.matchedRowIndex !== undefined) {
-        formData.append('files', item.file);
-        payloadInfo[item.file.name] = {
-          category: item.category,
-          rowIndex: item.matchedRowIndex,
-          expenseDate: item.expenseDate,
-          sourceMonthIndex: item.sourceMonthIndex,
-          fileAmount: item.fileAmount,
-        };
-        validCount++;
-      }
-    });
-
-    if (validCount === 0) {
+    if (uploadable.length === 0) {
       alert('업로드할 수 있는 매칭된 파일이 없습니다.');
       setUploading(false);
       return;
     }
 
-    formData.append('payload', JSON.stringify(payloadInfo));
+    const allResults: BatchUploadResult[] = [];
 
-    try {
-      const res = await fetch('/api/drive/invoice-batch-upload', { method: 'POST', body: formData });
-      const data = await res.json() as { results?: BatchUploadResult[]; error?: string };
-      if (res.ok) {
-        setResults(data.results ?? []);
-        if (onUploadComplete) onUploadComplete();
-        setFileItems((prev) => prev.filter((item) => !!item.error));
-      } else {
-        alert(`업로드 실패: ${data.error}`);
+    for (const item of uploadable) {
+      const fd = new FormData();
+      fd.append('files', item.file);
+      fd.append(
+        'payload',
+        JSON.stringify({
+          [item.file.name]: {
+            category: item.category,
+            rowIndex: item.matchedRowIndex,
+            expenseDate: item.expenseDate,
+            sourceMonthIndex: item.sourceMonthIndex,
+            fileAmount: item.fileAmount,
+          },
+        }),
+      );
+
+      try {
+        const res = await fetch('/api/drive/invoice-batch-upload', { method: 'POST', body: fd });
+        const text = await res.text();
+        let data: { results?: BatchUploadResult[]; error?: string };
+        try {
+          data = JSON.parse(text) as typeof data;
+        } catch {
+          data = { error: `서버 응답 오류 (${res.status})` };
+        }
+        if (res.ok && data.results) {
+          allResults.push(...data.results);
+        } else {
+          allResults.push({
+            originalName: item.file.name,
+            status: 'error',
+            error: data.error ?? `업로드 실패 (${res.status})`,
+          });
+        }
+      } catch (err) {
+        allResults.push({
+          originalName: item.file.name,
+          status: 'error',
+          error: err instanceof Error ? err.message : '네트워크 오류',
+        });
       }
-    } catch {
-      alert('일괄 업로드 중 오류가 발생했습니다.');
-    } finally {
-      setUploading(false);
     }
+
+    setResults(allResults);
+    if (onUploadComplete) onUploadComplete();
+    setFileItems((prev) => prev.filter((item) => !!item.error));
+    setUploading(false);
   };
 
   const hasUploadable = fileItems.some((f) => !f.parsing && !f.error && f.category && f.matchedRowIndex !== undefined);
