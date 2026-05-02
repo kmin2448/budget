@@ -81,9 +81,23 @@ export function InvoiceBatchUploader({
 
     try {
       const res = await fetch('/api/drive/invoice-parse', { method: 'POST', body: formData });
-      const data = await res.json().catch(() => ({ error: 'JSON 파싱 에러' }));
 
-      if (res.ok && data.results) {
+      if (!res.ok) {
+        const text = await res.text().catch(() => '(응답 본문 없음)');
+        console.error('[invoice-parse] 서버 오류:', res.status, res.statusText, '\n', text.substring(0, 1000));
+        const errMsg = `서버 오류 (${res.status}) — 개발자 도구 콘솔을 확인해 주세요`;
+        setFileItems((prev) =>
+          prev.map((item) => ({ ...item, parsing: false, error: errMsg })),
+        );
+        return;
+      }
+
+      const data = await res.json().catch((jsonErr: Error) => {
+        console.error('[invoice-parse] JSON 파싱 실패:', jsonErr);
+        return { error: 'JSON 파싱 에러' };
+      });
+
+      if (data.results) {
         setFileItems((prev) =>
           prev.map((item) => {
             const r = data.results.find((x: Record<string, unknown>) => x.originalName === item.file.name);
@@ -132,7 +146,7 @@ export function InvoiceBatchUploader({
           }),
         );
       } else {
-        const msg = (data.error as string) || `서버 에러 (${res.status})`;
+        const msg = (data.error as string) || 'API 응답 형식 오류';
         setFileItems((prev) =>
           prev.map((item) => ({ ...item, parsing: false, error: msg })),
         );

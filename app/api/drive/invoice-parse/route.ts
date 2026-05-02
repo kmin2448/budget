@@ -54,7 +54,7 @@ function parseInvoiceFilename(fileName: string): {
   const amtM = name.match(/([_\s-])\(([\d,]+)\)\.pdf$/i);
   if (!amtM) return null;
 
-  const amount = Number(amtM[2].replace(/,/g, ''));
+  const amount = parseInt(amtM[2].replace(/[^0-9]/g, ''), 10);
   if (!amount || isNaN(amount) || amount <= 0) return null;
 
   // 3단계: 중간 구간 추출 (날짜 이후, 구분자+금액+.pdf 이전)
@@ -283,7 +283,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ results });
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
     console.error('[invoice-parse] 전체 오류:', error);
-    return NextResponse.json({ error: '매칭 처리 중 오류 발생' }, { status: 500 });
+    return new NextResponse(
+      JSON.stringify({ error: '매칭 처리 중 오류 발생', details: errMsg }),
+      { status: 500, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
+    );
   }
 }
