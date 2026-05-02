@@ -90,11 +90,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const formData = await req.formData();
-    const files = formData.getAll('files') as File[];
-    const currentCategory = formData.get('currentCategory') as string | null;
+    const body = await req.json() as { fileNames?: string[]; currentCategory?: string };
+    const fileNames: string[] = body.fileNames ?? [];
+    const currentCategory: string | null = body.currentCategory ?? null;
 
-    if (!files || files.length === 0) {
+    if (fileNames.length === 0) {
       return NextResponse.json({ error: '파일이 없습니다.' }, { status: 400 });
     }
 
@@ -169,8 +169,7 @@ export async function POST(req: NextRequest) {
     // ── 4. 파일별 파싱 및 금액 기반 매칭 ────────────────────────────
     const results = [];
 
-    for (const file of files) {
-      const fileName = file.name;
+    for (const fileName of fileNames) {
       console.log(`[invoice-parse] 처리 중: "${fileName}"`);
 
       try {

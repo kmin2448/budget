@@ -75,12 +75,15 @@ export function InvoiceBatchUploader({
   const fetchParsedNames = async (addedFiles: File[]) => {
     setFileItems((prev) => [...prev, ...addedFiles.map((file) => ({ file, parsing: true }))]);
 
-    const formData = new FormData();
-    addedFiles.forEach((f) => formData.append('files', f));
-    if (currentCategory) formData.append('currentCategory', currentCategory);
-
     try {
-      const res = await fetch('/api/drive/invoice-parse', { method: 'POST', body: formData });
+      const res = await fetch('/api/drive/invoice-parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileNames: addedFiles.map((f) => f.name),
+          currentCategory: currentCategory || undefined,
+        }),
+      });
 
       if (!res.ok) {
         const text = await res.text().catch(() => '(응답 본문 없음)');
