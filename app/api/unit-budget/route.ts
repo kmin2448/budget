@@ -63,13 +63,15 @@ export async function GET(req: NextRequest) {
       const unitTask = String(row[1] ?? '').trim();
       if (!unitTask) continue;
 
-      const budget         = String(row[2] ?? '').trim();
-      const subCategory    = String(row[3] ?? '').trim();
-      const subDetail      = String(row[4] ?? '').trim();
-      const programName    = String(row[7] ?? '').trim();
-      const budgetPlan     = Number(row[11] ?? 0);
-      const officialBudget = Number(row[12] ?? 0); // M열: 편성(공식)예산
-      const rowIndex       = i + 6;
+      const budget             = String(row[2] ?? '').trim();
+      const subCategory        = String(row[3] ?? '').trim();
+      const subDetail          = String(row[4] ?? '').trim();
+      const programName        = String(row[7] ?? '').trim();
+      const budgetPlan         = Number(row[11] ?? 0);
+      const officialBudget     = Number(row[12] ?? 0); // M열: 편성(공식)예산
+      const executionComplete  = Number(row[14] ?? 0); // O열: 집행완료
+      const executionPlanned   = Number(row[15] ?? 0); // P열: 집행예정
+      const rowIndex           = i + 6;
 
       if (!unitTaskMap.has(unitTask)) {
         unitTaskMap.set(unitTask, new Map());
@@ -86,6 +88,8 @@ export async function GET(req: NextRequest) {
           allocation: allocInfo?.allocation ?? 0,
           budgetPlan: 0,
           officialBudget: 0,
+          executionComplete: 0,
+          executionPlanned: 0,
           rowOffset: allocInfo?.rowOffset ?? null,
           programs: [],
         });
@@ -94,8 +98,10 @@ export async function GET(req: NextRequest) {
       const budgetRow = rowMap.get(rowKey)!;
       budgetRow.budgetPlan += budgetPlan;
       budgetRow.officialBudget += officialBudget;
+      budgetRow.executionComplete += executionComplete;
+      budgetRow.executionPlanned += executionPlanned;
       if (programName) {
-        budgetRow.programs.push({ rowIndex, programName, budgetPlan, officialBudget });
+        budgetRow.programs.push({ rowIndex, programName, budgetPlan, officialBudget, executionComplete, executionPlanned });
       }
     }
 
@@ -113,6 +119,8 @@ export async function GET(req: NextRequest) {
           rows,
           totalAllocation: rows.reduce((s, r) => s + r.allocation, 0),
           totalBudgetPlan: rows.reduce((s, r) => s + r.budgetPlan, 0),
+          totalExecutionComplete: rows.reduce((s, r) => s + r.executionComplete, 0),
+          totalExecutionPlanned: rows.reduce((s, r) => s + r.executionPlanned, 0),
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'ko'));

@@ -21,6 +21,8 @@ interface FlatRow {
   programName: string;
   budgetPlan: number;
   officialBudget: number;
+  executionComplete: number;
+  executionPlanned: number;
   category: string;
   subcategory: string;
   subDetail: string;
@@ -36,6 +38,8 @@ function flattenUnit(unit: UnitTask): FlatRow[] {
         programName: '',
         budgetPlan: row.budgetPlan,
         officialBudget: row.officialBudget,
+        executionComplete: row.executionComplete,
+        executionPlanned: row.executionPlanned,
         category: row.category,
         subcategory: row.subcategory,
         subDetail: row.subDetail,
@@ -48,6 +52,8 @@ function flattenUnit(unit: UnitTask): FlatRow[] {
           programName: prog.programName,
           budgetPlan: prog.budgetPlan,
           officialBudget: prog.officialBudget,
+          executionComplete: prog.executionComplete,
+          executionPlanned: prog.executionPlanned,
           category: row.category,
           subcategory: row.subcategory,
           subDetail: row.subDetail,
@@ -175,6 +181,7 @@ export function UnitBudgetTable({
               <th className="px-3 py-1.5 text-left font-semibold text-text-secondary text-xs w-[110px]">보조세목</th>
               <th className="px-3 py-1.5 text-right font-semibold text-text-secondary w-[120px]">예산계획</th>
               <th className="px-3 py-1.5 text-right font-semibold text-text-secondary w-[130px]">편성(공식)예산</th>
+              <th className="px-3 py-1.5 text-right font-semibold text-text-secondary w-[130px]">집행액</th>
               <th className="px-3 py-1.5 text-right font-semibold text-text-secondary w-[130px]">
                 증감액
                 <span className="ml-1 text-[10px] font-normal text-text-secondary">(+/-)</span>
@@ -185,7 +192,7 @@ export function UnitBudgetTable({
           <tbody>
             {visibleUnitTasks.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-sm text-text-secondary">
+                <td colSpan={9} className="px-4 py-10 text-center text-sm text-text-secondary">
                   {isSearching
                     ? `"${searchQuery}"에 해당하는 항목이 없습니다.`
                     : showOnlyPendingSync
@@ -237,6 +244,23 @@ export function UnitBudgetTable({
                       </td>
                       <td className="px-3 py-1.5 text-right font-semibold text-primary">
                         {formatKRW(allRows.reduce((s, r) => s + r.officialBudget, 0))}
+                      </td>
+                      <td className="px-3 py-1.5 text-right font-semibold text-primary">
+                        {(() => {
+                          const ec = unit.totalExecutionComplete;
+                          const ep = unit.totalExecutionPlanned;
+                          const total = ec + ep;
+                          if (total === 0) return <span className="font-normal text-text-secondary">—</span>;
+                          return (
+                            <div className="relative inline-block group cursor-default">
+                              <span>{formatKRW(total)}</span>
+                              <div className="invisible group-hover:visible absolute right-0 top-full z-20 mt-1 w-max rounded border border-divider bg-white px-2.5 py-1.5 text-xs font-normal text-text-secondary shadow-md">
+                                <div>완료: {formatKRW(ec)}</div>
+                                <div>예정: {formatKRW(ep)}</div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-1.5 text-right font-semibold">
                         {unitAdjTotal !== 0 ? (
@@ -291,6 +315,23 @@ export function UnitBudgetTable({
                           </td>
                           <td className="px-3 py-1 text-right tabular-nums text-primary">
                             {row.officialBudget > 0 ? formatKRW(row.officialBudget) : '—'}
+                          </td>
+                          <td className="px-3 py-1 text-right tabular-nums text-[#131310]">
+                            {(() => {
+                              const ec = row.executionComplete;
+                              const ep = row.executionPlanned;
+                              const total = ec + ep;
+                              if (total === 0) return <span className="text-text-secondary">—</span>;
+                              return (
+                                <div className="relative inline-block group cursor-default">
+                                  <span>{formatKRW(total)}</span>
+                                  <div className="invisible group-hover:visible absolute right-0 top-full z-20 mt-1 w-max rounded border border-divider bg-white px-2.5 py-1.5 text-xs text-text-secondary shadow-md">
+                                    <div>완료: {formatKRW(ec)}</div>
+                                    <div>예정: {formatKRW(ep)}</div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className={cn(
                             'px-2 py-1',

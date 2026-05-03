@@ -282,12 +282,16 @@ export interface UnitBudgetRow {
   allocation: number;      // ★취합 편성액
   budgetPlan: number;      // 프로그램 예산계획 합산
   officialBudget: number;  // 편성(공식)예산 합산 (M열)
+  executionComplete: number; // 집행완료 합산 (O열)
+  executionPlanned: number;  // 집행예정 합산 (P열)
   rowOffset: number | null; // ★취합 시트 rowOffset (없으면 null)
   programs: {
     rowIndex: number;
     programName: string;
     budgetPlan: number;
     officialBudget: number; // 편성(공식)예산 (M열)
+    executionComplete: number; // 집행완료 (O열)
+    executionPlanned: number;  // 집행예정 (P열)
   }[];
 }
 
@@ -297,5 +301,7 @@ export interface UnitTask {
   rows: UnitBudgetRow[];
   totalAllocation: number;
   totalBudgetPlan: number;
+  totalExecutionComplete: number;
+  totalExecutionPlanned: number;
 }
 
