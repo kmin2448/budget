@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -30,10 +31,12 @@ import {
   HandCoins,
   Users,
   GitCompare,
+  NotebookPen,
 } from 'lucide-react';
 import { useSidebar } from './SidebarContext';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
 import { APP_VERSION } from '@/constants/version';
+import { MemoPopup } from './MemoPopup';
 
 const navItemsMain = [
   { label: '대시보드',        href: '/dashboard',         icon: LayoutDashboard },
@@ -178,6 +181,10 @@ function BudgetTypeToggle({ collapsed }: { collapsed?: boolean }) {
 
 function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?: () => void }) {
   const pathname = usePathname();
+  const [memoOpen, setMemoOpen] = useState(false);
+
+  const isCollapsedOnly = !!(collapsed && !onClose);
+  const leftOffset = onClose ? 196 : (isCollapsedOnly ? 68 : 184);
 
   return (
     <div className="flex h-full flex-col bg-sidebar">
@@ -251,7 +258,32 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
             </ul>
           </div>
         ))}
+
+        {/* 메모장 버튼 */}
+        <div className="mt-2 pt-2 border-t border-[#C8C8C5]">
+          <button
+            onClick={() => setMemoOpen(prev => !prev)}
+            title={isCollapsedOnly ? '메모장' : undefined}
+            className={cn(
+              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+              isCollapsedOnly ? 'justify-center px-0' : '',
+              memoOpen
+                ? 'bg-primary-bg text-primary'
+                : 'text-text-secondary hover:bg-divider hover:text-[#131310]',
+            )}
+          >
+            <NotebookPen
+              className={cn(
+                'h-4 w-4 shrink-0 transition-colors',
+                memoOpen ? 'text-primary' : 'text-text-secondary',
+              )}
+            />
+            {(!collapsed || onClose) && <span className="truncate">메모장</span>}
+          </button>
+        </div>
       </nav>
+
+      <MemoPopup isOpen={memoOpen} onClose={() => setMemoOpen(false)} leftOffset={leftOffset} />
 
       {/* 하단 유저 섹션 */}
       <UserSection collapsed={collapsed} onClose={onClose} />
