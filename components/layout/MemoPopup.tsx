@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const MEMO_KEY = 'coss_memo';
 
 interface CalcState {
   display: string;
@@ -52,20 +50,57 @@ interface MemoPopupProps {
 
 export function MemoPopup({ isOpen, onClose, leftOffset }: MemoPopupProps) {
   const [memo, setMemo] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [calc, setCalc] = useState<CalcState>(CALC_INIT);
+  const hasFetched = useRef(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
 
+  // 팝업이 처음 열릴 때 한 번만 서버에서 불러오기
   useEffect(() => {
-    setMemo(localStorage.getItem(MEMO_KEY) ?? '');
+    if (!isOpen || hasFetched.current) return;
+    hasFetched.current = true;
+    setLoading(true);
+    fetch('/api/memo')
+      .then(r => r.json())
+      .then((data: { content?: string }) => {
+        setMemo(data.content ?? '');
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [isOpen]);
+
+  // 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => clearTimeout(saveTimer.current);
   }, []);
+
+  const saveToApi = (content: string) => {
+    clearTimeout(saveTimer.current);
+    setSaveStatus('saving');
+    saveTimer.current = setTimeout(() => {
+      fetch('/api/memo', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      }).then(() => setSaveStatus('saved'));
+    }, 1500);
+  };
 
   const handleMemoChange = (val: string) => {
     setMemo(val);
-    localStorage.setItem(MEMO_KEY, val);
+    saveToApi(val);
   };
 
   const handleClear = () => {
     setMemo('');
-    localStorage.removeItem(MEMO_KEY);
+    clearTimeout(saveTimer.current);
+    setSaveStatus('saving');
+    fetch('/api/memo', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: '' }),
+    }).then(() => setSaveStatus('saved'));
   };
 
   const handleKey = (key: string) => {
@@ -79,13 +114,11 @@ export function MemoPopup({ isOpen, onClose, leftOffset }: MemoPopupProps) {
       }
 
       if (key === '±') {
-        const num = parseFloat(prev.display);
-        return { ...prev, display: fmtNum(-num) };
+        return { ...prev, display: fmtNum(-parseFloat(prev.display)) };
       }
 
       if (key === '%') {
-        const num = parseFloat(prev.display);
-        return { ...prev, display: fmtNum(num / 100) };
+        return { ...prev, display: fmtNum(parseFloat(prev.display) / 100) };
       }
 
       if (key === '=') {
@@ -141,19 +174,32 @@ export function MemoPopup({ isOpen, onClose, leftOffset }: MemoPopupProps) {
 
       {/* Memo */}
       <div className="p-2.5 border-b border-[#E3E3E0]">
-        <textarea
-          value={memo}
-          onChange={e => handleMemoChange(e.target.value)}
-          placeholder="메모를 입력하세요..."
-          className="w-full h-28 resize-none rounded border border-[#E3E3E0] bg-white px-2 py-1.5 text-xs text-[#131310] placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/30"
-        />
-        <button
-          onClick={handleClear}
-          className="mt-1 flex items-center gap-1 text-[10px] text-text-secondary hover:text-red-500 transition-colors"
-        >
-          <Trash2 className="h-3 w-3" />
-          지우기
-        </button>
+        {loading ? (
+          <div className="h-28 flex items-center justify-center text-xs text-text-secondary">
+            불러오는 중...
+          </div>
+        ) : (
+          <textarea
+            value={memo}
+            onChange={e => handleMemoChange(e.target.value)}
+            placeholder="메모를 입력하세요..."
+            className="w-full h-28 resize-none rounded border border-[#E3E3E0] bg-white px-2 py-1.5 text-xs text-[#131310] placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary/30"
+          />
+        )}
+        <div className="mt-1 flex items-center justify-between">
+          <button
+            onClick={handleClear}
+            disabled={loading}
+            className="flex items-center gap-1 text-[10px] text-text-secondary hover:text-red-500 transition-colors disabled:opacity-40"
+          >
+            <Trash2 className="h-3 w-3" />
+            지우기
+          </button>
+          <span className="text-[10px] text-text-secondary">
+            {saveStatus === 'saving' && '저장 중...'}
+            {saveStatus === 'saved' && '저장됨'}
+          </span>
+        </div>
       </div>
 
       {/* Calculator */}
