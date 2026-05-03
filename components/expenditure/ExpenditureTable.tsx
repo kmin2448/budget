@@ -11,7 +11,7 @@ import { formatKRW, parseKRW } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import {
   Pencil, Trash2, Upload, ExternalLink, Plus,
-  ChevronUp, ChevronDown, ChevronRight, GripVertical, X,
+  ChevronUp, ChevronDown, ChevronRight, GripVertical, X, Search,
 } from 'lucide-react';
 import { MONTH_COLUMNS, PERSONNEL_CATEGORY } from '@/constants/sheets';
 import type { ExpenditureDetailRow } from '@/types';
@@ -89,6 +89,21 @@ export function ExpenditureTable({
   rows, canWrite, category, onAdd, onEdit, onDelete, onUpload, onDeleteFile, onMoveMonth, onUpdate,
   highlightRowIndex,
 }: ExpenditureTableProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // 비목 탭 전환 시 검색어 초기화
+  useEffect(() => { setSearchQuery(''); }, [category]);
+
+  const filteredRows = searchQuery.trim()
+    ? rows.filter((row) => {
+        const q = searchQuery.toLowerCase();
+        return (
+          row.programName?.toLowerCase().includes(q) ||
+          row.description?.toLowerCase().includes(q)
+        );
+      })
+    : rows;
+
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(getDefaultCollapsedGroups);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -109,7 +124,7 @@ export function ExpenditureTable({
   const isPersonnel = category === PERSONNEL_CATEGORY;
   const showActions = canWrite && editMode; // 삭제/이동 등 파괴적 액션
   const colCount = isPersonnel ? (showActions ? 5 : 4) : (showActions ? 7 : 6);
-  const groups = isPersonnel ? null : groupByMonthlyAmounts(rows);
+  const groups = isPersonnel ? null : groupByMonthlyAmounts(filteredRows);
 
   // ── 하이라이트 행 자동 펼침 + 스크롤 ─────────────────────────────
   useEffect(() => {
@@ -595,9 +610,34 @@ export function ExpenditureTable({
       {/* 테이블 헤더 */}
       <div className="flex items-center justify-between border-b border-gray-200 pb-2 mb-0">
         <div className="flex items-center gap-3">
+          {/* 검색 */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="검색 (구분·건명)"
+              className="h-7 w-44 rounded border border-gray-200 bg-white pl-7 pr-6 text-xs text-gray-700 placeholder:text-gray-400 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500"
+                aria-label="검색어 지우기"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+
           <span className="text-sm font-medium text-gray-700">
             집행내역{' '}
-            <span className="font-normal text-gray-400">({rows.length}건)</span>
+            <span className="font-normal text-gray-400">
+              {searchQuery
+                ? `(${filteredRows.length} / ${rows.length}건)`
+                : `(${rows.length}건)`}
+            </span>
           </span>
           {!isPersonnel && groups && groups.length > 0 && (
             <div className="flex gap-1">
@@ -724,8 +764,20 @@ export function ExpenditureTable({
                 집행내역이 없습니다.
               </TableCell>
             </TableRow>
+          ) : filteredRows.length === 0 ? (
+            <TableRow className="border-0">
+              <TableCell colSpan={colCount} className="h-32 text-center text-sm text-gray-400">
+                <span className="block mb-1">검색 결과가 없습니다.</span>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-xs text-primary hover:underline"
+                >
+                  검색어 지우기
+                </button>
+              </TableCell>
+            </TableRow>
           ) : isPersonnel ? (
-            rows.flatMap((row) => renderDataRow(row, `${row.rowIndex}`))
+            filteredRows.flatMap((row) => renderDataRow(row, `${row.rowIndex}`))
           ) : (
             groups!.flatMap(({ label, monthIdx, entries }, groupIndex) => {
               const isCollapsed = collapsedGroups.has(monthIdx);
