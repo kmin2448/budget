@@ -21,6 +21,7 @@ interface FlatRow {
   programName: string;
   budgetPlan: number;
   officialBudget: number;
+  executionAmount: number;
   executionComplete: number;
   executionPlanned: number;
   category: string;
@@ -38,6 +39,7 @@ function flattenUnit(unit: UnitTask): FlatRow[] {
         programName: '',
         budgetPlan: row.budgetPlan,
         officialBudget: row.officialBudget,
+        executionAmount: row.executionAmount,
         executionComplete: row.executionComplete,
         executionPlanned: row.executionPlanned,
         category: row.category,
@@ -52,6 +54,7 @@ function flattenUnit(unit: UnitTask): FlatRow[] {
           programName: prog.programName,
           budgetPlan: prog.budgetPlan,
           officialBudget: prog.officialBudget,
+          executionAmount: prog.executionAmount,
           executionComplete: prog.executionComplete,
           executionPlanned: prog.executionPlanned,
           category: row.category,
@@ -247,9 +250,9 @@ export function UnitBudgetTable({
                       </td>
                       <td className="px-3 py-1.5 text-right font-semibold text-primary">
                         {(() => {
+                          const total = unit.totalExecutionAmount;
                           const ec = unit.totalExecutionComplete;
                           const ep = unit.totalExecutionPlanned;
-                          const total = ec + ep;
                           if (total === 0) return <span className="font-normal text-text-secondary">—</span>;
                           return (
                             <div className="relative inline-block group cursor-default">
@@ -318,9 +321,9 @@ export function UnitBudgetTable({
                           </td>
                           <td className="px-3 py-1 text-right tabular-nums text-[#131310]">
                             {(() => {
+                              const total = row.executionAmount;
                               const ec = row.executionComplete;
                               const ep = row.executionPlanned;
-                              const total = ec + ep;
                               if (total === 0) return <span className="text-text-secondary">—</span>;
                               return (
                                 <div className="relative inline-block group cursor-default">
