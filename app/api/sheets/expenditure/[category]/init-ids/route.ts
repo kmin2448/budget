@@ -56,17 +56,21 @@ export async function POST(
       return NextResponse.json({ error: '유효하지 않은 비목입니다.' }, { status: 400 });
     }
 
+    // 인건비는 셀 주소(row_index + month_index) 기반 매칭 — 행 UUID 불필요
+    if (category === PERSONNEL_CATEGORY) {
+      return NextResponse.json({ message: '인건비는 셀 주소 기반 매칭을 사용합니다. ID 부여 불필요.', updated: 0 });
+    }
+
     const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
     const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
     const sheets = getSheetsClient();
     const supabase = createServerSupabaseClient();
 
-    const isPersonnel = category === PERSONNEL_CATEGORY;
-    const idCol       = getIdCol(sheetType);
-    const idColIndex  = getIdColIndex(sheetType);
+    const idCol      = getIdCol(sheetType);
+    const idColIndex = getIdColIndex(sheetType);
 
-    // 인건비: 내용(A열) 기준, 일반: 건명(C열) 기준으로 데이터 유무 판단
-    const checkColLetter = isPersonnel ? 'A' : 'C';
+    // 일반 비목: 건명(C열) 기준으로 데이터 유무 판단 (인건비는 위에서 조기 반환)
+    const checkColLetter = 'C';
     const readRange = `'${category}'!${checkColLetter}${CATEGORY_DATA_START_ROW}:${idCol}${CATEGORY_DATA_END_ROW_MAP[category]}`;
 
     const rowsRes = await sheets.spreadsheets.values.get({

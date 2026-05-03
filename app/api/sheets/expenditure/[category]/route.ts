@@ -297,18 +297,27 @@ export async function POST(
       if (String(colA[i]?.[0] ?? '').trim()) lastDataIdx = i;
     }
     const newRowIndex = CATEGORY_DATA_START_ROW + lastDataIdx + 1;
-
-    // Named Range 내에서 행 삽입 (범위 자동 확장)
-    const sheetId = await getSheetNumericId(sheets, SPREADSHEET_ID, category);
-    await insertSheetRow(sheets, SPREADSHEET_ID, sheetId, newRowIndex - 1); // 0-based
-
-    // 데이터 + 고유 ID 쓰기
-    const rowId = generateRowId();
     const endCol = isPersonnel ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
     const rowValues = isPersonnel
       ? buildPersonnelWriteValues(body, monthCount)
       : buildWriteValues(body, monthCount);
 
+    if (isPersonnel) {
+      // 인건비: 고정 격자 구조 유지 — insertDimension 없이 빈 행에 직접 쓰기, UUID 불필요
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'${category}'!A${newRowIndex}:${endCol}${newRowIndex}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [rowValues] },
+      });
+      return NextResponse.json({ rowIndex: newRowIndex, message: '집행내역이 추가되었습니다.' });
+    }
+
+    // 일반 비목: Named Range 내에서 행 삽입 (범위 자동 확장) + UUID 부여
+    const sheetId = await getSheetNumericId(sheets, SPREADSHEET_ID, category);
+    await insertSheetRow(sheets, SPREADSHEET_ID, sheetId, newRowIndex - 1); // 0-based
+
+    const rowId = generateRowId();
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
@@ -405,21 +414,36 @@ export async function DELETE(
 
     const { rowIndex, rowUuid } = await req.json() as { rowIndex: number; rowUuid?: string };
     const sheets = getSheetsClient();
+    const isPersonnel = category === PERSONNEL_CATEGORY;
+    const monthCount = getMonthCount(sheetType);
 
-    // 시트에서 행 삭제 (Named Range 자동 축소)
-    const sheetId = await getSheetNumericId(sheets, SPREADSHEET_ID, category);
-    await deleteSheetRow(sheets, SPREADSHEET_ID, sheetId, rowIndex - 1); // 0-based
+    if (isPersonnel) {
+      // 인건비: 고정 격자 구조 유지 — 행 삭제 대신 내용만 초기화
+      const endCol = getPersonnelEndCol(monthCount);
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `'${category}'!A${rowIndex}:${endCol}${rowIndex}`,
+      });
+    } else {
+      // 일반 비목: Named Range 자동 축소 (deleteDimension)
+      const sheetId = await getSheetNumericId(sheets, SPREADSHEET_ID, category);
+      await deleteSheetRow(sheets, SPREADSHEET_ID, sheetId, rowIndex - 1); // 0-based
+    }
 
     const supabase = createServerSupabaseClient();
 
-    // UUID 기반 Supabase 레코드 삭제
-    if (rowUuid) {
-      await supabase.from('expenditure_files').delete().eq('sheet_name', category).eq('row_uuid', rowUuid);
-      await supabase.from('expenditure_merges').delete().eq('sheet_name', category).eq('row_uuid', rowUuid);
+    if (isPersonnel) {
+      // 인건비: 셀 주소 기반 → row_index로 모든 월별 파일 레코드 삭제
+      await supabase.from('expenditure_files').delete().eq('sheet_name', category).eq('row_index', rowIndex);
+    } else {
+      // 일반 비목: UUID 기반 삭제 + 레거시 row_index 폴백
+      if (rowUuid) {
+        await supabase.from('expenditure_files').delete().eq('sheet_name', category).eq('row_uuid', rowUuid);
+        await supabase.from('expenditure_merges').delete().eq('sheet_name', category).eq('row_uuid', rowUuid);
+      }
+      await supabase.from('expenditure_files').delete().eq('sheet_name', category).eq('row_index', rowIndex).is('row_uuid', null);
+      await supabase.from('expenditure_merges').delete().eq('sheet_name', category).eq('merged_row_index', rowIndex).is('row_uuid', null);
     }
-    // row_index 기반 레코드도 함께 정리 (UUID 없는 레거시 레코드)
-    await supabase.from('expenditure_files').delete().eq('sheet_name', category).eq('row_index', rowIndex).is('row_uuid', null);
-    await supabase.from('expenditure_merges').delete().eq('sheet_name', category).eq('merged_row_index', rowIndex).is('row_uuid', null);
 
     // WE-Meet 보내기 배치 자동 취소
     try {
