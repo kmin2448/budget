@@ -134,7 +134,7 @@ export function ExpenditureTable({
     e: React.MouseEvent,
   ) {
     e.stopPropagation();
-    if (!editMode || !onUpdate) return;
+    if (!canWrite || !onUpdate) return;
     setInlineEdit({
       rowIndex: row.rowIndex,
       field,
@@ -159,7 +159,7 @@ export function ExpenditureTable({
 
   function startMonthEdit(row: ExpenditureDetailRow, monthIdx: number, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!editMode || !onUpdate) return;
+    if (!canWrite || !onUpdate) return;
     setMonthEdit({
       rowIndex: row.rowIndex,
       monthIdx,
@@ -300,11 +300,11 @@ export function ExpenditureTable({
       monthAmount !== undefined && monthAmount !== row.totalAmount;
 
     const isEditingProgramName =
-      editMode && inlineEdit?.rowIndex === row.rowIndex && inlineEdit?.field === 'programName';
+      inlineEdit?.rowIndex === row.rowIndex && inlineEdit?.field === 'programName';
     const isEditingDescription =
-      editMode && inlineEdit?.rowIndex === row.rowIndex && inlineEdit?.field === 'description';
+      inlineEdit?.rowIndex === row.rowIndex && inlineEdit?.field === 'description';
     const isEditingDate =
-      editMode && inlineEdit?.rowIndex === row.rowIndex && inlineEdit?.field === 'expenseDate';
+      inlineEdit?.rowIndex === row.rowIndex && inlineEdit?.field === 'expenseDate';
 
     const isHighlighted = highlightRowIndex === row.rowIndex;
 
@@ -342,20 +342,20 @@ export function ExpenditureTable({
           <>
             <TableCell
               className="max-w-0 overflow-hidden py-2 text-gray-700"
-              onDoubleClick={editMode ? (e) => startInlineEdit(row, 'programName', e) : undefined}
-              title={editMode ? '더블클릭하여 편집' : undefined}
+              onDoubleClick={canWrite ? (e) => startInlineEdit(row, 'programName', e) : undefined}
+              title={canWrite && onUpdate ? '더블클릭하여 편집' : undefined}
             >
               {isEditingProgramName
                 ? renderInlineInput('programName')
-                : <span className={cn('block truncate text-sm', editMode && onUpdate && 'cursor-text')} title={row.programName}>{row.programName || '-'}</span>
+                : <span className={cn('block truncate text-sm', canWrite && onUpdate && 'cursor-text')} title={row.programName}>{row.programName || '-'}</span>
               }
             </TableCell>
             <TableCell
               className="py-2 text-right text-sm font-medium tabular-nums text-gray-800"
-              onDoubleClick={editMode ? (e) => { e.stopPropagation(); onEdit(row); } : undefined}
-              title={editMode ? '더블클릭하여 편집' : undefined}
+              onDoubleClick={canWrite ? (e) => { e.stopPropagation(); onEdit(row); } : undefined}
+              title={canWrite ? '더블클릭하여 편집' : undefined}
             >
-              <span className={cn(editMode && 'cursor-pointer')}>{formatKRW(row.totalAmount)}</span>
+              <span className={cn(canWrite && 'cursor-pointer')}>{formatKRW(row.totalAmount)}</span>
             </TableCell>
             {/* 인건비 청구서 업로드/삭제 */}
             <TableCell className="w-16 py-2 text-center" onClick={(e) => e.stopPropagation()}>
@@ -395,8 +395,8 @@ export function ExpenditureTable({
             {/* 구분(프로그램명) */}
             <TableCell
               className="w-44 max-w-[11rem] overflow-hidden py-2"
-              onDoubleClick={editMode ? (e) => startInlineEdit(row, 'programName', e) : undefined}
-              title={editMode ? '더블클릭하여 편집' : undefined}
+              onDoubleClick={canWrite ? (e) => startInlineEdit(row, 'programName', e) : undefined}
+              title={canWrite && onUpdate ? '더블클릭하여 편집' : undefined}
             >
               {isEditingProgramName ? (
                 renderInlineInput('programName')
@@ -406,7 +406,7 @@ export function ExpenditureTable({
                     <GripVertical className="h-3.5 w-3.5 shrink-0 text-gray-200" />
                   )}
                   <span
-                    className={cn('block truncate text-[10px] text-gray-500', editMode && onUpdate && 'cursor-text')}
+                    className={cn('block truncate text-[10px] text-gray-500', canWrite && onUpdate && 'cursor-text')}
                     title={row.programName}
                   >
                     {row.programName || '-'}
@@ -418,15 +418,15 @@ export function ExpenditureTable({
             {/* 지출건명 + 월 태그 */}
             <TableCell
               className="w-[21rem] max-w-[21rem] overflow-hidden py-2 text-sm text-gray-700"
-              onDoubleClick={editMode ? (e) => startInlineEdit(row, 'description', e) : undefined}
-              title={editMode ? '더블클릭하여 편집' : undefined}
+              onDoubleClick={canWrite ? (e) => startInlineEdit(row, 'description', e) : undefined}
+              title={canWrite && onUpdate ? '더블클릭하여 편집' : undefined}
             >
               {isEditingDescription ? (
                 renderInlineInput('description')
               ) : (
                 <div className="flex min-w-0 items-center gap-1">
                   <span
-                    className={cn('shrink truncate', editMode && onUpdate && 'cursor-text')}
+                    className={cn('shrink truncate', canWrite && onUpdate && 'cursor-text')}
                     title={row.description}
                   >
                     {row.description || '-'}
@@ -446,10 +446,10 @@ export function ExpenditureTable({
             {/* 집행금액 — 더블클릭 시 전체 편집 모달 */}
             <TableCell
               className="w-36 py-2 text-right text-sm font-semibold tabular-nums text-gray-800"
-              onDoubleClick={editMode ? (e) => { e.stopPropagation(); onEdit(row); } : undefined}
-              title={editMode ? '더블클릭하여 편집' : undefined}
+              onDoubleClick={canWrite ? (e) => { e.stopPropagation(); onEdit(row); } : undefined}
+              title={canWrite ? '더블클릭하여 편집' : undefined}
             >
-              <div className={cn('flex flex-col items-end', editMode && 'cursor-pointer')}>
+              <div className={cn('flex flex-col items-end', canWrite && 'cursor-pointer')}>
                 <span>{formatKRW(row.totalAmount)}</span>
                 {showMonthAmount && (
                   <span className="text-xs font-normal text-gray-400">
@@ -462,17 +462,17 @@ export function ExpenditureTable({
             {/* 지출일자 */}
             <TableCell
               className="w-28 py-2 text-center"
-              onDoubleClick={editMode ? (e) => startInlineEdit(row, 'expenseDate', e) : undefined}
-              title={editMode ? '더블클릭하여 편집' : undefined}
+              onDoubleClick={canWrite ? (e) => startInlineEdit(row, 'expenseDate', e) : undefined}
+              title={canWrite && onUpdate ? '더블클릭하여 편집' : undefined}
             >
               {isEditingDate ? (
                 renderInlineInput('expenseDate')
               ) : row.status === 'complete' ? (
-                <span className={cn('text-xs text-gray-500', editMode && onUpdate && 'cursor-text')}>
+                <span className={cn('text-xs text-gray-500', canWrite && onUpdate && 'cursor-text')}>
                   {row.expenseDate || '-'}
                 </span>
               ) : (
-                <span className={cn('text-xs text-gray-400', editMode && onUpdate && 'cursor-text')}>-</span>
+                <span className={cn('text-xs text-gray-400', canWrite && onUpdate && 'cursor-text')}>-</span>
               )}
             </TableCell>
 
@@ -536,7 +536,6 @@ export function ExpenditureTable({
             <div className="grid grid-cols-6 gap-2 text-xs">
               {MONTH_COLUMNS.map((month, i) => {
                 const isEditingThisMonth =
-                  editMode &&
                   monthEdit?.rowIndex === row.rowIndex &&
                   monthEdit?.monthIdx === i;
                 return (
@@ -571,10 +570,10 @@ export function ExpenditureTable({
                         className={cn(
                           'tabular-nums font-medium',
                           row.monthlyAmounts[i] > 0 ? 'text-gray-800' : 'text-gray-300',
-                          editMode && onUpdate && 'cursor-pointer rounded hover:bg-primary-bg/60',
+                          canWrite && onUpdate && 'cursor-pointer rounded hover:bg-primary-bg/60',
                         )}
-                        onDoubleClick={editMode ? (e) => startMonthEdit(row, i, e) : undefined}
-                        title={editMode ? '더블클릭하여 편집' : undefined}
+                        onDoubleClick={canWrite ? (e) => startMonthEdit(row, i, e) : undefined}
+                        title={canWrite && onUpdate ? '더블클릭하여 편집' : undefined}
                       >
                         {row.monthlyAmounts[i] > 0 ? formatKRW(row.monthlyAmounts[i]) : '0'}
                       </div>
@@ -680,7 +679,7 @@ export function ExpenditureTable({
       {editMode && (
         <div className="mb-1 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-700">
           <span className="font-semibold">편집 모드</span>
-          <span className="text-amber-600">건명·프로그램명·지출일자는 더블클릭으로 바로 수정, 금액은 행을 펼친 뒤 월별 금액을 더블클릭하여 바로 수정합니다.</span>
+          <span className="text-amber-600">건명·프로그램명·지출일자·월별 금액은 더블클릭으로 바로 수정합니다. 행을 펼치면 월별 금액을 개별 수정할 수 있습니다.</span>
           {savingInline && <span className="ml-auto text-amber-500">저장 중…</span>}
         </div>
       )}
