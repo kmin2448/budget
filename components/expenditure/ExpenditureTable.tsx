@@ -11,7 +11,7 @@ import { formatKRW, parseKRW } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import {
   Pencil, Trash2, Upload, ExternalLink, Plus,
-  ChevronUp, ChevronDown, ChevronRight, GripVertical, X, Search, Merge,
+  ChevronUp, ChevronDown, ChevronRight, GripVertical, X, Search, Merge, Scissors,
 } from 'lucide-react';
 import { MONTH_COLUMNS, PERSONNEL_CATEGORY } from '@/constants/sheets';
 import type { ExpenditureDetailRow } from '@/types';
@@ -42,6 +42,7 @@ interface ExpenditureTableProps {
     changes: { programName?: string; description?: string; expenseDate?: string; monthlyAmounts?: number[] },
   ) => Promise<void>;
   onMerge?: (rowIndexes: number[], description: string, programName: string) => Promise<void>;
+  onSplit?: (mergeId: string, mergedRowIndex: number, subItemIndexes: number[]) => Promise<void>;
   highlightRowIndex?: number;
 }
 
@@ -88,7 +89,7 @@ function getActiveMonths(row: ExpenditureDetailRow): string[] {
 
 export function ExpenditureTable({
   rows, canWrite, category, onAdd, onEdit, onDelete, onUpload, onDeleteFile, onMoveMonth, onUpdate,
-  onMerge, highlightRowIndex,
+  onMerge, onSplit, highlightRowIndex,
 }: ExpenditureTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -129,6 +130,13 @@ export function ExpenditureTable({
     originalRow: ExpenditureDetailRow;
   } | null>(null);
   const [savingInline, setSavingInline] = useState(false);
+
+  // 별건으로 빼기
+  const [splitTarget, setSplitTarget] = useState<{
+    row: ExpenditureDetailRow;
+    selectedIndexes: Set<number>;
+  } | null>(null);
+  const [splitting, setSplitting] = useState(false);
 
   const isPersonnel = category === PERSONNEL_CATEGORY;
   const canMerge    = !!onMerge && !isPersonnel;
@@ -691,19 +699,116 @@ export function ExpenditureTable({
             {/* 합친 내역 — mergeInfo가 있는 행만 표시 */}
             {row.mergeInfo && (
               <div className="mt-3 border-t border-amber-100 pt-2" onClick={(e) => e.stopPropagation()}>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-500">합친 내역</p>
-                <div className="space-y-2">
+                {/* 헤더 + 별건 빼기 버튼 */}
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-500">합친 내역</p>
+                  {canWrite && onSplit && (
+                    splitTarget?.row.rowIndex === row.rowIndex ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-amber-600">
+                          {splitTarget.selectedIndexes.size}건 선택
+                        </span>
+                        <button
+                          onClick={async () => {
+                            if (!onSplit || splitTarget.selectedIndexes.size === 0 || splitting) return;
+                            setSplitting(true);
+                            try {
+                              await onSplit(
+                                row.mergeInfo!.id,
+                                row.rowIndex,
+                                Array.from(splitTarget.selectedIndexes),
+                              );
+                              setSplitTarget(null);
+                            } catch (err) {
+                              alert(err instanceof Error ? err.message : '오류가 발생했습니다.');
+                            } finally {
+                              setSplitting(false);
+                            }
+                          }}
+                          disabled={splitTarget.selectedIndexes.size === 0 || splitting}
+                          className="rounded bg-amber-500 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-amber-600 disabled:opacity-40"
+                        >
+                          {splitting ? '처리 중…' : '빼기 확정'}
+                        </button>
+                        <button
+                          onClick={() => setSplitTarget(null)}
+                          className="rounded px-2 py-0.5 text-[10px] text-gray-400 hover:bg-gray-100"
+                        >
+                          취소
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setSplitTarget({ row, selectedIndexes: new Set() })}
+                        className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-gray-400 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                      >
+                        <Scissors className="h-3 w-3" />
+                        별건으로 빼기
+                      </button>
+                    )
+                  )}
+                </div>
+
+                {/* 별건 빼기 모드 안내 */}
+                {splitTarget?.row.rowIndex === row.rowIndex && (
+                  <p className="mb-1.5 text-[10px] text-amber-600">
+                    빼낼 항목을 선택하세요. 선택한 항목은 별도 집행내역으로 분리됩니다.
+                  </p>
+                )}
+
+                <div className="space-y-1.5">
                   {row.mergeInfo.subItems.map((item, idx) => {
+                    const isSplitMode = splitTarget?.row.rowIndex === row.rowIndex;
+                    const isSelected = isSplitMode && splitTarget!.selectedIndexes.has(idx);
                     const activeEntries = (MONTH_COLUMNS as readonly string[])
                       .map((m, i) => ({ m, i, amt: item.monthlyAmounts[i] }))
                       .filter(({ amt }) => amt > 0);
+
                     return (
-                      <div key={idx} className="flex items-start justify-between rounded bg-amber-50/60 px-2 py-1.5">
-                        <div className="flex min-w-0 flex-wrap items-center gap-1 mr-3">
-                          <span className="text-xs text-gray-700 truncate">{item.description || item.programName || '-'}</span>
-                          {activeEntries.map(({ m, i }) => (
-                            <span key={i} className="shrink-0 rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-400">{m}</span>
-                          ))}
+                      <div
+                        key={idx}
+                        className={cn(
+                          'flex items-start justify-between rounded px-2 py-1.5 transition-colors',
+                          isSplitMode
+                            ? isSelected
+                              ? 'cursor-pointer bg-amber-100 ring-1 ring-amber-300'
+                              : 'cursor-pointer bg-amber-50/60 hover:bg-amber-50'
+                            : 'bg-amber-50/60',
+                        )}
+                        onClick={
+                          isSplitMode
+                            ? () =>
+                                setSplitTarget((prev) => {
+                                  if (!prev) return null;
+                                  const next = new Set(prev.selectedIndexes);
+                                  if (next.has(idx)) next.delete(idx);
+                                  else next.add(idx);
+                                  return { ...prev, selectedIndexes: next };
+                                })
+                            : undefined
+                        }
+                      >
+                        <div className="flex min-w-0 flex-1 items-start gap-2 mr-3">
+                          {isSplitMode && (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-0.5 shrink-0 accent-amber-500"
+                            />
+                          )}
+                          <div className="flex min-w-0 flex-wrap items-center gap-1">
+                            <span className="text-xs text-gray-700 truncate">
+                              {item.description || item.programName || '-'}
+                            </span>
+                            {item.programName && item.description && (
+                              <span className="shrink-0 text-[10px] text-gray-400">[{item.programName}]</span>
+                            )}
+                            {activeEntries.map(({ m, i }) => (
+                              <span key={i} className="shrink-0 rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-400">{m}</span>
+                            ))}
+                          </div>
                         </div>
                         <div className="shrink-0 text-right text-xs">
                           {activeEntries.length > 1 ? (
@@ -726,6 +831,32 @@ export function ExpenditureTable({
                     );
                   })}
                 </div>
+
+                {/* 전체 선택/해제 버튼 (빼기 모드에서만) */}
+                {splitTarget?.row.rowIndex === row.rowIndex && row.mergeInfo.subItems.length > 1 && (
+                  <div className="mt-1.5 flex gap-2">
+                    <button
+                      onClick={() =>
+                        setSplitTarget((prev) =>
+                          prev
+                            ? { ...prev, selectedIndexes: new Set(row.mergeInfo!.subItems.map((_, i) => i)) }
+                            : null,
+                        )
+                      }
+                      className="text-[10px] text-amber-500 hover:underline"
+                    >
+                      전체 선택
+                    </button>
+                    <button
+                      onClick={() =>
+                        setSplitTarget((prev) => (prev ? { ...prev, selectedIndexes: new Set() } : null))
+                      }
+                      className="text-[10px] text-gray-400 hover:underline"
+                    >
+                      선택 해제
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </TableCell>

@@ -117,6 +117,40 @@ export function useDeleteExpenditureRow(category: string) {
   });
 }
 
+// ── 별건으로 빼기 ─────────────────────────────────────────────
+
+export interface SplitPayload {
+  mergeId: string;
+  mergedRowIndex: number;
+  subItemIndexes: number[];
+}
+
+export function useSplitExpenditureRow(category: string) {
+  const { budgetType } = useBudgetType();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: SplitPayload) => {
+      const res = await fetch(
+        `/api/sheets/expenditure/${encodeURIComponent(category)}/split?sheetType=${budgetType}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, sheetType: budgetType }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '별건으로 빼기 실패');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+    },
+  });
+}
+
 // ── 합치기 ────────────────────────────────────────────────────
 
 export interface MergePayload {

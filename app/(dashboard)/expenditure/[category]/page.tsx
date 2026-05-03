@@ -21,6 +21,7 @@ import {
   useUploadPdf,
   useDeleteFile,
   useMergeExpenditureRows,
+  useSplitExpenditureRow,
   type RowPayload,
 } from '@/hooks/useExpenditure';
 import type { ExpenditureDetailRow } from '@/types';
@@ -54,6 +55,7 @@ export default function ExpenditurePage({
   const uploadMutation    = useUploadPdf(category);
   const deleteFileMutation = useDeleteFile(category);
   const mergeMutation  = useMergeExpenditureRows(category);
+  const splitMutation  = useSplitExpenditureRow(category);
 
   // 폼 상태
   const [formOpen, setFormOpen]   = useState(false);
@@ -195,6 +197,10 @@ export default function ExpenditurePage({
     await mergeMutation.mutateAsync({ rowIndexes, description, programName });
   }
 
+  async function handleSplit(mergeId: string, mergedRowIndex: number, subItemIndexes: number[]) {
+    await splitMutation.mutateAsync({ mergeId, mergedRowIndex, subItemIndexes });
+  }
+
   function handleUploadSuccess(uploadedRows: { category: string; rowIndex: number }[]) {
     const indexes = uploadedRows
       .filter((r) => r.category === category)
@@ -328,6 +334,7 @@ export default function ExpenditurePage({
           onMoveMonth={handleMoveMonth}
           onUpdate={handleInlineUpdate}
           onMerge={canWrite ? handleMerge : undefined}
+          onSplit={canWrite ? handleSplit : undefined}
           highlightRowIndex={highlightRowIndex}
         />
       )}
