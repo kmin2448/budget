@@ -45,6 +45,9 @@ const KEY_MAP: Record<string, string> = {
   '.':'.', ',':'.', '%':'%',
 };
 
+// ── Memo storage ──────────────────────────────────────────────
+const MEMO_LS_KEY = 'coss_memo';
+
 // ── Layout defaults ────────────────────────────────────────────
 const TAB_SIZE = {
   memo: { w: 300, h: 280 },
@@ -92,10 +95,23 @@ export function MemoPopup({ isOpen, onClose, leftOffset }: MemoPopupProps) {
   useEffect(() => {
     if (!isOpen || fetched.current) return;
     fetched.current = true;
+
+    // 즉시 localStorage 복원 (새로고침 후에도 유지)
+    const cached = localStorage.getItem(MEMO_LS_KEY);
+    if (cached !== null) setMemo(cached);
+
     setLoading(true);
     fetch('/api/memo')
       .then(r => r.json())
-      .then((d: { content?: string }) => { setMemo(d.content ?? ''); setLoading(false); })
+      .then((d: { content?: string }) => {
+        const server = d.content ?? '';
+        // 서버에 저장된 내용이 있으면 서버 우선; 없으면 로컬 유지
+        if (server) {
+          setMemo(server);
+          localStorage.setItem(MEMO_LS_KEY, server);
+        }
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, [isOpen]);
 
@@ -103,6 +119,7 @@ export function MemoPopup({ isOpen, onClose, leftOffset }: MemoPopupProps) {
 
   // ── memo handlers ──────────────────────────────────────────
   const saveApi = (content: string) => {
+    localStorage.setItem(MEMO_LS_KEY, content); // 즉시 로컬 저장 (새로고침 대비)
     clearTimeout(saveTimer.current);
     setSave('saving');
     saveTimer.current = setTimeout(() => {
@@ -116,6 +133,7 @@ export function MemoPopup({ isOpen, onClose, leftOffset }: MemoPopupProps) {
   const handleMemoChange = (v: string) => { setMemo(v); saveApi(v); };
   const handleClear = () => {
     setMemo('');
+    localStorage.removeItem(MEMO_LS_KEY);
     clearTimeout(saveTimer.current);
     setSave('saving');
     fetch('/api/memo', {
