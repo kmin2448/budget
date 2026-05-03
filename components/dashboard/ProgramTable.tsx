@@ -488,7 +488,7 @@ export function ProgramTable({
                   <TableCell className="py-2 text-right font-semibold text-planned tabular-nums">
                     {formatKRW(catTotal.executionPlanned)}
                   </TableCell>
-                  <TableCell className={cn('py-2 text-right font-semibold tabular-nums', catTotal.balance < 0 ? 'text-red-500' : 'text-[#131310]')}>
+                  <TableCell className="py-2 text-right font-semibold tabular-nums text-text-secondary">
                     {formatKRW(catTotal.balance)}
                   </TableCell>
                   <TableCell className="py-2 text-right">
@@ -630,7 +630,7 @@ export function ProgramTable({
                           <TableCell className="py-2 text-right text-sm tabular-nums text-planned">
                             {formatKRW(row.executionPlanned)}
                           </TableCell>
-                          <TableCell className={cn('py-2 text-right text-sm tabular-nums', row.balance < 0 ? 'text-red-500' : 'text-gray-700')}>
+                          <TableCell className="py-2 text-right text-sm tabular-nums text-text-secondary">
                             {formatKRW(row.balance)}
                           </TableCell>
                           <TableCell className="py-2 text-right">
