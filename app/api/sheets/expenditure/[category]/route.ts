@@ -133,12 +133,10 @@ export async function GET(
       isPersonnel
         ? Promise.resolve([])
         : getCategoryDropdown(CATEGORY_DROP_MAP[category], SPREADSHEET_ID).catch(() => [] as string[]),
-      isPersonnel
-        ? Promise.resolve({ data: [] })
-        : supabase
-            .from('expenditure_files')
-            .select('row_index, drive_file_id, drive_url')
-            .eq('sheet_name', category),
+      supabase
+        .from('expenditure_files')
+        .select('row_index, drive_file_id, drive_url')
+        .eq('sheet_name', category),
     ]);
 
     const namedAllocation = Number(allocationRes[0]?.[0] ?? 0);
