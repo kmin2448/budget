@@ -184,7 +184,7 @@ export function UnitBudgetTable({
               <th className="px-3 py-1.5 text-left font-semibold text-text-secondary text-xs w-[110px]">보조세목</th>
               <th className="px-3 py-1.5 text-right font-semibold text-text-secondary w-[120px]">예산계획</th>
               <th className="px-3 py-1.5 text-right font-semibold text-text-secondary w-[130px]">편성(공식)예산</th>
-              <th className="px-3 py-1.5 text-right font-semibold text-text-secondary w-[130px]">집행액</th>
+              <th className="px-3 py-1.5 text-right font-semibold text-text-secondary w-[150px]">집행액(완료+예정)</th>
               <th className="px-3 py-1.5 text-right font-semibold text-text-secondary w-[130px]">
                 증감액
                 <span className="ml-1 text-[10px] font-normal text-text-secondary">(+/-)</span>
@@ -248,15 +248,17 @@ export function UnitBudgetTable({
                       <td className="px-3 py-1.5 text-right font-semibold text-primary">
                         {formatKRW(allRows.reduce((s, r) => s + r.officialBudget, 0))}
                       </td>
-                      <td className="px-3 py-1.5 text-right font-semibold text-primary">
+                      <td className="px-3 py-1.5 text-right font-semibold">
                         {(() => {
                           const total = unit.totalExecutionAmount;
                           const ec = unit.totalExecutionComplete;
                           const ep = unit.totalExecutionPlanned;
+                          const totalOfficialBudget = allRows.reduce((s, r) => s + r.officialBudget, 0);
+                          const isOver = total > 0 && (total > unit.totalBudgetPlan || total > totalOfficialBudget);
                           if (total === 0) return <span className="font-normal text-text-secondary">—</span>;
                           return (
                             <div className="relative inline-block group cursor-default">
-                              <span>{formatKRW(total)}</span>
+                              <span className={isOver ? 'text-red-500' : 'text-primary'}>{formatKRW(total)}</span>
                               <div className="invisible group-hover:visible absolute right-0 top-full z-20 mt-1 w-max rounded border border-divider bg-white px-2.5 py-1.5 text-xs font-normal text-text-secondary shadow-md">
                                 <div>완료: {formatKRW(ec)}</div>
                                 <div>예정: {formatKRW(ep)}</div>
@@ -319,15 +321,16 @@ export function UnitBudgetTable({
                           <td className="px-3 py-1 text-right tabular-nums text-primary">
                             {row.officialBudget > 0 ? formatKRW(row.officialBudget) : '—'}
                           </td>
-                          <td className="px-3 py-1 text-right tabular-nums text-[#131310]">
+                          <td className="px-3 py-1 text-right tabular-nums">
                             {(() => {
                               const total = row.executionAmount;
                               const ec = row.executionComplete;
                               const ep = row.executionPlanned;
+                              const isOver = total > 0 && (total > row.budgetPlan || total > row.officialBudget);
                               if (total === 0) return <span className="text-text-secondary">—</span>;
                               return (
                                 <div className="relative inline-block group cursor-default">
-                                  <span>{formatKRW(total)}</span>
+                                  <span className={isOver ? 'text-red-500 font-medium' : 'text-[#131310]'}>{formatKRW(total)}</span>
                                   <div className="invisible group-hover:visible absolute right-0 top-full z-20 mt-1 w-max rounded border border-divider bg-white px-2.5 py-1.5 text-xs text-text-secondary shadow-md">
                                     <div>완료: {formatKRW(ec)}</div>
                                     <div>예정: {formatKRW(ep)}</div>
