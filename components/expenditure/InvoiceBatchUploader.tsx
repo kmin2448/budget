@@ -60,9 +60,13 @@ interface ManualMatchState {
 
 export function InvoiceBatchUploader({
   onUploadComplete,
+  onUploadSuccess,
+  onResultsClear,
   currentCategory,
 }: {
   onUploadComplete?: () => void;
+  onUploadSuccess?: (uploadedRows: { category: string; rowIndex: number }[]) => void;
+  onResultsClear?: () => void;
   currentCategory?: string;
 }) {
   const { data: session } = useSession();
@@ -302,6 +306,7 @@ export function InvoiceBatchUploader({
     }
 
     const allResults: BatchUploadResult[] = [];
+    const successfulRows: { category: string; rowIndex: number }[] = [];
 
     for (const item of uploadable) {
       try {
@@ -383,6 +388,7 @@ export function InvoiceBatchUploader({
 
         if (metaRes.ok && data.results) {
           allResults.push(...data.results);
+          successfulRows.push({ category: item.category!, rowIndex: item.matchedRowIndex! });
         } else {
           allResults.push({
             originalName: item.file.name,
@@ -401,6 +407,7 @@ export function InvoiceBatchUploader({
 
     setResults(allResults);
     if (onUploadComplete) onUploadComplete();
+    if (successfulRows.length > 0) onUploadSuccess?.(successfulRows);
     setFileItems((prev) => prev.filter((item) => !!item.error));
     setUploading(false);
   };
@@ -753,7 +760,7 @@ export function InvoiceBatchUploader({
                 <h3 className="text-sm font-semibold">업로드 결과</h3>
                 <button
                   type="button"
-                  onClick={() => setResults([])}
+                  onClick={() => { setResults([]); onResultsClear?.(); }}
                   className="text-xs text-gray-400 hover:text-red-500 transition-colors"
                 >
                   지우기

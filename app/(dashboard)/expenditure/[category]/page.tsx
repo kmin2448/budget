@@ -70,6 +70,12 @@ export default function ExpenditurePage({
   const [deleteFileTarget, setDeleteFileTarget] = useState<ExpenditureDetailRow | undefined>();
   const [deleteFileOpen, setDeleteFileOpen]     = useState(false);
 
+  // 다중 업로드 후 필터 상태 — 업로드 완료된 행만 표시
+  const [uploadFilterRowIndexes, setUploadFilterRowIndexes] = useState<number[] | null>(null);
+
+  // 비목 탭 변경 시 필터 초기화
+  useEffect(() => { setUploadFilterRowIndexes(null); }, [category]);
+
   // 권한
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const userPermissions = (session?.user as { permissions?: string[] } | undefined)?.permissions ?? [];
@@ -183,6 +189,22 @@ export default function ExpenditurePage({
     }
   }
 
+  function handleUploadSuccess(uploadedRows: { category: string; rowIndex: number }[]) {
+    const indexes = uploadedRows
+      .filter((r) => r.category === category)
+      .map((r) => r.rowIndex);
+    if (indexes.length > 0) setUploadFilterRowIndexes(indexes);
+  }
+
+  function handleResultsClear() {
+    setUploadFilterRowIndexes(null);
+  }
+
+  // 필터 적용 rows
+  const displayRows = uploadFilterRowIndexes
+    ? (data?.rows ?? []).filter((r) => uploadFilterRowIndexes.includes(r.rowIndex))
+    : (data?.rows ?? []);
+
   // ── 렌더 ────────────────────────────────────────────────────────
 
   return (
@@ -260,14 +282,36 @@ export default function ExpenditurePage({
       </div>
 
       {/* 다중 청구서 일괄 업로더 */}
-      {canWrite && <InvoiceBatchUploader currentCategory={category} onUploadComplete={() => refetch()} />}
+      {canWrite && (
+        <InvoiceBatchUploader
+          currentCategory={category}
+          onUploadComplete={() => refetch()}
+          onUploadSuccess={handleUploadSuccess}
+          onResultsClear={handleResultsClear}
+        />
+      )}
+
+      {/* 업로드 필터 활성화 배너 */}
+      {uploadFilterRowIndexes && (
+        <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary-bg/60 px-3 py-1.5 text-xs text-primary">
+          <span>
+            ⚡ 방금 업로드한 <strong>{uploadFilterRowIndexes.length}건</strong>만 표시 중
+          </span>
+          <button
+            onClick={handleResultsClear}
+            className="ml-4 rounded px-2 py-0.5 text-xs text-primary hover:bg-primary/10 hover:underline"
+          >
+            전체 보기
+          </button>
+        </div>
+      )}
 
       {/* 집행내역 테이블 */}
       {isLoading ? (
         <div className="h-64 animate-pulse rounded-lg bg-[#F3F3EE]" />
       ) : (
         <ExpenditureTable
-          rows={data?.rows ?? []}
+          rows={displayRows}
           canWrite={canWrite}
           category={category}
           onAdd={handleAdd}
