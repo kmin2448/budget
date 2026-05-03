@@ -212,9 +212,16 @@ export async function GET(
 
         // 파일 매칭: UUID 우선
         const fileInfo   = rowUuid ? (fileUuidMap.get(rowUuid) ?? fileRowMap.get(rowIndex)) : fileRowMap.get(rowIndex);
-        const monthFiles = rowUuid
+        const monthFilesBase = rowUuid
           ? (monthFilesUuidMap.get(rowUuid) ?? monthFilesRowMap.get(rowIndex))
           : monthFilesRowMap.get(rowIndex);
+
+        // 인건비 전용: month_index=null로 저장된 레거시 파일을 월별 파일 목록에 포함
+        // (migration 004 이전 또는 배치업로드 버그로 저장된 파일 대응)
+        const legacyPersonnelFile = isPersonnel ? (fileRowMap.get(rowIndex) ?? (rowUuid ? fileUuidMap.get(rowUuid) : undefined)) : undefined;
+        const monthFiles = isPersonnel && legacyPersonnelFile && !(monthFilesBase?.length)
+          ? [{ monthIndex: -1, fileId: legacyPersonnelFile.fileId, fileUrl: legacyPersonnelFile.fileUrl }]
+          : monthFilesBase;
 
         // 병합 매칭: UUID 우선
         const mergeInfo = rowUuid

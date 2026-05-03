@@ -121,10 +121,16 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // 인건비: sourceMonthIndex를 month_index로 저장 (셀 주소 기반 매칭)
+    const isPersonnel = category === '인건비';
+    const monthIdx = isPersonnel && sourceMonthIndex !== undefined && sourceMonthIndex >= 0
+      ? sourceMonthIndex
+      : null;
+
     // 기존 파일 레코드 제거 후 새 레코드 저장 (UUID 우선, row_index 폴백)
     let delQ = supabase.from('expenditure_files').delete().eq('sheet_name', category);
     delQ = rowUuid ? delQ.eq('row_uuid', rowUuid) : delQ.eq('row_index', rowIndex);
-    await delQ.is('month_index', null);
+    await (monthIdx !== null ? delQ.eq('month_index', monthIdx) : delQ.is('month_index', null));
 
     await supabase.from('expenditure_files').insert({
       sheet_name: category,
@@ -133,6 +139,7 @@ export async function POST(req: NextRequest) {
       drive_file_id: fileId,
       drive_url: webViewLink,
       uploaded_by: uploadedById,
+      ...(monthIdx !== null ? { month_index: monthIdx } : {}),
     });
 
     return NextResponse.json({

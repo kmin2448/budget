@@ -11,7 +11,7 @@ import { formatKRW, parseKRW } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import {
   Pencil, Trash2, Upload, ExternalLink, Plus,
-  ChevronUp, ChevronDown, ChevronRight, GripVertical, X, Search, Merge, Scissors, CalendarDays,
+  ChevronUp, ChevronDown, ChevronRight, GripVertical, X, Search, Merge, Scissors, CalendarDays, FileText,
 } from 'lucide-react';
 import { MONTH_COLUMNS, PERSONNEL_CATEGORY } from '@/constants/sheets';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
@@ -651,10 +651,10 @@ export function ExpenditureTable({
                   >
                     <div className="mb-0.5 flex items-center justify-center gap-0.5 text-gray-400">
                       <span>{month}</span>
-                      {isPersonnel && monthFile && (
+                      {isPersonnel && monthFile && monthFile.monthIndex !== -1 && (
                         <span
-                          className="inline-block h-1.5 w-1.5 rounded-full bg-green-500"
-                          title="청구서 업로드됨"
+                          className="inline-block h-2 w-2 rounded-full bg-green-500"
+                          title="지출부 업로드됨"
                         />
                       )}
                     </div>
@@ -684,34 +684,38 @@ export function ExpenditureTable({
                       </div>
                     )}
                     {/* 인건비 전용: 월별 파일 업로드/삭제 */}
-                    {isPersonnel && row.monthlyAmounts[i] > 0 && (
-                      <div className="mt-0.5 flex items-center justify-center gap-0.5">
+                    {isPersonnel && (row.monthlyAmounts[i] > 0 || monthFile) && (
+                      <div className="mt-1 flex flex-col items-center gap-0.5">
                         {monthFile ? (
-                          <>
+                          <div className="flex items-center gap-0.5">
                             <a
                               href={monthFile.fileUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="청구서 열기"
-                              className="inline-block h-2.5 w-2.5 rounded-full bg-green-500 hover:opacity-80"
-                            />
+                              title="지출부 열기"
+                              className="inline-flex items-center gap-0.5 rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700 ring-1 ring-green-200 hover:bg-green-100"
+                            >
+                              <FileText className="h-2.5 w-2.5" />
+                              지출부
+                            </a>
                             {canWrite && (
                               <button
                                 onClick={() => onDeleteFile(row, i)}
-                                className="rounded p-0.5 text-gray-300 hover:bg-red-50 hover:text-red-400"
+                                className="rounded p-0.5 text-gray-300 hover:bg-red-50 hover:text-red-500"
                                 title="파일 삭제"
                               >
                                 <X className="h-2.5 w-2.5" />
                               </button>
                             )}
-                          </>
+                          </div>
                         ) : canWrite ? (
                           <button
                             onClick={() => onUpload(row, i)}
-                            className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                            title="청구서 업로드"
+                            className="inline-flex items-center gap-0.5 rounded border border-dashed border-gray-200 px-1.5 py-0.5 text-[10px] text-gray-400 hover:border-primary/40 hover:text-primary"
+                            title="지출부 업로드"
                           >
                             <Upload className="h-2.5 w-2.5" />
+                            업로드
                           </button>
                         ) : null}
                       </div>
@@ -720,6 +724,37 @@ export function ExpenditureTable({
                 );
               })}
             </div>
+
+            {/* 인건비 레거시 파일 — month_index 없이 저장된 파일 표시 */}
+            {isPersonnel && row.monthFiles?.some((f) => f.monthIndex === -1) && (
+              <div className="mt-2 border-t border-gray-100 pt-2" onClick={(e) => e.stopPropagation()}>
+                <p className="mb-1 text-[10px] text-gray-400">월 미지정 지출부</p>
+                <div className="flex flex-wrap gap-1">
+                  {row.monthFiles.filter((f) => f.monthIndex === -1).map((f) => (
+                    <div key={f.fileId} className="flex items-center gap-0.5">
+                      <a
+                        href={f.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-0.5 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100"
+                      >
+                        <FileText className="h-2.5 w-2.5" />
+                        지출부 (월 미지정)
+                      </a>
+                      {canWrite && (
+                        <button
+                          onClick={() => onDeleteFile(row, undefined)}
+                          className="rounded p-0.5 text-gray-300 hover:bg-red-50 hover:text-red-500"
+                          title="파일 삭제"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* 합친 내역 — mergeInfo가 있는 행만 표시 */}
             {row.mergeInfo && (
