@@ -7,7 +7,10 @@ import {
   CATEGORY_DATA_START_ROW,
   CATEGORY_DATA_END_ROW_MAP,
   PERSONNEL_CATEGORY,
+  ID_COL_MAIN,
+  ID_COL_CARRYOVER,
 } from '@/constants/sheets';
+import { generateRowId } from '@/lib/google/sheet-row-ops';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { checkPermission } from '@/lib/permissions';
 import { PERMISSIONS } from '@/types';
@@ -108,7 +111,9 @@ export async function POST(
       if (String(colA[i]?.[0] ?? '').trim()) lastDataIdx = i;
     }
 
-    // 4. 추출 항목 → 새 행 쓰기
+    const idCol = sheetType === 'carryover' ? ID_COL_CARRYOVER : ID_COL_MAIN;
+
+    // 4. 추출 항목 → 새 행 쓰기 + UUID 부여
     const newRowIndexes: number[] = [];
     for (let i = 0; i < extractItems.length; i++) {
       const item = extractItems[i];
@@ -127,11 +132,16 @@ export async function POST(
         ...monthlyValues,
       ];
 
-      await sheets.spreadsheets.values.update({
+      const newUuid = generateRowId();
+      await sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: SPREADSHEET_ID,
-        range: `'${category}'!A${newRowIndex}:${endCol}${newRowIndex}`,
-        valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [rowValues] },
+        requestBody: {
+          valueInputOption: 'USER_ENTERED',
+          data: [
+            { range: `'${category}'!A${newRowIndex}:${endCol}${newRowIndex}`, values: [rowValues] },
+            { range: `'${category}'!${idCol}${newRowIndex}`, values: [[newUuid]] },
+          ],
+        },
       });
     }
 

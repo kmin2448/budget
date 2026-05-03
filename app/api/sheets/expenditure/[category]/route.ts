@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { getSheetsClient, readNamedRange, getCategoryDropdown } from '@/lib/google/sheets';
+import { generateRowId, getSheetNumericId, insertSheetRow, deleteSheetRow } from '@/lib/google/sheet-row-ops';
 import {
   CATEGORY_SHEETS,
   CATEGORY_DROP_MAP,
@@ -9,6 +10,8 @@ import {
   CATEGORY_DATA_START_ROW,
   CATEGORY_DATA_END_ROW_MAP,
   PERSONNEL_CATEGORY,
+  ID_COL_MAIN,
+  ID_COL_CARRYOVER,
 } from '@/constants/sheets';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { serialToDateString, calcBudgetInfo } from '@/lib/expenditure-utils';
@@ -26,12 +29,20 @@ function getMonthCount(sheetType: BudgetType) {
   return sheetType === 'carryover' ? 4 : 12;
 }
 
-// 인건비 끝 열: 본예산=M(A+12), 이월예산=E(A+4)
+// 고유 ID 열: 본예산=U(index 20), 이월예산=M(index 12)
+function getIdCol(sheetType: BudgetType): string {
+  return sheetType === 'carryover' ? ID_COL_CARRYOVER : ID_COL_MAIN;
+}
+function getIdColIndex(sheetType: BudgetType): number {
+  return sheetType === 'carryover' ? 12 : 20;
+}
+
+// 인건비 데이터 끝 열: 본예산=M(A+12), 이월예산=E(A+4)
 function getPersonnelEndCol(monthCount: number) {
   return String.fromCharCode('A'.charCodeAt(0) + monthCount); // 12→M, 4→E
 }
 
-// 일반 비목 끝 열: 본예산=T(I+11), 이월예산=L(I+3)
+// 일반 비목 데이터 끝 열: 본예산=T(I+11), 이월예산=L(I+3)
 function getGeneralEndCol(monthCount: number) {
   return String.fromCharCode('A'.charCodeAt(0) + 8 + monthCount - 1); // 12→T, 4→L
 }
@@ -52,7 +63,6 @@ function buildPersonnelRowValues(
   monthCount: number,
 ): { programName: string; expenseDate: string; description: string; monthlyAmounts: number[]; totalAmount: number } {
   const programName = String(raw[0] ?? '').trim();
-  // monthlyAmounts는 항상 length 12로 반환 (UI 호환성 유지, 이월예산은 0-3만 채워짐)
   const monthlyAmounts: number[] = Array.from({ length: 12 }, (_, i) =>
     i < monthCount ? Number(raw[1 + i] ?? 0) : 0,
   );
@@ -81,7 +91,6 @@ function buildRowValues(
   const programName = String(raw[0] ?? '').trim();
   const expenseDate = serialToDateString(raw[1]);
   const description = String(raw[2] ?? '').trim();
-  // monthlyAmounts는 항상 length 12로 반환 (이월예산은 0-3만 채워짐)
   const monthlyAmounts: number[] = Array.from({ length: 12 }, (_, i) =>
     i < monthCount ? Number(raw[8 + i] ?? 0) : 0,
   );
@@ -111,10 +120,11 @@ export async function GET(
 
     const isPersonnel = category === PERSONNEL_CATEGORY;
     const monthCount = getMonthCount(sheetType);
-    const endCol = isPersonnel
-      ? getPersonnelEndCol(monthCount)
-      : getGeneralEndCol(monthCount);
-    const readRange = `'${category}'!A${CATEGORY_DATA_START_ROW}:${endCol}${CATEGORY_DATA_END_ROW_MAP[category]}`;
+    const idCol = getIdCol(sheetType);
+    const idColIndex = getIdColIndex(sheetType);
+
+    // UUID 열(U/M)까지 읽어야 하므로 readRange 끝을 idCol로 확장
+    const readRange = `'${category}'!A${CATEGORY_DATA_START_ROW}:${idCol}${CATEGORY_DATA_END_ROW_MAP[category]}`;
 
     const [rowsRes, allocationRes, b1Res, dropOptions, fileRecordsRes, mergeRecordsRes] = await Promise.all([
       sheets.spreadsheets.values.get({
@@ -122,9 +132,7 @@ export async function GET(
         range: readRange,
         valueRenderOption: 'UNFORMATTED_VALUE',
       }),
-      // Named Range가 없는 시트(이월예산 등)에서도 빈 배열로 폴백
       readNamedRange(CATEGORY_ALLOCATION_MAP[category], SPREADSHEET_ID).catch(() => [] as (string | number | null)[][]),
-      // 이월예산 등 Named Range 미설정 시 각 비목 시트 B1에서 배정예산 직접 읽기
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: `'${category}'!B1`,
@@ -135,11 +143,11 @@ export async function GET(
         : getCategoryDropdown(CATEGORY_DROP_MAP[category], SPREADSHEET_ID).catch(() => [] as string[]),
       supabase
         .from('expenditure_files')
-        .select('row_index, month_index, drive_file_id, drive_url')
+        .select('row_index, row_uuid, month_index, drive_file_id, drive_url')
         .eq('sheet_name', category),
       supabase
         .from('expenditure_merges')
-        .select('id, merged_row_index, sub_items')
+        .select('id, merged_row_index, row_uuid, sub_items')
         .eq('sheet_name', category)
         .eq('budget_type', sheetType),
     ]);
@@ -149,53 +157,85 @@ export async function GET(
     const allocation = namedAllocation || b1Allocation;
     const rawRows = (rowsRes.data.values ?? []) as (string | number | null)[][];
 
-    // row-level 파일 맵 (비인건비) + 월별 파일 맵 (인건비)
+    // 파일 맵: UUID 우선, row_index 폴백
     const fileRecords = (fileRecordsRes as {
-      data: { row_index: number; month_index: number | null; drive_file_id: string; drive_url: string }[] | null;
+      data: { row_index: number; row_uuid: string | null; month_index: number | null; drive_file_id: string; drive_url: string }[] | null;
     }).data ?? [];
 
-    const fileMap = new Map<number, { fileId: string; fileUrl: string }>();
-    const monthFilesMap = new Map<number, { monthIndex: number; fileId: string; fileUrl: string }[]>();
+    // row-level 파일 (비인건비): UUID 맵 + row_index 폴백 맵
+    const fileUuidMap = new Map<string, { fileId: string; fileUrl: string }>();
+    const fileRowMap  = new Map<number, { fileId: string; fileUrl: string }>();
+    // 월별 파일 (인건비): UUID 맵 + row_index 폴백 맵
+    const monthFilesUuidMap = new Map<string, { monthIndex: number; fileId: string; fileUrl: string }[]>();
+    const monthFilesRowMap  = new Map<number, { monthIndex: number; fileId: string; fileUrl: string }[]>();
 
     for (const f of fileRecords) {
       if (f.month_index !== null && f.month_index !== undefined) {
-        const arr = monthFilesMap.get(f.row_index) ?? [];
-        arr.push({ monthIndex: f.month_index, fileId: f.drive_file_id, fileUrl: f.drive_url });
-        monthFilesMap.set(f.row_index, arr);
+        const entry = { monthIndex: f.month_index, fileId: f.drive_file_id, fileUrl: f.drive_url };
+        if (f.row_uuid) {
+          const arr = monthFilesUuidMap.get(f.row_uuid) ?? [];
+          arr.push(entry);
+          monthFilesUuidMap.set(f.row_uuid, arr);
+        } else {
+          const arr = monthFilesRowMap.get(f.row_index) ?? [];
+          arr.push(entry);
+          monthFilesRowMap.set(f.row_index, arr);
+        }
       } else {
-        fileMap.set(f.row_index, { fileId: f.drive_file_id, fileUrl: f.drive_url });
+        if (f.row_uuid) {
+          fileUuidMap.set(f.row_uuid, { fileId: f.drive_file_id, fileUrl: f.drive_url });
+        } else {
+          fileRowMap.set(f.row_index, { fileId: f.drive_file_id, fileUrl: f.drive_url });
+        }
       }
     }
 
-    const mergeMap = new Map(
-      ((mergeRecordsRes as { data: { id: string; merged_row_index: number; sub_items: MergeSubItem[] }[] | null }).data ?? []).map(
-        (m) => [m.merged_row_index, { id: m.id, subItems: m.sub_items }],
-      ),
-    );
+    // 병합 맵: UUID 우선, row_index 폴백
+    const mergeRecords = ((mergeRecordsRes as {
+      data: { id: string; merged_row_index: number; row_uuid: string | null; sub_items: MergeSubItem[] }[] | null;
+    }).data ?? []);
+    const mergeUuidMap = new Map<string, { id: string; subItems: MergeSubItem[] }>();
+    const mergeRowMap  = new Map<number, { id: string; subItems: MergeSubItem[] }>();
+    for (const m of mergeRecords) {
+      const val = { id: m.id, subItems: m.sub_items };
+      if (m.row_uuid) mergeUuidMap.set(m.row_uuid, val);
+      mergeRowMap.set(m.merged_row_index, val);
+    }
 
     const rows: ExpenditureDetailRow[] = rawRows
       .map((raw, idx) => {
         const rowIndex = CATEGORY_DATA_START_ROW + idx;
+        const rowUuid  = String(raw[idColIndex] ?? '').trim();
         const { programName, expenseDate, description, monthlyAmounts, totalAmount } = isPersonnel
           ? buildPersonnelRowValues(raw, monthCount)
           : buildRowValues(raw, monthCount);
-        const fileInfo = fileMap.get(rowIndex);
-        const monthFiles = monthFilesMap.get(rowIndex);
+
+        // 파일 매칭: UUID 우선
+        const fileInfo   = rowUuid ? (fileUuidMap.get(rowUuid) ?? fileRowMap.get(rowIndex)) : fileRowMap.get(rowIndex);
+        const monthFiles = rowUuid
+          ? (monthFilesUuidMap.get(rowUuid) ?? monthFilesRowMap.get(rowIndex))
+          : monthFilesRowMap.get(rowIndex);
+
+        // 병합 매칭: UUID 우선
+        const mergeInfo = rowUuid
+          ? (mergeUuidMap.get(rowUuid) ?? mergeRowMap.get(rowIndex))
+          : mergeRowMap.get(rowIndex);
+
         return {
           rowIndex,
+          rowUuid,
           programName,
           expenseDate,
           description,
           monthlyAmounts,
           totalAmount,
-          // 인건비는 날짜 개념 없음 → 금액이 있으면 집행완료
           status: isPersonnel
             ? (totalAmount > 0 ? 'complete' : 'planned') as 'complete' | 'planned'
             : (expenseDate ? 'complete' : 'planned') as 'complete' | 'planned',
           hasFile: isPersonnel ? (monthFiles?.length ?? 0) > 0 : !!fileInfo,
           fileUrl: isPersonnel ? undefined : fileInfo?.fileUrl,
-          fileId: isPersonnel ? undefined : fileInfo?.fileId,
-          mergeInfo: mergeMap.get(rowIndex) ?? null,
+          fileId:  isPersonnel ? undefined : fileInfo?.fileId,
+          mergeInfo: mergeInfo ?? null,
           monthFiles: isPersonnel ? (monthFiles ?? []) : undefined,
         };
       })
@@ -210,7 +250,7 @@ export async function GET(
   }
 }
 
-// POST: 새 집행내역 행 추가
+// POST: 새 집행내역 행 추가 (insertDimension으로 Named Range 자동 확장)
 export async function POST(
   req: NextRequest,
   { params }: { params: { category: string } },
@@ -241,8 +281,11 @@ export async function POST(
     };
 
     const sheets = getSheetsClient();
+    const isPersonnel = category === PERSONNEL_CATEGORY;
+    const monthCount  = getMonthCount(sheetType);
+    const idCol       = getIdCol(sheetType);
 
-    // A열에서 마지막 데이터 행 탐색
+    // 마지막 데이터 행 탐색
     const colARes = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `'${category}'!A${CATEGORY_DATA_START_ROW}:A${CATEGORY_DATA_END_ROW_MAP[category]}`,
@@ -255,27 +298,36 @@ export async function POST(
     }
     const newRowIndex = CATEGORY_DATA_START_ROW + lastDataIdx + 1;
 
-    const isPersonnel = category === PERSONNEL_CATEGORY;
-    const monthCount = getMonthCount(sheetType);
+    // Named Range 내에서 행 삽입 (범위 자동 확장)
+    const sheetId = await getSheetNumericId(sheets, SPREADSHEET_ID, category);
+    await insertSheetRow(sheets, SPREADSHEET_ID, sheetId, newRowIndex - 1); // 0-based
+
+    // 데이터 + 고유 ID 쓰기
+    const rowId = generateRowId();
+    const endCol = isPersonnel ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
     const rowValues = isPersonnel
       ? buildPersonnelWriteValues(body, monthCount)
       : buildWriteValues(body, monthCount);
-    const endCol = isPersonnel ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
-    await sheets.spreadsheets.values.update({
+
+    await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'${category}'!A${newRowIndex}:${endCol}${newRowIndex}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [rowValues] },
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data: [
+          { range: `'${category}'!A${newRowIndex}:${endCol}${newRowIndex}`, values: [rowValues] },
+          { range: `'${category}'!${idCol}${newRowIndex}`, values: [[rowId]] },
+        ],
+      },
     });
 
-    return NextResponse.json({ rowIndex: newRowIndex, message: '집행내역이 추가되었습니다.' });
+    return NextResponse.json({ rowIndex: newRowIndex, rowUuid: rowId, message: '집행내역이 추가되었습니다.' });
   } catch (error) {
     console.error('Expenditure POST error:', error);
     return NextResponse.json({ error: '추가 중 오류가 발생했습니다.' }, { status: 500 });
   }
 }
 
-// PUT: 집행내역 행 수정
+// PUT: 집행내역 행 수정 (UUID 열은 덮어쓰지 않음)
 export async function PUT(
   req: NextRequest,
   { params }: { params: { category: string } },
@@ -312,6 +364,7 @@ export async function PUT(
     const rowValues = isPersonnel
       ? buildPersonnelWriteValues(body, monthCount)
       : buildWriteValues(body, monthCount);
+    // 데이터 열까지만 쓰기 — UUID 열(U/M)은 건드리지 않음
     const endCol = isPersonnel ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
@@ -327,7 +380,7 @@ export async function PUT(
   }
 }
 
-// DELETE: 집행내역 행 초기화 + WE-Meet 보내기 배치 자동 취소
+// DELETE: 집행내역 행 삭제 (deleteDimension으로 Named Range 자동 축소)
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { category: string } },
@@ -350,22 +403,27 @@ export async function DELETE(
     const sheetType = (req.nextUrl.searchParams.get('sheetType') ?? 'main') as BudgetType;
     const SPREADSHEET_ID = await getSpreadsheetId(sheetType);
 
-    const { rowIndex } = await req.json() as { rowIndex: number };
+    const { rowIndex, rowUuid } = await req.json() as { rowIndex: number; rowUuid?: string };
     const sheets = getSheetsClient();
-    const monthCount = getMonthCount(sheetType);
-    const isPersonnel = category === PERSONNEL_CATEGORY;
-    const endCol = isPersonnel ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
 
-    // 1. 집행내역 시트 행 초기화
-    await sheets.spreadsheets.values.clear({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `'${category}'!A${rowIndex}:${endCol}${rowIndex}`,
-    });
+    // 시트에서 행 삭제 (Named Range 자동 축소)
+    const sheetId = await getSheetNumericId(sheets, SPREADSHEET_ID, category);
+    await deleteSheetRow(sheets, SPREADSHEET_ID, sheetId, rowIndex - 1); // 0-based
 
-    // 2. 동일 행에 연결된 WE-Meet 보내기 배치 자동 취소
+    const supabase = createServerSupabaseClient();
+
+    // UUID 기반 Supabase 레코드 삭제
+    if (rowUuid) {
+      await supabase.from('expenditure_files').delete().eq('sheet_name', category).eq('row_uuid', rowUuid);
+      await supabase.from('expenditure_merges').delete().eq('sheet_name', category).eq('row_uuid', rowUuid);
+    }
+    // row_index 기반 레코드도 함께 정리 (UUID 없는 레거시 레코드)
+    await supabase.from('expenditure_files').delete().eq('sheet_name', category).eq('row_index', rowIndex).is('row_uuid', null);
+    await supabase.from('expenditure_merges').delete().eq('sheet_name', category).eq('merged_row_index', rowIndex).is('row_uuid', null);
+
+    // WE-Meet 보내기 배치 자동 취소
     try {
       const { unmarkWeMeetExecutionsSent } = await import('@/lib/google/wemeet-sheets');
-      const supabase = createServerSupabaseClient();
       const { data: batches } = await supabase
         .from('wemeet_send_batches')
         .select('id, wemeet_row_indexes')

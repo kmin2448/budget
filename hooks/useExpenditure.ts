@@ -96,13 +96,13 @@ export function useDeleteExpenditureRow(category: string) {
   const { budgetType } = useBudgetType();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (rowIndex: number) => {
+    mutationFn: async ({ rowIndex, rowUuid }: { rowIndex: number; rowUuid?: string }) => {
       const res = await fetch(
         `/api/sheets/expenditure/${encodeURIComponent(category)}?sheetType=${budgetType}`,
         {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rowIndex }),
+          body: JSON.stringify({ rowIndex, rowUuid }),
         },
       );
       if (!res.ok) {
@@ -192,11 +192,11 @@ export function useDeleteFile(category: string) {
   const { budgetType } = useBudgetType();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ rowIndex, monthIndex }: { rowIndex: number; monthIndex?: number }) => {
+    mutationFn: async ({ rowIndex, rowUuid, monthIndex }: { rowIndex: number; rowUuid?: string; monthIndex?: number }) => {
       const res = await fetch('/api/drive/expenditure-upload', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, rowIndex, sheetType: budgetType, monthIndex }),
+        body: JSON.stringify({ category, rowIndex, rowUuid, sheetType: budgetType, monthIndex }),
       });
       if (!res.ok) {
         const body = await res.json() as { error?: string };
@@ -244,6 +244,7 @@ export function useUploadPdf(category: string) {
       formData.append('file', renamedFile);
       formData.append('category', category);
       formData.append('rowIndex', String(row.rowIndex));
+      if (row.rowUuid) formData.append('rowUuid', row.rowUuid);
       formData.append('sheetType', budgetType);
       if (monthIndex !== undefined) {
         formData.append('monthIndex', String(monthIndex));

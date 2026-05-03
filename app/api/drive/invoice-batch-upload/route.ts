@@ -35,13 +35,14 @@ export async function POST(req: NextRequest) {
       fileName: string;
       category: string;
       rowIndex: number;
+      rowUuid?: string;
       expenseDate?: string;
       sourceMonthIndex?: number;
       fileAmount?: number;
       budgetType?: string;
     };
 
-    const { fileId, webViewLink, fileName, category, rowIndex, expenseDate, sourceMonthIndex, fileAmount } = body;
+    const { fileId, webViewLink, fileName, category, rowIndex, rowUuid, expenseDate, sourceMonthIndex, fileAmount } = body;
     const budgetType = (body.budgetType ?? 'main') as BudgetType;
 
     if (!fileId || !webViewLink || !category || rowIndex === undefined) {
@@ -120,15 +121,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 기존 파일 레코드 제거 후 새 레코드 저장
-    await supabase
-      .from('expenditure_files')
-      .delete()
-      .match({ sheet_name: category, row_index: rowIndex });
+    // 기존 파일 레코드 제거 후 새 레코드 저장 (UUID 우선, row_index 폴백)
+    let delQ = supabase.from('expenditure_files').delete().eq('sheet_name', category);
+    delQ = rowUuid ? delQ.eq('row_uuid', rowUuid) : delQ.eq('row_index', rowIndex);
+    await delQ.is('month_index', null);
 
     await supabase.from('expenditure_files').insert({
       sheet_name: category,
       row_index: rowIndex,
+      row_uuid: rowUuid ?? null,
       drive_file_id: fileId,
       drive_url: webViewLink,
       uploaded_by: uploadedById,

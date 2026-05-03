@@ -7,7 +7,10 @@ import {
   CATEGORY_DATA_START_ROW,
   CATEGORY_DATA_END_ROW_MAP,
   PERSONNEL_CATEGORY,
+  ID_COL_MAIN,
+  ID_COL_CARRYOVER,
 } from '@/constants/sheets';
+import { generateRowId } from '@/lib/google/sheet-row-ops';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { serialToDateString } from '@/lib/expenditure-utils';
 import { checkPermission } from '@/lib/permissions';
@@ -121,12 +124,18 @@ export async function POST(
       ...mergedMonthly,
     ];
 
-    // 5. 새 행 쓰기
-    await sheets.spreadsheets.values.update({
+    // 5. 새 행 쓰기 + UUID 부여
+    const mergedUuid = generateRowId();
+    const idCol = sheetType === 'carryover' ? ID_COL_CARRYOVER : ID_COL_MAIN;
+    await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
-      range: `'${category}'!A${newRowIndex}:${endCol}${newRowIndex}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [rowValues] },
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data: [
+          { range: `'${category}'!A${newRowIndex}:${endCol}${newRowIndex}`, values: [rowValues] },
+          { range: `'${category}'!${idCol}${newRowIndex}`, values: [[mergedUuid]] },
+        ],
+      },
     });
 
     // 6. 원본 행들 초기화
@@ -144,6 +153,7 @@ export async function POST(
       sheet_name: category,
       budget_type: sheetType,
       merged_row_index: newRowIndex,
+      row_uuid: mergedUuid,
       sub_items: subItems,
       created_by: session.user.email,
     });

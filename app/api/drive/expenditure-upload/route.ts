@@ -10,6 +10,26 @@ import { getSheetsClient } from '@/lib/google/sheets';
 import { getSpreadsheetId } from '@/lib/google/getSheetId';
 import type { BudgetType } from '@/types';
 
+/** UUID 또는 row_index로 Supabase 파일 레코드를 조회 */
+function buildFileQuery(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  category: string,
+  rowIndex: number,
+  rowUuid: string | undefined,
+  monthIndex: number | null | undefined,
+) {
+  const hasMonth = monthIndex !== undefined && monthIndex !== null;
+  let q = supabase
+    .from('expenditure_files')
+    .select('drive_file_id')
+    .eq('sheet_name', category);
+
+  // UUID 우선, 없으면 row_index 사용
+  q = rowUuid ? q.eq('row_uuid', rowUuid) : q.eq('row_index', rowIndex);
+
+  return (hasMonth ? q.eq('month_index', monthIndex) : q.is('month_index', null)).maybeSingle();
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const session = await auth();
@@ -28,49 +48,43 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const body = await req.json() as { category?: string; rowIndex?: number; sheetType?: string; monthIndex?: number };
-    const { category, rowIndex, sheetType = 'main', monthIndex } = body;
+    const body = await req.json() as {
+      category?: string;
+      rowIndex?: number;
+      rowUuid?: string;
+      sheetType?: string;
+      monthIndex?: number;
+    };
+    const { category, rowIndex, rowUuid, sheetType = 'main', monthIndex } = body;
 
     if (!category || rowIndex === undefined) {
       return NextResponse.json({ error: '필수 파라미터 누락 (category, rowIndex)' }, { status: 400 });
     }
 
     const supabase = createServerSupabaseClient();
-
-    // month_index 유무에 따라 필터 분기
-    const hasMonthIndex = monthIndex !== undefined && monthIndex !== null;
-    const existingQuery = supabase
-      .from('expenditure_files')
-      .select('drive_file_id')
-      .eq('sheet_name', category)
-      .eq('row_index', rowIndex);
-    const { data: existing } = await (hasMonthIndex
-      ? existingQuery.eq('month_index', monthIndex)
-      : existingQuery.is('month_index', null)
-    ).maybeSingle();
+    const { data: existing } = await buildFileQuery(supabase, category, rowIndex, rowUuid, monthIndex);
 
     if (!existing?.drive_file_id) {
       return NextResponse.json({ error: '파일 정보를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // Drive 파일 삭제 (이미 없어도 무시)
+    // Drive 파일 삭제
     try {
       await deleteFromUserDrive({ accessToken: session.accessToken, fileId: existing.drive_file_id });
     } catch {
       // Drive에 파일이 이미 없어도 DB 레코드는 삭제
     }
 
-    // Supabase 레코드 삭제
-    const deleteQuery = supabase
+    // Supabase 레코드 삭제 (UUID 우선, row_index 폴백)
+    const hasMonth = monthIndex !== undefined && monthIndex !== null;
+    let delQ = supabase
       .from('expenditure_files')
       .delete()
-      .eq('sheet_name', category)
-      .eq('row_index', rowIndex);
-    await (hasMonthIndex
-      ? deleteQuery.eq('month_index', monthIndex)
-      : deleteQuery.is('month_index', null));
+      .eq('sheet_name', category);
+    delQ = rowUuid ? delQ.eq('row_uuid', rowUuid) : delQ.eq('row_index', rowIndex);
+    await (hasMonth ? delQ.eq('month_index', monthIndex) : delQ.is('month_index', null));
 
-    // 인건비가 아닌 경우 Google Sheets B열(집행일자) 초기화
+    // 인건비가 아닌 경우 Sheets B열(집행일자) 초기화
     if (category !== PERSONNEL_CATEGORY) {
       try {
         const spreadsheetId = await getSpreadsheetId(sheetType as BudgetType);
@@ -80,7 +94,7 @@ export async function DELETE(req: NextRequest) {
           range: `'${category}'!B${rowIndex}`,
         });
       } catch {
-        // 시트 초기화 실패는 무시 (파일 삭제는 이미 완료)
+        // 시트 초기화 실패는 무시
       }
     }
 
@@ -105,27 +119,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const hasPermission = await checkPermission(
-      session.user.email,
-      PERMISSIONS.EXPENDITURE_WRITE,
-    );
+    const hasPermission = await checkPermission(session.user.email, PERMISSIONS.EXPENDITURE_WRITE);
     if (!hasPermission) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
     const formData = await req.formData();
-    const file = formData.get('file') as File | null;
-    const category = formData.get('category') as string | null;
-    const rowIndexStr = formData.get('rowIndex') as string | null;
-    const sheetType = (formData.get('sheetType') as string | null) ?? 'main';
+    const file         = formData.get('file') as File | null;
+    const category     = formData.get('category') as string | null;
+    const rowIndexStr  = formData.get('rowIndex') as string | null;
+    const rowUuid      = (formData.get('rowUuid') as string | null) ?? undefined;
+    const sheetType    = (formData.get('sheetType') as string | null) ?? 'main';
     const monthIndexStr = formData.get('monthIndex') as string | null;
-    const monthIndex = monthIndexStr !== null && monthIndexStr !== '' ? Number(monthIndexStr) : null;
+    const monthIndex    = monthIndexStr !== null && monthIndexStr !== '' ? Number(monthIndexStr) : null;
 
     if (!file || !category || !rowIndexStr) {
-      return NextResponse.json(
-        { error: '필수 파라미터 누락 (file, category, rowIndex)' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: '필수 파라미터 누락 (file, category, rowIndex)' }, { status: 400 });
     }
     if (!(CATEGORY_SHEETS as readonly string[]).includes(category)) {
       return NextResponse.json({ error: '유효하지 않은 비목입니다.' }, { status: 400 });
@@ -140,36 +149,23 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createServerSupabaseClient();
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer   = Buffer.from(await file.arrayBuffer());
     const safeName = file.name.replace(/[/\\:*?"<>|]/g, '_') || 'upload.pdf';
 
-    // 기존 파일이 있으면 Drive에서 삭제 후 DB 레코드 제거
+    // 기존 파일 덮어쓰기: Drive 삭제 + DB 제거
     const hasMonthIndex = monthIndex !== null;
-    const existCheckQuery = supabase
-      .from('expenditure_files')
-      .select('drive_file_id')
-      .eq('sheet_name', category)
-      .eq('row_index', rowIndex);
-    const { data: existing } = await (hasMonthIndex
-      ? existCheckQuery.eq('month_index', monthIndex)
-      : existCheckQuery.is('month_index', null)
-    ).maybeSingle();
+    const { data: existing } = await buildFileQuery(supabase, category, rowIndex, rowUuid, monthIndex);
 
     if (existing?.drive_file_id) {
       try {
-        await deleteFromUserDrive({
-          accessToken: session.accessToken,
-          fileId: existing.drive_file_id,
-        });
-      } catch {
-        // 파일이 이미 없어도 계속 진행
-      }
-      const delQuery = supabase.from('expenditure_files').delete().eq('sheet_name', category).eq('row_index', rowIndex);
-      await (hasMonthIndex ? delQuery.eq('month_index', monthIndex) : delQuery.is('month_index', null));
+        await deleteFromUserDrive({ accessToken: session.accessToken, fileId: existing.drive_file_id });
+      } catch { /* 이미 없어도 계속 */ }
+      let delQ = supabase.from('expenditure_files').delete().eq('sheet_name', category);
+      delQ = rowUuid ? delQ.eq('row_uuid', rowUuid) : delQ.eq('row_index', rowIndex);
+      await (hasMonthIndex ? delQ.eq('month_index', monthIndex) : delQ.is('month_index', null));
     }
 
-    // 사용자 Google Drive에 업로드
-    // 이월예산: COSS_지출부/이월금/{비목명}/, 본예산: COSS_지출부/{비목명}/
+    // Drive 업로드
     const { fileId, webViewLink } = await uploadToUserDrive({
       accessToken: session.accessToken,
       categoryName: category,
@@ -178,20 +174,28 @@ export async function POST(req: NextRequest) {
       subFolderName: sheetType === 'carryover' ? '이월금' : undefined,
     });
 
-    // Supabase에 메타데이터 저장
+    // Supabase 메타데이터 저장 (UUID 포함)
     const { data: userRecord } = await supabase
       .from('users').select('id').eq('email', session.user.email).single();
 
     await supabase.from('expenditure_files').insert({
       sheet_name: category,
       row_index: rowIndex,
+      row_uuid: rowUuid ?? null,
       drive_file_id: fileId,
       drive_url: webViewLink,
       uploaded_by: userRecord?.id ?? null,
       ...(hasMonthIndex ? { month_index: monthIndex } : {}),
     });
 
-    return NextResponse.json({ fileId, driveUrl: webViewLink });
+    let usagePercent = 0;
+    try {
+      const usageResult = await supabase.rpc('get_storage_usage').single();
+      usagePercent = (usageResult?.data as { usage_percent?: number } | null)?.usage_percent ?? 0;
+    } catch { /* 사용량 조회 실패 무시 */ }
+    const storageWarning = usagePercent > 80;
+
+    return NextResponse.json({ fileId, driveUrl: webViewLink, usagePercent, storageWarning });
   } catch (error) {
     console.error('Upload error:', error);
     const msg = error instanceof Error ? error.message : '';
@@ -201,9 +205,6 @@ export async function POST(req: NextRequest) {
         { status: 401 },
       );
     }
-    return NextResponse.json(
-      { error: `업로드 중 오류가 발생했습니다: ${msg}` },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: `업로드 중 오류가 발생했습니다: ${msg}` }, { status: 500 });
   }
 }

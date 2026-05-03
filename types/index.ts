@@ -117,6 +117,7 @@ export interface MergeSubItem {
 // 비목별 집행내역 행 (각 비목 시트의 row)
 export interface ExpenditureDetailRow {
   rowIndex: number;
+  rowUuid: string;           // 시트 U열(본예산)/M열(이월예산) 고유 ID
   programName: string;      // A열: 구분
   expenseDate: string;      // B열: 지출일자 YYYY-MM-DD (빈값 = 집행예정)
   description: string;      // C열: 지출건명 (병합셀 C:H)

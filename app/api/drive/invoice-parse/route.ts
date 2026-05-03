@@ -5,7 +5,7 @@ import { PERMISSIONS } from '@/types';
 import type { BudgetType } from '@/types';
 import { getSheetsClient } from '@/lib/google/sheets';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { CATEGORY_SHEETS, CATEGORY_DATA_START_ROW, CATEGORY_DATA_END_ROW_MAP } from '@/constants/sheets';
+import { CATEGORY_SHEETS, CATEGORY_DATA_START_ROW, CATEGORY_DATA_END_ROW_MAP, ID_COL_MAIN, ID_COL_CARRYOVER } from '@/constants/sheets';
 import { getSpreadsheetId } from '@/lib/google/getSheetId';
 
 export const dynamic = 'force-dynamic';
@@ -14,18 +14,11 @@ export const dynamic = 'force-dynamic';
 function getMonthCount(budgetType: BudgetType) {
   return budgetType === 'carryover' ? 4 : 12;
 }
-// 인건비 끝 열: 본예산=M, 이월예산=E
-function getPersonnelEndCol(monthCount: number) {
-  return String.fromCharCode('A'.charCodeAt(0) + monthCount);
-}
-// 일반 비목 끝 열: 본예산=T, 이월예산=L
-function getGeneralEndCol(monthCount: number) {
-  return String.fromCharCode('A'.charCodeAt(0) + 8 + monthCount - 1);
-}
 
 interface ExpRow {
   category: string;
   rowIndex: number;
+  rowUuid: string;
   programName: string;
   description: string;
   monthlyAmounts: number[];
@@ -35,6 +28,7 @@ interface ExpRow {
 interface MatchCandidate {
   category: string;
   rowIndex: number;
+  rowUuid: string;
   description: string;
   programName: string;
   sourceMonthIndex: number;
@@ -115,6 +109,9 @@ export async function POST(req: NextRequest) {
     // ── 1. Google Sheets 집행내역 로드 ───────────────────────────────
     const SPREADSHEET_ID = await getSpreadsheetId(budgetType);
     const monthCount = getMonthCount(budgetType);
+    // UUID 열까지 읽어야 하므로 끝 열을 U(본예산) 또는 M(이월예산)으로 확장
+    const idEndCol = budgetType === 'carryover' ? ID_COL_CARRYOVER : ID_COL_MAIN;
+    const idColIndex = budgetType === 'carryover' ? 12 : 20; // 0-based
     const sheets = getSheetsClient();
     const targetCategories: readonly string[] =
       currentCategory && (CATEGORY_SHEETS as readonly string[]).includes(currentCategory)
@@ -122,8 +119,7 @@ export async function POST(req: NextRequest) {
         : CATEGORY_SHEETS;
 
     const ranges = targetCategories.map((cat) => {
-      const endCol = cat === '인건비' ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
-      return `'${cat}'!A${CATEGORY_DATA_START_ROW}:${endCol}${CATEGORY_DATA_END_ROW_MAP[cat as keyof typeof CATEGORY_DATA_END_ROW_MAP]}`;
+      return `'${cat}'!A${CATEGORY_DATA_START_ROW}:${idEndCol}${CATEGORY_DATA_END_ROW_MAP[cat as keyof typeof CATEGORY_DATA_END_ROW_MAP]}`;
     });
 
     const sheetRes = await sheets.spreadsheets.values.batchGet({
@@ -147,11 +143,13 @@ export async function POST(req: NextRequest) {
           ? Array.from({ length: 12 }, (_, i) => (i < monthCount ? Number(row[1 + i] ?? 0) : 0))
           : Array.from({ length: 12 }, (_, i) => (i < monthCount ? Number(row[8 + i] ?? 0) : 0));
         const totalAmount = monthlyAmounts.reduce((s, v) => s + v, 0);
+        const rowUuid = String(row[idColIndex] ?? '').trim();
 
         if (description || programName) {
           expRows.push({
             category: cat,
             rowIndex: CATEGORY_DATA_START_ROW + rowIdx,
+            rowUuid,
             programName,
             description,
             monthlyAmounts,
@@ -238,6 +236,7 @@ export async function POST(req: NextRequest) {
             amountMatched.push({
               category: exp.category,
               rowIndex: exp.rowIndex,
+              rowUuid: exp.rowUuid,
               description: exp.description,
               programName: exp.programName,
               sourceMonthIndex: srcIdx,
@@ -256,6 +255,7 @@ export async function POST(req: NextRequest) {
             matched: {
               category: best.category,
               rowIndex: best.rowIndex,
+              rowUuid: best.rowUuid,
               description: best.description,
               programName: best.programName,
               sourceMonthIndex: best.sourceMonthIndex,
@@ -302,6 +302,7 @@ export async function POST(req: NextRequest) {
               overwriteMatched.push({
                 category: exp.category,
                 rowIndex: exp.rowIndex,
+                rowUuid: exp.rowUuid,
                 description: exp.description,
                 programName: exp.programName,
                 sourceMonthIndex: srcIdx,
@@ -318,6 +319,7 @@ export async function POST(req: NextRequest) {
               matched: {
                 category: best.category,
                 rowIndex: best.rowIndex,
+                rowUuid: best.rowUuid,
                 description: best.description,
                 programName: best.programName,
                 sourceMonthIndex: best.sourceMonthIndex,

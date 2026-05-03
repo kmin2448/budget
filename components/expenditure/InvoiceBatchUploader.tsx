@@ -25,6 +25,7 @@ export interface BatchUploadResult {
 interface MatchCandidate {
   category: string;
   rowIndex: number;
+  rowUuid?: string;
   description: string;
   programName: string;
   sourceMonthIndex: number;
@@ -36,6 +37,7 @@ export interface FileItem {
   // 확정된 매칭 정보
   category?: string;
   matchedRowIndex?: number;
+  matchedRowUuid?: string;
   matchedDesc?: string;
   expenseDate?: string;
   sourceMonthIndex?: number;
@@ -127,6 +129,7 @@ export function InvoiceBatchUploader({
                 vendor: r.vendor as string | undefined,
                 category: r.matched.category as string,
                 matchedRowIndex: r.matched.rowIndex as number,
+                matchedRowUuid: (r.matched.rowUuid as string) || undefined,
                 matchedDesc: r.matched.description as string,
                 sourceMonthIndex: (r.matched.sourceMonthIndex as number) ?? -1,
                 fileAmount: r.fileAmount as number | undefined,
@@ -143,6 +146,7 @@ export function InvoiceBatchUploader({
                   vendor: r.vendor as string | undefined,
                   category: r.matched.category as string,
                   matchedRowIndex: r.matched.rowIndex as number,
+                  matchedRowUuid: (r.matched.rowUuid as string) || undefined,
                   matchedDesc: r.matched.description as string,
                   sourceMonthIndex: (r.matched.sourceMonthIndex as number) ?? -1,
                   fileAmount: r.fileAmount as number | undefined,
@@ -312,11 +316,12 @@ export function InvoiceBatchUploader({
     rowIndex: number,
     description: string,
     sourceMonthIndex: number,
+    rowUuid?: string,
   ) => {
     setFileItems((prev) =>
       prev.map((item, i) =>
         i === fileIndex
-          ? { ...item, category, matchedRowIndex: rowIndex, matchedDesc: description, sourceMonthIndex }
+          ? { ...item, category, matchedRowIndex: rowIndex, matchedRowUuid: rowUuid || undefined, matchedDesc: description, sourceMonthIndex }
           : item,
       ),
     );
@@ -427,6 +432,7 @@ export function InvoiceBatchUploader({
             fileName: item.file.name,
             category: item.category,
             rowIndex: item.matchedRowIndex,
+            rowUuid: item.matchedRowUuid || undefined,
             expenseDate: item.expenseDate,
             sourceMonthIndex: item.sourceMonthIndex,
             fileAmount: item.fileAmount,
@@ -828,7 +834,7 @@ export function InvoiceBatchUploader({
                               onChange={(e) => {
                                 const idx = Number(e.target.value);
                                 const c = item.candidates![idx];
-                                handleCandidateSelect(i, c.category, c.rowIndex, c.description, c.sourceMonthIndex);
+                                handleCandidateSelect(i, c.category, c.rowIndex, c.description, c.sourceMonthIndex, c.rowUuid);
                               }}
                             >
                               {item.candidates!.map((c, ci) => (
@@ -877,7 +883,7 @@ export function InvoiceBatchUploader({
                               onChange={(e) => {
                                 const idx = Number(e.target.value);
                                 const c = item.candidates![idx];
-                                handleCandidateSelect(i, c.category, c.rowIndex, c.description, c.sourceMonthIndex);
+                                handleCandidateSelect(i, c.category, c.rowIndex, c.description, c.sourceMonthIndex, c.rowUuid);
                               }}
                             >
                               {item.candidates!.map((c, ci) => (

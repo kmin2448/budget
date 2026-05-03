@@ -113,6 +113,10 @@ export const CATEGORY_EXEC_MAP: Record<CategorySheet, string> = {
 // 비목 시트 데이터 시작 행 (전 비목 공통)
 export const CATEGORY_DATA_START_ROW = 8;
 
+// 고유 ID 열: 본예산=U(21번째), 이월예산=M(13번째)
+export const ID_COL_MAIN = 'U';
+export const ID_COL_CARRYOVER = 'M';
+
 // 인건비 시트는 구조가 다름: A=내용, B~M=3월~2월 (12개월)
 // 다른 비목: A=구분, B=지출일자, C~H=지출건명(병합), I~T=3월~2월
 export const PERSONNEL_CATEGORY = '인건비' as const;

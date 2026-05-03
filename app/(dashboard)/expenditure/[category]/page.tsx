@@ -112,7 +112,11 @@ export default function ExpenditurePage({
   async function handleDeleteFileConfirm() {
     if (!deleteFileTarget) return;
     try {
-      await deleteFileMutation.mutateAsync({ rowIndex: deleteFileTarget.row.rowIndex, monthIndex: deleteFileTarget.monthIndex });
+      await deleteFileMutation.mutateAsync({
+        rowIndex: deleteFileTarget.row.rowIndex,
+        rowUuid: deleteFileTarget.row.rowUuid,
+        monthIndex: deleteFileTarget.monthIndex,
+      });
       setDeleteFileOpen(false);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : '파일 삭제 실패');
@@ -186,7 +190,7 @@ export default function ExpenditurePage({
   async function handleDeleteConfirm() {
     if (!deleteTarget) return;
     try {
-      await deleteMutation.mutateAsync(deleteTarget.rowIndex);
+      await deleteMutation.mutateAsync({ rowIndex: deleteTarget.rowIndex, rowUuid: deleteTarget.rowUuid });
       setDeleteOpen(false);
     } catch (err) {
       alert(err instanceof Error ? err.message : '삭제 중 오류가 발생했습니다.');
