@@ -2,13 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { checkPermission } from '@/lib/permissions';
 import { PERMISSIONS } from '@/types';
+import type { BudgetType } from '@/types';
 import { getSheetsClient } from '@/lib/google/sheets';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { CATEGORY_SHEETS, CATEGORY_DATA_START_ROW, CATEGORY_DATA_END_ROW_MAP } from '@/constants/sheets';
+import { getSpreadsheetId } from '@/lib/google/getSheetId';
 
 export const dynamic = 'force-dynamic';
 
-const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID!;
+// 본예산: 12개월, 이월예산: 4개월
+function getMonthCount(budgetType: BudgetType) {
+  return budgetType === 'carryover' ? 4 : 12;
+}
+// 인건비 끝 열: 본예산=M, 이월예산=E
+function getPersonnelEndCol(monthCount: number) {
+  return String.fromCharCode('A'.charCodeAt(0) + monthCount);
+}
+// 일반 비목 끝 열: 본예산=T, 이월예산=L
+function getGeneralEndCol(monthCount: number) {
+  return String.fromCharCode('A'.charCodeAt(0) + 8 + monthCount - 1);
+}
 
 interface ExpRow {
   category: string;
@@ -90,15 +103,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const body = await req.json() as { fileNames?: string[]; currentCategory?: string };
+    const body = await req.json() as { fileNames?: string[]; currentCategory?: string; budgetType?: string };
     const fileNames: string[] = body.fileNames ?? [];
     const currentCategory: string | null = body.currentCategory ?? null;
+    const budgetType = (body.budgetType ?? 'main') as BudgetType;
 
     if (fileNames.length === 0) {
       return NextResponse.json({ error: '파일이 없습니다.' }, { status: 400 });
     }
 
     // ── 1. Google Sheets 집행내역 로드 ───────────────────────────────
+    const SPREADSHEET_ID = await getSpreadsheetId(budgetType);
+    const monthCount = getMonthCount(budgetType);
     const sheets = getSheetsClient();
     const targetCategories: readonly string[] =
       currentCategory && (CATEGORY_SHEETS as readonly string[]).includes(currentCategory)
@@ -106,7 +122,7 @@ export async function POST(req: NextRequest) {
         : CATEGORY_SHEETS;
 
     const ranges = targetCategories.map((cat) => {
-      const endCol = cat === '인건비' ? 'M' : 'T';
+      const endCol = cat === '인건비' ? getPersonnelEndCol(monthCount) : getGeneralEndCol(monthCount);
       return `'${cat}'!A${CATEGORY_DATA_START_ROW}:${endCol}${CATEGORY_DATA_END_ROW_MAP[cat as keyof typeof CATEGORY_DATA_END_ROW_MAP]}`;
     });
 
@@ -126,9 +142,10 @@ export async function POST(req: NextRequest) {
         const description = isPersonnel
           ? String(row[0] ?? '').trim()
           : String(row[2] ?? '').trim();
+        // monthlyAmounts는 항상 length 12 — 이월예산은 0~(monthCount-1)만 채워짐
         const monthlyAmounts = isPersonnel
-          ? Array.from({ length: 12 }, (_, i) => Number(row[1 + i] ?? 0))
-          : Array.from({ length: 12 }, (_, i) => Number(row[8 + i] ?? 0));
+          ? Array.from({ length: 12 }, (_, i) => (i < monthCount ? Number(row[1 + i] ?? 0) : 0))
+          : Array.from({ length: 12 }, (_, i) => (i < monthCount ? Number(row[8 + i] ?? 0) : 0));
         const totalAmount = monthlyAmounts.reduce((s, v) => s + v, 0);
 
         if (description || programName) {

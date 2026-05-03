@@ -86,6 +86,7 @@ export function InvoiceBatchUploader({
         body: JSON.stringify({
           fileNames: addedFiles.map((f) => f.name),
           currentCategory: currentCategory || undefined,
+          budgetType,
         }),
       });
 
@@ -372,6 +373,7 @@ export function InvoiceBatchUploader({
             expenseDate: item.expenseDate,
             sourceMonthIndex: item.sourceMonthIndex,
             fileAmount: item.fileAmount,
+            budgetType,
           }),
         });
         const text = await metaRes.text();

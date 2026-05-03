@@ -3,10 +3,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { checkPermission } from '@/lib/permissions';
 import { PERMISSIONS } from '@/types';
+import type { BudgetType } from '@/types';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { getSheetsClient } from '@/lib/google/sheets';
+import { getSpreadsheetId } from '@/lib/google/getSheetId';
 
-const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID!;
+// 본예산: 12개월, 이월예산: 4개월
+function getMonthCount(budgetType: BudgetType) {
+  return budgetType === 'carryover' ? 4 : 12;
+}
+// 일반 비목 끝 열: 본예산=T, 이월예산=L
+function getGeneralEndCol(monthCount: number) {
+  return String.fromCharCode('A'.charCodeAt(0) + 8 + monthCount - 1);
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,14 +38,18 @@ export async function POST(req: NextRequest) {
       expenseDate?: string;
       sourceMonthIndex?: number;
       fileAmount?: number;
+      budgetType?: string;
     };
 
     const { fileId, webViewLink, fileName, category, rowIndex, expenseDate, sourceMonthIndex, fileAmount } = body;
+    const budgetType = (body.budgetType ?? 'main') as BudgetType;
 
     if (!fileId || !webViewLink || !category || rowIndex === undefined) {
       return NextResponse.json({ error: '필수 파라미터 누락 (fileId, webViewLink, category, rowIndex)' }, { status: 400 });
     }
 
+    const SPREADSHEET_ID = await getSpreadsheetId(budgetType);
+    const monthCount = getMonthCount(budgetType);
     const supabase = createServerSupabaseClient();
     const sheets = getSheetsClient();
 
@@ -66,13 +79,15 @@ export async function POST(req: NextRequest) {
       ];
 
       if (targetFiscalIdx >= 0) {
+        const endCol = getGeneralEndCol(monthCount);
         const rowRes = await sheets.spreadsheets.values.get({
           spreadsheetId: SPREADSHEET_ID,
-          range: `'${category}'!I${rowIndex}:T${rowIndex}`,
+          range: `'${category}'!I${rowIndex}:${endCol}${rowIndex}`,
           valueRenderOption: 'UNFORMATTED_VALUE',
         });
+        // monthlyAmounts는 항상 length 12 — 이월예산은 0~(monthCount-1)만 채워짐
         const monthlyAmounts = Array.from({ length: 12 }, (_, i) =>
-          Number(rowRes.data.values?.[0]?.[i] ?? 0),
+          i < monthCount ? Number(rowRes.data.values?.[0]?.[i] ?? 0) : 0,
         );
 
         if (monthlyAmounts[targetFiscalIdx] === 0) {
