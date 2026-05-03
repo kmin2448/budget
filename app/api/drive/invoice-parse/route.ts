@@ -275,16 +275,79 @@ export async function POST(req: NextRequest) {
             vendor,
           });
         } else {
-          results.push({
-            originalName: fileName,
-            status: 'error',
-            autoMatched: false,
-            candidates: [],
-            expenseDate: expenseDateRaw,
-            fileAmount,
-            vendor,
-            error: '금액이 일치하는 항목이 없습니다. 수동 매칭을 통해 직접 선택해 주세요.',
-          });
+          // 업로드 미완료 건에서 매칭 없음 → 업로드된 건에서 덮어쓰기 후보 탐색
+          const uploadedRows = expRows.filter(
+            (r) => uploadedSet.has(`${r.category}:${r.rowIndex}`),
+          );
+          const overwriteMatched: MatchCandidate[] = [];
+
+          for (const exp of uploadedRows) {
+            const roundedTotal = Math.round(exp.totalAmount);
+            const roundedFile  = Math.round(fileAmount);
+
+            const amtMatch =
+              roundedFile > 0 &&
+              (roundedTotal === roundedFile ||
+                (monthIndex !== -1 && Math.round(exp.monthlyAmounts[monthIndex]) === roundedFile) ||
+                exp.monthlyAmounts.some((v) => Math.round(v) === roundedFile));
+
+            if (amtMatch) {
+              let srcIdx = -1;
+              if (monthIndex !== -1 && Math.round(exp.monthlyAmounts[monthIndex]) === roundedFile) {
+                srcIdx = monthIndex;
+              } else {
+                srcIdx = exp.monthlyAmounts.findIndex((v) => Math.round(v) === roundedFile);
+              }
+
+              overwriteMatched.push({
+                category: exp.category,
+                rowIndex: exp.rowIndex,
+                description: exp.description,
+                programName: exp.programName,
+                sourceMonthIndex: srcIdx,
+              });
+            }
+          }
+
+          if (overwriteMatched.length === 1) {
+            const best = overwriteMatched[0];
+            results.push({
+              originalName: fileName,
+              status: 'overwrite',
+              autoMatched: true,
+              matched: {
+                category: best.category,
+                rowIndex: best.rowIndex,
+                description: best.description,
+                programName: best.programName,
+                sourceMonthIndex: best.sourceMonthIndex,
+              },
+              expenseDate: expenseDateRaw,
+              fileAmount,
+              vendor,
+            });
+          } else if (overwriteMatched.length > 1) {
+            results.push({
+              originalName: fileName,
+              status: 'overwrite',
+              autoMatched: false,
+              overwriteCandidates: overwriteMatched,
+              expenseDate: expenseDateRaw,
+              fileAmount,
+              vendor,
+            });
+          } else {
+            results.push({
+              originalName: fileName,
+              status: 'error',
+              autoMatched: false,
+              candidates: [],
+              expenseDate: expenseDateRaw,
+              fileAmount,
+              vendor,
+              error: '금액이 일치하는 항목이 없습니다. 수동 매칭을 통해 직접 선택해 주세요.',
+            });
+          }
         }
       } catch (fileErr) {
         // 특정 파일 처리 실패가 전체 배치를 중단시키지 않도록 처리

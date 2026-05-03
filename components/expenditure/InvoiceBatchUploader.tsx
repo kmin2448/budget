@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import {
   UploadCloud, CheckCircle, XCircle, Loader2,
-  ChevronDown, ChevronUp, AlertCircle, Zap, ListFilter, Edit2,
+  ChevronDown, ChevronUp, AlertCircle, Zap, ListFilter, Edit2, RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CATEGORY_SHEETS } from '@/constants/sheets';
@@ -45,6 +45,9 @@ export interface FileItem {
   autoMatched?: boolean;
   candidates?: MatchCandidate[];
   error?: string;
+  // 덮어쓰기 매칭
+  isOverwriteMatch?: boolean;
+  overwrite?: boolean;
 }
 
 // 수동 매칭 UI 상태
@@ -115,7 +118,7 @@ export function InvoiceBatchUploader({
             const r = data.results.find((x: Record<string, unknown>) => x.originalName === item.file.name);
             if (!r) return { ...item, parsing: false, error: '응답 매칭 실패' };
 
-            if (r.autoMatched && r.matched) {
+            if (r.autoMatched && r.matched && r.status !== 'overwrite') {
               return {
                 ...item,
                 parsing: false,
@@ -128,6 +131,41 @@ export function InvoiceBatchUploader({
                 sourceMonthIndex: (r.matched.sourceMonthIndex as number) ?? -1,
                 fileAmount: r.fileAmount as number | undefined,
               };
+            } else if (r.status === 'overwrite') {
+              if (r.autoMatched && r.matched) {
+                return {
+                  ...item,
+                  parsing: false,
+                  autoMatched: true,
+                  isOverwriteMatch: true,
+                  overwrite: true,
+                  expenseDate: r.expenseDate as string | undefined,
+                  vendor: r.vendor as string | undefined,
+                  category: r.matched.category as string,
+                  matchedRowIndex: r.matched.rowIndex as number,
+                  matchedDesc: r.matched.description as string,
+                  sourceMonthIndex: (r.matched.sourceMonthIndex as number) ?? -1,
+                  fileAmount: r.fileAmount as number | undefined,
+                };
+              } else if (Array.isArray(r.overwriteCandidates) && r.overwriteCandidates.length > 0) {
+                const first = r.overwriteCandidates[0] as MatchCandidate;
+                return {
+                  ...item,
+                  parsing: false,
+                  autoMatched: false,
+                  isOverwriteMatch: true,
+                  overwrite: true,
+                  expenseDate: r.expenseDate as string | undefined,
+                  vendor: r.vendor as string | undefined,
+                  fileAmount: r.fileAmount as number | undefined,
+                  candidates: r.overwriteCandidates as MatchCandidate[],
+                  category: first.category,
+                  matchedRowIndex: first.rowIndex,
+                  matchedDesc: first.description,
+                  sourceMonthIndex: first.sourceMonthIndex,
+                };
+              }
+              return { ...item, parsing: false, error: '덮어쓰기 후보 처리 오류' };
             } else if (r.status === 'candidates' && Array.isArray(r.candidates) && r.candidates.length > 0) {
               const first = r.candidates[0] as MatchCandidate;
               return {
@@ -233,6 +271,8 @@ export function InvoiceBatchUploader({
           error: undefined,
           autoMatched: false,
           candidates: [],
+          isOverwriteMatch: undefined,
+          overwrite: undefined,
           category: ui.category,
           matchedRowIndex: ui.selectedRowIndex,
           matchedDesc: selectedRow.description || selectedRow.programName,
@@ -282,6 +322,14 @@ export function InvoiceBatchUploader({
     );
   };
 
+  const handleOverwriteToggle = (fileIndex: number) => {
+    setFileItems((prev) =>
+      prev.map((item, i) =>
+        i === fileIndex ? { ...item, overwrite: !item.overwrite } : item,
+      ),
+    );
+  };
+
   // ── 업로드 (브라우저 → Drive 직접 전송, 서버는 메타데이터만 처리) ────
   const handleUpload = async () => {
     if (fileItems.length === 0) return;
@@ -296,7 +344,11 @@ export function InvoiceBatchUploader({
     setResults([]);
 
     const uploadable = fileItems.filter(
-      (item) => !item.error && item.category && item.matchedRowIndex !== undefined,
+      (item) =>
+        !item.error &&
+        item.category &&
+        item.matchedRowIndex !== undefined &&
+        (!item.isOverwriteMatch || item.overwrite !== false),
     );
 
     if (uploadable.length === 0) {
@@ -412,7 +464,14 @@ export function InvoiceBatchUploader({
     setUploading(false);
   };
 
-  const hasUploadable = fileItems.some((f) => !f.parsing && !f.error && f.category && f.matchedRowIndex !== undefined);
+  const hasUploadable = fileItems.some(
+    (f) =>
+      !f.parsing &&
+      !f.error &&
+      f.category &&
+      f.matchedRowIndex !== undefined &&
+      (!f.isOverwriteMatch || f.overwrite !== false),
+  );
 
   // ── 수동 매칭 UI 렌더 ────────────────────────────────────────────────
   function renderManualMatchUI(fileIndex: number) {
@@ -558,8 +617,10 @@ export function InvoiceBatchUploader({
               <ul className="max-h-[32rem] overflow-y-auto space-y-2 pr-1">
                 {fileItems.map((item, i) => {
                   const isManualOpen = !!manualUI[i];
-                  const hasMultipleCandidates = !item.error && !item.autoMatched && item.candidates && item.candidates.length > 0;
-                  const isManuallyMatched = !item.error && !item.autoMatched && item.category && item.matchedRowIndex !== undefined && !hasMultipleCandidates;
+                  const isOverwriteItem = !!item.isOverwriteMatch;
+                  const hasMultipleCandidates = !item.error && !item.autoMatched && item.candidates && item.candidates.length > 0 && !isOverwriteItem;
+                  const hasMultipleOverwriteCandidates = !item.error && !item.autoMatched && item.candidates && item.candidates.length > 0 && isOverwriteItem;
+                  const isManuallyMatched = !item.error && !item.autoMatched && item.category && item.matchedRowIndex !== undefined && !hasMultipleCandidates && !hasMultipleOverwriteCandidates && !isOverwriteItem;
 
                   return (
                     <li
@@ -569,6 +630,8 @@ export function InvoiceBatchUploader({
                           ? 'bg-gray-50 border-gray-200'
                           : item.error
                           ? 'bg-red-50 border-red-200'
+                          : isOverwriteItem
+                          ? (item.overwrite !== false ? 'bg-orange-50 border-orange-300' : 'bg-gray-100 border-gray-300')
                           : item.autoMatched
                           ? 'bg-green-50 border-green-200'
                           : isManuallyMatched
@@ -583,6 +646,8 @@ export function InvoiceBatchUploader({
                             <Loader2 className="w-4 h-4 animate-spin text-gray-400 shrink-0" />
                           ) : item.error ? (
                             <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                          ) : isOverwriteItem ? (
+                            <RefreshCw className={`w-4 h-4 shrink-0 ${item.overwrite !== false ? 'text-orange-500' : 'text-gray-400'}`} />
                           ) : item.autoMatched ? (
                             <Zap className="w-4 h-4 text-green-600 shrink-0" />
                           ) : isManuallyMatched ? (
@@ -621,7 +686,7 @@ export function InvoiceBatchUploader({
                         )}
 
                         {/* 자동 매칭 성공 */}
-                        {!item.parsing && !item.error && item.autoMatched && (
+                        {!item.parsing && !item.error && item.autoMatched && !isOverwriteItem && (
                           <div className="mt-1 pl-5 text-xs space-y-0.5">
                             <span className="inline-block bg-green-100 text-green-800 rounded px-1.5 py-0.5 font-medium">
                               ⚡ 금액 자동 매칭
@@ -676,6 +741,114 @@ export function InvoiceBatchUploader({
                               </button>
                             )}
                             {isManualOpen && renderManualMatchUI(i)}
+                          </div>
+                        )}
+
+                        {/* 덮어쓰기 자동 매칭 */}
+                        {!item.parsing && !item.error && isOverwriteItem && item.autoMatched && (
+                          <div className="mt-1 pl-5 text-xs space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-block bg-orange-100 text-orange-800 rounded px-1.5 py-0.5 font-medium">
+                                🔄 덮어쓰기 매칭
+                              </span>
+                              <label className="flex items-center gap-1 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={item.overwrite !== false}
+                                  onChange={() => handleOverwriteToggle(i)}
+                                  className="accent-orange-500"
+                                />
+                                <span className={item.overwrite !== false ? 'text-orange-700 font-medium' : 'text-gray-400'}>
+                                  덮어쓰기
+                                </span>
+                              </label>
+                            </div>
+                            <p className="text-gray-500">이미 청구서가 연결된 건입니다. 새 파일로 교체됩니다.</p>
+                            <p className="text-gray-600">
+                              <span className="font-semibold text-gray-800">[{item.category}]</span>{' '}
+                              {item.matchedDesc}{' '}
+                              <span className="text-gray-400">(행 {item.matchedRowIndex})</span>
+                            </p>
+                            {item.expenseDate && (
+                              <p className="text-blue-600">집행일자: {item.expenseDate}</p>
+                            )}
+                            {item.vendor && (
+                              <p className="text-gray-500">집행처(파일명): {item.vendor}</p>
+                            )}
+                            {!isManualOpen && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openManualMatch(i); }}
+                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-primary hover:underline"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                                수동으로 변경
+                              </button>
+                            )}
+                            {isManualOpen && renderManualMatchUI(i)}
+                          </div>
+                        )}
+
+                        {/* 덮어쓰기 후보 선택 (여러 건) */}
+                        {!item.parsing && !item.error && hasMultipleOverwriteCandidates && (
+                          <div className="mt-1 pl-5 text-xs space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-block bg-orange-100 text-orange-800 rounded px-1.5 py-0.5 font-medium">
+                                🔄 덮어쓰기 후보 — 해당 건을 선택하세요
+                              </span>
+                              <label className="flex items-center gap-1 cursor-pointer select-none">
+                                <input
+                                  type="checkbox"
+                                  checked={item.overwrite !== false}
+                                  onChange={() => handleOverwriteToggle(i)}
+                                  className="accent-orange-500"
+                                />
+                                <span className={item.overwrite !== false ? 'text-orange-700 font-medium' : 'text-gray-400'}>
+                                  덮어쓰기
+                                </span>
+                              </label>
+                            </div>
+                            <p className="text-gray-500">이미 청구서가 연결된 건입니다. 새 파일로 교체됩니다.</p>
+                            {item.expenseDate && (
+                              <p className="text-blue-600">집행일자: {item.expenseDate}</p>
+                            )}
+                            {item.vendor && (
+                              <p className="text-gray-500">집행처(파일명): {item.vendor}</p>
+                            )}
+                            <select
+                              className="w-full border border-orange-300 p-1.5 rounded bg-white text-gray-800 text-xs focus:ring-2 focus:ring-orange-400 outline-none"
+                              value={String(
+                                Math.max(
+                                  0,
+                                  item.candidates!.findIndex(
+                                    (c) => c.rowIndex === item.matchedRowIndex && c.category === item.category,
+                                  ),
+                                ),
+                              )}
+                              onChange={(e) => {
+                                const idx = Number(e.target.value);
+                                const c = item.candidates![idx];
+                                handleCandidateSelect(i, c.category, c.rowIndex, c.description, c.sourceMonthIndex);
+                              }}
+                            >
+                              {item.candidates!.map((c, ci) => (
+                                <option key={`${c.category}-${c.rowIndex}`} value={String(ci)}>
+                                  [{c.category}]{c.programName ? ` [${c.programName}]` : ''} {c.description} (행 {c.rowIndex})
+                                </option>
+                              ))}
+                            </select>
+                            {!isManualOpen ? (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); openManualMatch(i); }}
+                                className="flex items-center gap-1 text-xs text-gray-400 hover:text-primary hover:underline"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                                목록에 없으면 수동 매칭
+                              </button>
+                            ) : (
+                              renderManualMatchUI(i)
+                            )}
                           </div>
                         )}
 
