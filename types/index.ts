@@ -106,6 +106,14 @@ export interface CategoryBudget {
   executionRate: number;
 }
 
+// 합치기 내역 (Supabase expenditure_merges.sub_items)
+export interface MergeSubItem {
+  description: string;
+  programName: string;
+  monthlyAmounts: number[];
+  totalAmount: number;
+}
+
 // 비목별 집행내역 행 (각 비목 시트의 row)
 export interface ExpenditureDetailRow {
   rowIndex: number;
@@ -118,6 +126,7 @@ export interface ExpenditureDetailRow {
   hasFile: boolean;
   fileUrl?: string;
   fileId?: string;
+  mergeInfo?: { id: string; subItems: MergeSubItem[] } | null;
 }
 
 export interface ExpenditureBudgetInfo {

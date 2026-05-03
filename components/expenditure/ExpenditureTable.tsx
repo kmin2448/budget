@@ -11,7 +11,7 @@ import { formatKRW, parseKRW } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import {
   Pencil, Trash2, Upload, ExternalLink, Plus,
-  ChevronUp, ChevronDown, ChevronRight, GripVertical, X, Search,
+  ChevronUp, ChevronDown, ChevronRight, GripVertical, X, Search, Merge,
 } from 'lucide-react';
 import { MONTH_COLUMNS, PERSONNEL_CATEGORY } from '@/constants/sheets';
 import type { ExpenditureDetailRow } from '@/types';
@@ -41,6 +41,7 @@ interface ExpenditureTableProps {
     row: ExpenditureDetailRow,
     changes: { programName?: string; description?: string; expenseDate?: string; monthlyAmounts?: number[] },
   ) => Promise<void>;
+  onMerge?: (rowIndexes: number[], description: string, programName: string) => Promise<void>;
   highlightRowIndex?: number;
 }
 
@@ -87,7 +88,7 @@ function getActiveMonths(row: ExpenditureDetailRow): string[] {
 
 export function ExpenditureTable({
   rows, canWrite, category, onAdd, onEdit, onDelete, onUpload, onDeleteFile, onMoveMonth, onUpdate,
-  highlightRowIndex,
+  onMerge, highlightRowIndex,
 }: ExpenditureTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -113,6 +114,14 @@ export function ExpenditureTable({
   // 편집 모드 (내부 상태)
   const [editMode, setEditMode] = useState(false);
   const [inlineEdit, setInlineEdit] = useState<InlineEditState | null>(null);
+
+  // 합치기 모드
+  const [mergeMode, setMergeMode]             = useState(false);
+  const [selectedForMerge, setSelectedForMerge] = useState<Set<number>>(new Set());
+  const [mergeModalOpen, setMergeModalOpen]   = useState(false);
+  const [mergeDesc, setMergeDesc]             = useState('');
+  const [mergeProgramName, setMergeProgramName] = useState('');
+  const [merging, setMerging]                 = useState(false);
   const [monthEdit, setMonthEdit] = useState<{
     rowIndex: number;
     monthIdx: number;
@@ -122,8 +131,12 @@ export function ExpenditureTable({
   const [savingInline, setSavingInline] = useState(false);
 
   const isPersonnel = category === PERSONNEL_CATEGORY;
+  const canMerge    = !!onMerge && !isPersonnel;
   const showActions = canWrite && editMode; // 삭제/이동 등 파괴적 액션
-  const colCount = isPersonnel ? (showActions ? 5 : 4) : (showActions ? 7 : 6);
+  // 병합 모드: 체크박스 열 1개 추가
+  const colCount = isPersonnel
+    ? (showActions ? 5 : 4)
+    : mergeMode ? 7 : (showActions ? 7 : 6);
   const groups = isPersonnel ? null : groupByMonthlyAmounts(filteredRows);
 
   // ── 하이라이트 행 자동 펼침 + 스크롤 ─────────────────────────────
@@ -196,6 +209,52 @@ export function ExpenditureTable({
       await onUpdate(originalRow, { monthlyAmounts: newMonthlyAmounts });
     } finally {
       setSavingInline(false);
+    }
+  }
+
+  // ── 병합 모드 ────────────────────────────────────────────────
+
+  function handleStartMergeMode() {
+    setEditMode(false);
+    setInlineEdit(null);
+    setMonthEdit(null);
+    setMergeMode(true);
+    setSelectedForMerge(new Set());
+  }
+
+  function handleCancelMergeMode() {
+    setMergeMode(false);
+    setSelectedForMerge(new Set());
+    setMergeModalOpen(false);
+  }
+
+  function toggleMergeSelect(rowIndex: number) {
+    setSelectedForMerge((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowIndex)) next.delete(rowIndex);
+      else next.add(rowIndex);
+      return next;
+    });
+  }
+
+  function handleOpenMergeModal() {
+    const firstRow = filteredRows.find((r) => selectedForMerge.has(r.rowIndex));
+    setMergeDesc('');
+    setMergeProgramName(firstRow?.programName ?? '');
+    setMergeModalOpen(true);
+  }
+
+  async function handleMergeConfirm() {
+    if (!onMerge || !mergeDesc.trim() || merging) return;
+    setMerging(true);
+    try {
+      await onMerge(Array.from(selectedForMerge), mergeDesc.trim(), mergeProgramName.trim());
+      setMergeModalOpen(false);
+      handleCancelMergeMode();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '합치기 중 오류가 발생했습니다.');
+    } finally {
+      setMerging(false);
     }
   }
 
@@ -321,7 +380,8 @@ export function ExpenditureTable({
     const isEditingDate =
       inlineEdit?.rowIndex === row.rowIndex && inlineEdit?.field === 'expenseDate';
 
-    const isHighlighted = highlightRowIndex === row.rowIndex;
+    const isHighlighted  = highlightRowIndex === row.rowIndex;
+    const isMergeSelected = mergeMode && selectedForMerge.has(row.rowIndex);
 
     return [
       <TableRow
@@ -332,21 +392,46 @@ export function ExpenditureTable({
         onDragEnd={draggable ? handleDragEnd : undefined}
         className={cn(
           'border-b border-gray-100 transition-colors',
-          draggable ? 'cursor-grab active:cursor-grabbing' : '',
-          !editMode && 'cursor-pointer',
+          draggable && !mergeMode ? 'cursor-grab active:cursor-grabbing' : '',
+          !editMode && !mergeMode && 'cursor-pointer',
+          mergeMode && !isPersonnel && 'cursor-pointer',
           'hover:bg-gray-50/60',
           isExpanded && 'bg-gray-50/40',
           isDragging && 'opacity-40',
           isMoving && 'animate-pulse opacity-60',
           isHighlighted && 'bg-red-50 ring-1 ring-inset ring-red-200',
+          isMergeSelected && 'bg-primary-bg/40 ring-1 ring-inset ring-primary/20',
         )}
-        // editMode일 때는 row 클릭으로 펼침/접힘 막음 (chevron cell에서 처리)
-        onClick={editMode ? undefined : () => toggleExpand(expandKey)}
+        onClick={
+          mergeMode && !isPersonnel
+            ? () => toggleMergeSelect(row.rowIndex)
+            : editMode
+              ? undefined
+              : () => toggleExpand(expandKey)
+        }
       >
-        {/* 펼침 아이콘 — editMode에서도 chevron 클릭으로 토글 */}
+        {/* 합치기 모드 체크박스 열 */}
+        {mergeMode && !isPersonnel && (
+          <TableCell
+            className="w-8 py-2 pl-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              checked={isMergeSelected}
+              onChange={() => toggleMergeSelect(row.rowIndex)}
+              className="h-3.5 w-3.5 cursor-pointer accent-primary"
+            />
+          </TableCell>
+        )}
+
+        {/* 펼침 아이콘 */}
         <TableCell
           className="py-2 pl-3 text-gray-300 cursor-pointer"
-          onClick={editMode ? () => toggleExpand(expandKey) : undefined}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleExpand(expandKey);
+          }}
         >
           {isExpanded
             ? <ChevronDown className="h-3.5 w-3.5" />
@@ -446,6 +531,11 @@ export function ExpenditureTable({
                   >
                     {row.description || '-'}
                   </span>
+                  {row.mergeInfo && (
+                    <span className="shrink-0 rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[10px] font-medium text-amber-600">
+                      합산
+                    </span>
+                  )}
                   {multiMonths && activeMonths.map((m) => (
                     <span
                       key={m}
@@ -597,6 +687,47 @@ export function ExpenditureTable({
                 );
               })}
             </div>
+
+            {/* 합친 내역 — mergeInfo가 있는 행만 표시 */}
+            {row.mergeInfo && (
+              <div className="mt-3 border-t border-amber-100 pt-2" onClick={(e) => e.stopPropagation()}>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-500">합친 내역</p>
+                <div className="space-y-2">
+                  {row.mergeInfo.subItems.map((item, idx) => {
+                    const activeEntries = (MONTH_COLUMNS as readonly string[])
+                      .map((m, i) => ({ m, i, amt: item.monthlyAmounts[i] }))
+                      .filter(({ amt }) => amt > 0);
+                    return (
+                      <div key={idx} className="flex items-start justify-between rounded bg-amber-50/60 px-2 py-1.5">
+                        <div className="flex min-w-0 flex-wrap items-center gap-1 mr-3">
+                          <span className="text-xs text-gray-700 truncate">{item.description || item.programName || '-'}</span>
+                          {activeEntries.map(({ m, i }) => (
+                            <span key={i} className="shrink-0 rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-400">{m}</span>
+                          ))}
+                        </div>
+                        <div className="shrink-0 text-right text-xs">
+                          {activeEntries.length > 1 ? (
+                            <div className="space-y-0.5">
+                              {activeEntries.map(({ m, i, amt }) => (
+                                <div key={i} className="flex items-center justify-end gap-1 tabular-nums text-gray-500">
+                                  <span className="text-[10px] text-gray-400">{m}</span>
+                                  <span>{formatKRW(amt)}</span>
+                                </div>
+                              ))}
+                              <div className="border-t border-amber-200 pt-0.5 font-semibold tabular-nums text-gray-700">
+                                합계 {formatKRW(item.totalAmount)}원
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="tabular-nums text-gray-700">{formatKRW(item.totalAmount)}원</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </TableCell>
         </TableRow>,
       ] : []),
@@ -669,20 +800,54 @@ export function ExpenditureTable({
           )}
         </div>
 
-        {/* 우측: 행 추가 + 편집 모드 토글 */}
+        {/* 우측: 행 추가 + 편집 모드 + 합치기 */}
         {canWrite && (
           <div className="flex items-center gap-1.5">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onAdd}
-              className="gap-1.5 text-gray-600"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              행 추가
-            </Button>
+            {!mergeMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onAdd}
+                className="gap-1.5 text-gray-600"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                행 추가
+              </Button>
+            )}
 
-            {editMode ? (
+            {mergeMode ? (
+              <>
+                <span className="text-xs text-gray-500">
+                  {selectedForMerge.size}건 선택
+                  {selectedForMerge.size > 0 && (
+                    <span className="ml-1 font-medium text-gray-700">
+                      ({formatKRW(
+                        Array.from(selectedForMerge).reduce((s, ri) => {
+                          const r = rows.find((row) => row.rowIndex === ri);
+                          return s + (r?.totalAmount ?? 0);
+                        }, 0),
+                      )}원)
+                    </span>
+                  )}
+                </span>
+                <Button
+                  size="sm"
+                  onClick={handleOpenMergeModal}
+                  disabled={selectedForMerge.size < 2}
+                  className="bg-primary text-white hover:bg-primary-light disabled:opacity-40"
+                >
+                  합치기 확정
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCancelMergeMode}
+                  className="text-gray-600"
+                >
+                  취소
+                </Button>
+              </>
+            ) : editMode ? (
               <>
                 <Button
                   size="sm"
@@ -701,15 +866,28 @@ export function ExpenditureTable({
                 </Button>
               </>
             ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setEditMode(true)}
-                className="gap-1.5 text-gray-600"
-              >
-                <Pencil className="h-3.5 w-3.5" />
-                편집 모드
-              </Button>
+              <>
+                {canMerge && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleStartMergeMode}
+                    className="gap-1.5 text-gray-600"
+                  >
+                    <Merge className="h-3.5 w-3.5" />
+                    합치기
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditMode(true)}
+                  className="gap-1.5 text-gray-600"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  편집 모드
+                </Button>
+              </>
             )}
           </div>
         )}
@@ -721,6 +899,15 @@ export function ExpenditureTable({
           <span className="font-semibold">편집 모드</span>
           <span className="text-amber-600">건명·프로그램명·지출일자·월별 금액은 더블클릭으로 바로 수정합니다. 행을 펼치면 월별 금액을 개별 수정할 수 있습니다.</span>
           {savingInline && <span className="ml-auto text-amber-500">저장 중…</span>}
+        </div>
+      )}
+
+      {/* 합치기 모드 안내 */}
+      {mergeMode && (
+        <div className="mb-1 flex items-center gap-2 rounded-md border border-primary/20 bg-primary-bg/40 px-3 py-1.5 text-xs text-primary">
+          <Merge className="h-3.5 w-3.5 shrink-0" />
+          <span className="font-semibold">합치기 모드</span>
+          <span>합칠 집행내역을 클릭하거나 체크박스로 선택하세요. 2건 이상 선택 후 &lsquo;합치기 확정&rsquo;을 누르세요.</span>
         </div>
       )}
 
@@ -737,6 +924,7 @@ export function ExpenditureTable({
             className="border-b border-gray-200 hover:bg-transparent [&>th]:h-auto [&>th]:py-1 [&>th]:leading-none"
             style={{ backgroundColor: 'rgba(32, 128, 141, 0.1)' }}
           >
+            {mergeMode && !isPersonnel && <TableHead className="w-8" />}
             <TableHead className="w-6 text-gray-400" />
             {isPersonnel ? (
               <>
@@ -882,6 +1070,95 @@ export function ExpenditureTable({
         <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
           <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-green-500" />
           <span>청구서가 업로드된 집행항목입니다. 동그라미를 클릭하면 파일을 열 수 있습니다.</span>
+        </div>
+      )}
+
+      {/* 합치기 확정 모달 */}
+      {mergeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="w-[500px] max-h-[80vh] overflow-y-auto rounded-lg border border-gray-200 bg-white p-5 shadow-xl">
+            <h2 className="mb-4 text-base font-semibold text-gray-800">
+              {selectedForMerge.size}건 합치기
+            </h2>
+
+            {/* 선택된 건 목록 */}
+            <div className="mb-4 rounded border border-gray-100 bg-gray-50 p-3">
+              <p className="mb-2 text-xs text-gray-400">선택된 집행내역</p>
+              <div className="space-y-1">
+                {Array.from(selectedForMerge).map((ri) => {
+                  const r = rows.find((row) => row.rowIndex === ri);
+                  if (!r) return null;
+                  const activeMonths = (MONTH_COLUMNS as readonly string[]).filter((_, i) => r.monthlyAmounts[i] > 0);
+                  return (
+                    <div key={ri} className="flex items-center justify-between border-b border-gray-100 py-1 text-xs last:border-0">
+                      <div className="flex min-w-0 items-center gap-1">
+                        <span className="truncate text-gray-700">{r.description || r.programName || '-'}</span>
+                        {activeMonths.map((m) => (
+                          <span key={m} className="shrink-0 rounded bg-blue-50 px-1 py-0.5 text-[10px] font-medium text-blue-400">{m}</span>
+                        ))}
+                      </div>
+                      <span className="ml-3 shrink-0 tabular-nums text-gray-600">{formatKRW(r.totalAmount)}원</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex items-center justify-between border-t border-gray-200 pt-2">
+                <span className="text-xs text-gray-500">합계</span>
+                <span className="text-sm font-semibold tabular-nums text-gray-800">
+                  {formatKRW(
+                    Array.from(selectedForMerge).reduce((s, ri) => {
+                      const r = rows.find((row) => row.rowIndex === ri);
+                      return s + (r?.totalAmount ?? 0);
+                    }, 0),
+                  )}원
+                </span>
+              </div>
+            </div>
+
+            {/* 새 건명 */}
+            <div className="mb-3">
+              <label className="mb-1 block text-xs font-medium text-gray-700">
+                새 건명 <span className="text-red-400">*</span>
+              </label>
+              <input
+                autoFocus
+                type="text"
+                value={mergeDesc}
+                onChange={(e) => setMergeDesc(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && mergeDesc.trim()) void handleMergeConfirm(); }}
+                placeholder="합친 후 표시할 건명을 입력하세요"
+                className="w-full rounded border border-gray-200 px-3 py-1.5 text-sm focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
+              />
+            </div>
+
+            {/* 구분(프로그램명) */}
+            <div className="mb-5">
+              <label className="mb-1 block text-xs font-medium text-gray-700">구분(프로그램명)</label>
+              <input
+                type="text"
+                value={mergeProgramName}
+                onChange={(e) => setMergeProgramName(e.target.value)}
+                placeholder="프로그램명"
+                className="w-full rounded border border-gray-200 px-3 py-1.5 text-sm focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setMergeModalOpen(false)}
+                className="rounded px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => void handleMergeConfirm()}
+                disabled={!mergeDesc.trim() || merging}
+                className="rounded bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-light disabled:opacity-40"
+              >
+                {merging ? '처리 중...' : '합치기'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

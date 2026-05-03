@@ -20,6 +20,7 @@ import {
   useDeleteExpenditureRow,
   useUploadPdf,
   useDeleteFile,
+  useMergeExpenditureRows,
   type RowPayload,
 } from '@/hooks/useExpenditure';
 import type { ExpenditureDetailRow } from '@/types';
@@ -52,6 +53,7 @@ export default function ExpenditurePage({
   const deleteMutation = useDeleteExpenditureRow(category);
   const uploadMutation    = useUploadPdf(category);
   const deleteFileMutation = useDeleteFile(category);
+  const mergeMutation  = useMergeExpenditureRows(category);
 
   // 폼 상태
   const [formOpen, setFormOpen]   = useState(false);
@@ -189,6 +191,10 @@ export default function ExpenditurePage({
     }
   }
 
+  async function handleMerge(rowIndexes: number[], description: string, programName: string) {
+    await mergeMutation.mutateAsync({ rowIndexes, description, programName });
+  }
+
   function handleUploadSuccess(uploadedRows: { category: string; rowIndex: number }[]) {
     const indexes = uploadedRows
       .filter((r) => r.category === category)
@@ -321,6 +327,7 @@ export default function ExpenditurePage({
           onDeleteFile={handleDeleteFileClick}
           onMoveMonth={handleMoveMonth}
           onUpdate={handleInlineUpdate}
+          onMerge={canWrite ? handleMerge : undefined}
           highlightRowIndex={highlightRowIndex}
         />
       )}

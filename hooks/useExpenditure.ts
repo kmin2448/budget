@@ -117,6 +117,40 @@ export function useDeleteExpenditureRow(category: string) {
   });
 }
 
+// ── 합치기 ────────────────────────────────────────────────────
+
+export interface MergePayload {
+  rowIndexes: number[];
+  description: string;
+  programName: string;
+}
+
+export function useMergeExpenditureRows(category: string) {
+  const { budgetType } = useBudgetType();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: MergePayload) => {
+      const res = await fetch(
+        `/api/sheets/expenditure/${encodeURIComponent(category)}/merge?sheetType=${budgetType}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, sheetType: budgetType }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        throw new Error(body.error ?? '합치기 실패');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenditure', category, budgetType] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard', budgetType] });
+    },
+  });
+}
+
 // ── PDF 삭제 ──────────────────────────────────────────────────────
 
 export function useDeleteFile(category: string) {

@@ -15,7 +15,7 @@ import { serialToDateString, calcBudgetInfo } from '@/lib/expenditure-utils';
 import { checkPermission } from '@/lib/permissions';
 import { PERMISSIONS } from '@/types';
 import { getSpreadsheetId } from '@/lib/google/getSheetId';
-import type { ExpenditureDetailRow, ExpenditurePageData, BudgetType } from '@/types';
+import type { ExpenditureDetailRow, ExpenditurePageData, BudgetType, MergeSubItem } from '@/types';
 
 function isCategorySheet(val: string): val is typeof CATEGORY_SHEETS[number] {
   return (CATEGORY_SHEETS as readonly string[]).includes(val);
@@ -116,7 +116,7 @@ export async function GET(
       : getGeneralEndCol(monthCount);
     const readRange = `'${category}'!A${CATEGORY_DATA_START_ROW}:${endCol}${CATEGORY_DATA_END_ROW_MAP[category]}`;
 
-    const [rowsRes, allocationRes, b1Res, dropOptions, fileRecordsRes] = await Promise.all([
+    const [rowsRes, allocationRes, b1Res, dropOptions, fileRecordsRes, mergeRecordsRes] = await Promise.all([
       sheets.spreadsheets.values.get({
         spreadsheetId: SPREADSHEET_ID,
         range: readRange,
@@ -137,6 +137,11 @@ export async function GET(
         .from('expenditure_files')
         .select('row_index, drive_file_id, drive_url')
         .eq('sheet_name', category),
+      supabase
+        .from('expenditure_merges')
+        .select('id, merged_row_index, sub_items')
+        .eq('sheet_name', category)
+        .eq('budget_type', sheetType),
     ]);
 
     const namedAllocation = Number(allocationRes[0]?.[0] ?? 0);
@@ -149,6 +154,12 @@ export async function GET(
         f.row_index,
         { fileId: f.drive_file_id, fileUrl: f.drive_url },
       ]),
+    );
+
+    const mergeMap = new Map(
+      ((mergeRecordsRes as { data: { id: string; merged_row_index: number; sub_items: MergeSubItem[] }[] | null }).data ?? []).map(
+        (m) => [m.merged_row_index, { id: m.id, subItems: m.sub_items }],
+      ),
     );
 
     const rows: ExpenditureDetailRow[] = rawRows
@@ -172,6 +183,7 @@ export async function GET(
           hasFile: !!fileInfo,
           fileUrl: fileInfo?.fileUrl,
           fileId: fileInfo?.fileId,
+          mergeInfo: mergeMap.get(rowIndex) ?? null,
         };
       })
       .filter((r) => r.programName || r.description || r.totalAmount > 0);
