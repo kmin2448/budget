@@ -135,7 +135,7 @@ export async function GET(
         : getCategoryDropdown(CATEGORY_DROP_MAP[category], SPREADSHEET_ID).catch(() => [] as string[]),
       supabase
         .from('expenditure_files')
-        .select('row_index, drive_file_id, drive_url')
+        .select('row_index, month_index, drive_file_id, drive_url')
         .eq('sheet_name', category),
       supabase
         .from('expenditure_merges')
@@ -149,12 +149,23 @@ export async function GET(
     const allocation = namedAllocation || b1Allocation;
     const rawRows = (rowsRes.data.values ?? []) as (string | number | null)[][];
 
-    const fileMap = new Map(
-      ((fileRecordsRes as { data: { row_index: number; drive_file_id: string; drive_url: string }[] | null }).data ?? []).map((f) => [
-        f.row_index,
-        { fileId: f.drive_file_id, fileUrl: f.drive_url },
-      ]),
-    );
+    // row-level 파일 맵 (비인건비) + 월별 파일 맵 (인건비)
+    const fileRecords = (fileRecordsRes as {
+      data: { row_index: number; month_index: number | null; drive_file_id: string; drive_url: string }[] | null;
+    }).data ?? [];
+
+    const fileMap = new Map<number, { fileId: string; fileUrl: string }>();
+    const monthFilesMap = new Map<number, { monthIndex: number; fileId: string; fileUrl: string }[]>();
+
+    for (const f of fileRecords) {
+      if (f.month_index !== null && f.month_index !== undefined) {
+        const arr = monthFilesMap.get(f.row_index) ?? [];
+        arr.push({ monthIndex: f.month_index, fileId: f.drive_file_id, fileUrl: f.drive_url });
+        monthFilesMap.set(f.row_index, arr);
+      } else {
+        fileMap.set(f.row_index, { fileId: f.drive_file_id, fileUrl: f.drive_url });
+      }
+    }
 
     const mergeMap = new Map(
       ((mergeRecordsRes as { data: { id: string; merged_row_index: number; sub_items: MergeSubItem[] }[] | null }).data ?? []).map(
@@ -169,6 +180,7 @@ export async function GET(
           ? buildPersonnelRowValues(raw, monthCount)
           : buildRowValues(raw, monthCount);
         const fileInfo = fileMap.get(rowIndex);
+        const monthFiles = monthFilesMap.get(rowIndex);
         return {
           rowIndex,
           programName,
@@ -180,10 +192,11 @@ export async function GET(
           status: isPersonnel
             ? (totalAmount > 0 ? 'complete' : 'planned') as 'complete' | 'planned'
             : (expenseDate ? 'complete' : 'planned') as 'complete' | 'planned',
-          hasFile: !!fileInfo,
-          fileUrl: fileInfo?.fileUrl,
-          fileId: fileInfo?.fileId,
+          hasFile: isPersonnel ? (monthFiles?.length ?? 0) > 0 : !!fileInfo,
+          fileUrl: isPersonnel ? undefined : fileInfo?.fileUrl,
+          fileId: isPersonnel ? undefined : fileInfo?.fileId,
           mergeInfo: mergeMap.get(rowIndex) ?? null,
+          monthFiles: isPersonnel ? (monthFiles ?? []) : undefined,
         };
       })
       .filter((r) => r.programName || r.description || r.totalAmount > 0);

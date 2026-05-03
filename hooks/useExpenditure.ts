@@ -1,6 +1,7 @@
 // hooks/useExpenditure.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBudgetType } from '@/contexts/BudgetTypeContext';
+import { MONTH_COLUMNS } from '@/constants/sheets';
 import type { ExpenditurePageData, ExpenditureDetailRow, BudgetType } from '@/types';
 
 // ── 조회 ──────────────────────────────────────────────────────────
@@ -191,11 +192,11 @@ export function useDeleteFile(category: string) {
   const { budgetType } = useBudgetType();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (rowIndex: number) => {
+    mutationFn: async ({ rowIndex, monthIndex }: { rowIndex: number; monthIndex?: number }) => {
       const res = await fetch('/api/drive/expenditure-upload', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, rowIndex, sheetType: budgetType }),
+        body: JSON.stringify({ category, rowIndex, sheetType: budgetType, monthIndex }),
       });
       if (!res.ok) {
         const body = await res.json() as { error?: string };
@@ -216,14 +217,22 @@ export function useUploadPdf(category: string) {
   const { budgetType } = useBudgetType();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ file, row }: { file: File; row: ExpenditureDetailRow }) => {
-      // 파일명 자동 수정 로직 (청구서.md 참고)
-      // 형식: ({이체일자}) {적요}_({금회청구액}).pdf
-      const dateStr = row.expenseDate
-        ? row.expenseDate.replace(/-/g, '').slice(2) // 2026-03-06 -> 260306
-        : '일자미상';
-      const amountStr = row.totalAmount.toLocaleString();
-      let newFileName = `(${dateStr}) ${row.description}_(${amountStr}).pdf`;
+    mutationFn: async ({ file, row, monthIndex }: { file: File; row: ExpenditureDetailRow; monthIndex?: number }) => {
+      let newFileName: string;
+
+      if (monthIndex !== undefined) {
+        // 인건비 월별 파일: {항목명}_{월}_(금액).pdf
+        const monthName = MONTH_COLUMNS[monthIndex] ?? `월${monthIndex}`;
+        const monthAmount = row.monthlyAmounts[monthIndex] ?? 0;
+        newFileName = `${row.programName}_${monthName}_(${monthAmount.toLocaleString()}).pdf`;
+      } else {
+        // 일반 집행내역: ({이체일자}) {적요}_({금회청구액}).pdf
+        const dateStr = row.expenseDate
+          ? row.expenseDate.replace(/-/g, '').slice(2)
+          : '일자미상';
+        const amountStr = row.totalAmount.toLocaleString();
+        newFileName = `(${dateStr}) ${row.description}_(${amountStr}).pdf`;
+      }
 
       // 윈도우 파일명 금지문자 제거
       newFileName = newFileName.replace(/[/\\:*?"<>|]/g, '_');
@@ -236,6 +245,9 @@ export function useUploadPdf(category: string) {
       formData.append('category', category);
       formData.append('rowIndex', String(row.rowIndex));
       formData.append('sheetType', budgetType);
+      if (monthIndex !== undefined) {
+        formData.append('monthIndex', String(monthIndex));
+      }
       const res = await fetch('/api/drive/expenditure-upload', {
         method: 'POST',
         body: formData,

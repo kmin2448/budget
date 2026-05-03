@@ -28,20 +28,26 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
     }
 
-    const body = await req.json() as { category?: string; rowIndex?: number; sheetType?: string };
-    const { category, rowIndex, sheetType = 'main' } = body;
+    const body = await req.json() as { category?: string; rowIndex?: number; sheetType?: string; monthIndex?: number };
+    const { category, rowIndex, sheetType = 'main', monthIndex } = body;
 
     if (!category || rowIndex === undefined) {
       return NextResponse.json({ error: '필수 파라미터 누락 (category, rowIndex)' }, { status: 400 });
     }
 
     const supabase = createServerSupabaseClient();
-    const { data: existing } = await supabase
+
+    // month_index 유무에 따라 필터 분기
+    const hasMonthIndex = monthIndex !== undefined && monthIndex !== null;
+    const existingQuery = supabase
       .from('expenditure_files')
       .select('drive_file_id')
       .eq('sheet_name', category)
-      .eq('row_index', rowIndex)
-      .maybeSingle();
+      .eq('row_index', rowIndex);
+    const { data: existing } = await (hasMonthIndex
+      ? existingQuery.eq('month_index', monthIndex)
+      : existingQuery.is('month_index', null)
+    ).maybeSingle();
 
     if (!existing?.drive_file_id) {
       return NextResponse.json({ error: '파일 정보를 찾을 수 없습니다.' }, { status: 404 });
@@ -55,11 +61,14 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Supabase 레코드 삭제
-    await supabase
+    const deleteQuery = supabase
       .from('expenditure_files')
       .delete()
       .eq('sheet_name', category)
       .eq('row_index', rowIndex);
+    await (hasMonthIndex
+      ? deleteQuery.eq('month_index', monthIndex)
+      : deleteQuery.is('month_index', null));
 
     // 인건비가 아닌 경우 Google Sheets B열(집행일자) 초기화
     if (category !== PERSONNEL_CATEGORY) {
@@ -109,6 +118,8 @@ export async function POST(req: NextRequest) {
     const category = formData.get('category') as string | null;
     const rowIndexStr = formData.get('rowIndex') as string | null;
     const sheetType = (formData.get('sheetType') as string | null) ?? 'main';
+    const monthIndexStr = formData.get('monthIndex') as string | null;
+    const monthIndex = monthIndexStr !== null && monthIndexStr !== '' ? Number(monthIndexStr) : null;
 
     if (!file || !category || !rowIndexStr) {
       return NextResponse.json(
@@ -133,12 +144,16 @@ export async function POST(req: NextRequest) {
     const safeName = file.name.replace(/[/\\:*?"<>|]/g, '_') || 'upload.pdf';
 
     // 기존 파일이 있으면 Drive에서 삭제 후 DB 레코드 제거
-    const { data: existing } = await supabase
+    const hasMonthIndex = monthIndex !== null;
+    const existCheckQuery = supabase
       .from('expenditure_files')
       .select('drive_file_id')
       .eq('sheet_name', category)
-      .eq('row_index', rowIndex)
-      .maybeSingle();
+      .eq('row_index', rowIndex);
+    const { data: existing } = await (hasMonthIndex
+      ? existCheckQuery.eq('month_index', monthIndex)
+      : existCheckQuery.is('month_index', null)
+    ).maybeSingle();
 
     if (existing?.drive_file_id) {
       try {
@@ -149,11 +164,8 @@ export async function POST(req: NextRequest) {
       } catch {
         // 파일이 이미 없어도 계속 진행
       }
-      await supabase
-        .from('expenditure_files')
-        .delete()
-        .eq('sheet_name', category)
-        .eq('row_index', rowIndex);
+      const delQuery = supabase.from('expenditure_files').delete().eq('sheet_name', category).eq('row_index', rowIndex);
+      await (hasMonthIndex ? delQuery.eq('month_index', monthIndex) : delQuery.is('month_index', null));
     }
 
     // 사용자 Google Drive에 업로드
@@ -176,6 +188,7 @@ export async function POST(req: NextRequest) {
       drive_file_id: fileId,
       drive_url: webViewLink,
       uploaded_by: userRecord?.id ?? null,
+      ...(hasMonthIndex ? { month_index: monthIndex } : {}),
     });
 
     return NextResponse.json({ fileId, driveUrl: webViewLink });

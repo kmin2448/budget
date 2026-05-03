@@ -11,10 +11,14 @@ import { formatKRW, parseKRW } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import {
   Pencil, Trash2, Upload, ExternalLink, Plus,
-  ChevronUp, ChevronDown, ChevronRight, GripVertical, X, Search, Merge, Scissors,
+  ChevronUp, ChevronDown, ChevronRight, GripVertical, X, Search, Merge, Scissors, CalendarDays,
 } from 'lucide-react';
 import { MONTH_COLUMNS, PERSONNEL_CATEGORY } from '@/constants/sheets';
+import { useBudgetType } from '@/contexts/BudgetTypeContext';
+import { PersonnelMonthInputModal } from './PersonnelMonthInputModal';
 import type { ExpenditureDetailRow } from '@/types';
+
+type MonthFile = { monthIndex: number; fileId: string; fileUrl: string };
 
 interface InlineEditState {
   rowIndex: number;
@@ -30,8 +34,9 @@ interface ExpenditureTableProps {
   onAdd: () => void;
   onEdit: (row: ExpenditureDetailRow) => void;
   onDelete: (row: ExpenditureDetailRow) => void;
-  onUpload: (row: ExpenditureDetailRow) => void;
-  onDeleteFile: (row: ExpenditureDetailRow) => void;
+  onUpload: (row: ExpenditureDetailRow, monthIndex?: number) => void;
+  onDeleteFile: (row: ExpenditureDetailRow, monthIndex?: number) => void;
+  onPersonnelBatchUpdate?: (updates: { rowIndex: number; monthlyAmounts: number[] }[]) => Promise<void>;
   onMoveMonth?: (
     row: ExpenditureDetailRow,
     sourceMonthIdx: number,
@@ -89,8 +94,10 @@ function getActiveMonths(row: ExpenditureDetailRow): string[] {
 
 export function ExpenditureTable({
   rows, canWrite, category, onAdd, onEdit, onDelete, onUpload, onDeleteFile, onMoveMonth, onUpdate,
-  onMerge, onSplit, highlightRowIndex,
+  onMerge, onSplit, highlightRowIndex, onPersonnelBatchUpdate,
 }: ExpenditureTableProps) {
+  const { budgetType } = useBudgetType();
+  const monthCount = budgetType === 'carryover' ? 4 : 12;
   const [searchQuery, setSearchQuery] = useState('');
 
   // 비목 탭 전환 시 검색어 초기화
@@ -130,6 +137,9 @@ export function ExpenditureTable({
     originalRow: ExpenditureDetailRow;
   } | null>(null);
   const [savingInline, setSavingInline] = useState(false);
+
+  // 인건비 월별 금액 입력 모달
+  const [personnelMonthModalOpen, setPersonnelMonthModalOpen] = useState(false);
 
   // 별건으로 빼기
   const [splitTarget, setSplitTarget] = useState<{
@@ -465,37 +475,16 @@ export function ExpenditureTable({
             >
               <span className={cn(canWrite && 'cursor-pointer')}>{formatKRW(row.totalAmount)}</span>
             </TableCell>
-            {/* 인건비 청구서 업로드/삭제 */}
+            {/* 인건비 청구서 — 월별 업로드 개수 표시 (실제 업로드는 펼침 행에서) */}
             <TableCell className="w-16 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-              {row.hasFile ? (
-                <div className="flex items-center justify-center gap-1">
-                  <a
-                    href={row.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="청구서 열기"
-                    className="inline-flex items-center"
-                  >
-                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
-                  </a>
-                  {canWrite && (
-                    <button
-                      onClick={() => onDeleteFile(row)}
-                      className="rounded p-0.5 text-gray-300 hover:bg-red-50 hover:text-red-400"
-                      title="파일 삭제"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-              ) : canWrite ? (
-                <button
-                  onClick={() => onUpload(row)}
-                  className="inline-flex items-center gap-0.5 rounded px-1.5 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                >
-                  <Upload className="h-3 w-3" />
-                </button>
-              ) : null}
+              {(row.monthFiles?.length ?? 0) > 0 ? (
+                <span className="inline-flex items-center gap-0.5 text-xs text-green-600">
+                  <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+                  {row.monthFiles!.length}건
+                </span>
+              ) : (
+                <span className="text-xs text-gray-300">-</span>
+              )}
             </TableCell>
           </>
         ) : (
@@ -651,6 +640,9 @@ export function ExpenditureTable({
                 const isEditingThisMonth =
                   monthEdit?.rowIndex === row.rowIndex &&
                   monthEdit?.monthIdx === i;
+                const monthFile: MonthFile | undefined = isPersonnel
+                  ? row.monthFiles?.find((f) => f.monthIndex === i)
+                  : undefined;
                 return (
                   <div
                     key={month}
@@ -659,7 +651,7 @@ export function ExpenditureTable({
                   >
                     <div className="mb-0.5 flex items-center justify-center gap-0.5 text-gray-400">
                       <span>{month}</span>
-                      {isPersonnel && row.hasFile && row.monthlyAmounts[i] > 0 && (
+                      {isPersonnel && monthFile && (
                         <span
                           className="inline-block h-1.5 w-1.5 rounded-full bg-green-500"
                           title="청구서 업로드됨"
@@ -689,6 +681,39 @@ export function ExpenditureTable({
                         title={canWrite && onUpdate ? '더블클릭하여 편집' : undefined}
                       >
                         {row.monthlyAmounts[i] > 0 ? formatKRW(row.monthlyAmounts[i]) : '0'}
+                      </div>
+                    )}
+                    {/* 인건비 전용: 월별 파일 업로드/삭제 */}
+                    {isPersonnel && row.monthlyAmounts[i] > 0 && (
+                      <div className="mt-0.5 flex items-center justify-center gap-0.5">
+                        {monthFile ? (
+                          <>
+                            <a
+                              href={monthFile.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="청구서 열기"
+                              className="inline-block h-2.5 w-2.5 rounded-full bg-green-500 hover:opacity-80"
+                            />
+                            {canWrite && (
+                              <button
+                                onClick={() => onDeleteFile(row, i)}
+                                className="rounded p-0.5 text-gray-300 hover:bg-red-50 hover:text-red-400"
+                                title="파일 삭제"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            )}
+                          </>
+                        ) : canWrite ? (
+                          <button
+                            onClick={() => onUpload(row, i)}
+                            className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            title="청구서 업로드"
+                          >
+                            <Upload className="h-2.5 w-2.5" />
+                          </button>
+                        ) : null}
                       </div>
                     )}
                   </div>
@@ -934,6 +959,18 @@ export function ExpenditureTable({
         {/* 우측: 행 추가 + 편집 모드 + 합치기 */}
         {canWrite && (
           <div className="flex items-center gap-1.5">
+            {/* 인건비 전용: 월별 금액 일괄 입력 */}
+            {isPersonnel && !editMode && !mergeMode && onPersonnelBatchUpdate && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPersonnelMonthModalOpen(true)}
+                className="gap-1.5 text-gray-600"
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                월별 금액 입력
+              </Button>
+            )}
             {!mergeMode && (
               <Button
                 size="sm"
@@ -1200,8 +1237,24 @@ export function ExpenditureTable({
       {isPersonnel && (
         <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
           <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-green-500" />
-          <span>청구서가 업로드된 집행항목입니다. 동그라미를 클릭하면 파일을 열 수 있습니다.</span>
+          <span>행을 펼치면 월별 청구서를 업로드·삭제할 수 있습니다. 녹색 점 클릭 시 파일을 열 수 있습니다.</span>
         </div>
+      )}
+
+      {/* 인건비 월별 금액 일괄 입력 모달 */}
+      {isPersonnel && (
+        <PersonnelMonthInputModal
+          open={personnelMonthModalOpen}
+          rows={filteredRows}
+          monthCount={monthCount}
+          onClose={() => setPersonnelMonthModalOpen(false)}
+          onSave={async (updates) => {
+            if (onPersonnelBatchUpdate) {
+              await onPersonnelBatchUpdate(updates);
+            }
+            setPersonnelMonthModalOpen(false);
+          }}
+        />
       )}
 
       {/* 합치기 확정 모달 */}

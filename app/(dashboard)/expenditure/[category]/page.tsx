@@ -67,11 +67,11 @@ export default function ExpenditurePage({
   const [deleteTarget, setDeleteTarget] = useState<ExpenditureDetailRow | undefined>();
 
   // 파일 업로드/삭제 상태
-  const fileInputRef                      = useRef<HTMLInputElement>(null);
-  const [uploadTarget, setUploadTarget]   = useState<ExpenditureDetailRow | undefined>();
-  const [uploadError, setUploadError]     = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTarget, setUploadTarget] = useState<{ row: ExpenditureDetailRow; monthIndex?: number } | undefined>();
+  const [uploadError, setUploadError]   = useState<string | null>(null);
   const [storageWarning, setStorageWarning] = useState<{ usagePercent: number } | null>(null);
-  const [deleteFileTarget, setDeleteFileTarget] = useState<ExpenditureDetailRow | undefined>();
+  const [deleteFileTarget, setDeleteFileTarget] = useState<{ row: ExpenditureDetailRow; monthIndex?: number } | undefined>();
   const [deleteFileOpen, setDeleteFileOpen]     = useState(false);
 
   // 다중 업로드 후 필터 상태 — 업로드 완료된 행만 표시
@@ -104,15 +104,15 @@ export default function ExpenditurePage({
     setDeleteOpen(true);
   }
 
-  function handleDeleteFileClick(row: ExpenditureDetailRow) {
-    setDeleteFileTarget(row);
+  function handleDeleteFileClick(row: ExpenditureDetailRow, monthIndex?: number) {
+    setDeleteFileTarget({ row, monthIndex });
     setDeleteFileOpen(true);
   }
 
   async function handleDeleteFileConfirm() {
     if (!deleteFileTarget) return;
     try {
-      await deleteFileMutation.mutateAsync(deleteFileTarget.rowIndex);
+      await deleteFileMutation.mutateAsync({ rowIndex: deleteFileTarget.row.rowIndex, monthIndex: deleteFileTarget.monthIndex });
       setDeleteFileOpen(false);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : '파일 삭제 실패');
@@ -122,9 +122,9 @@ export default function ExpenditurePage({
     }
   }
 
-  function handleUploadClick(row: ExpenditureDetailRow) {
+  function handleUploadClick(row: ExpenditureDetailRow, monthIndex?: number) {
     setUploadError(null);
-    setUploadTarget(row);
+    setUploadTarget({ row, monthIndex });
     fileInputRef.current?.click();
   }
 
@@ -132,7 +132,7 @@ export default function ExpenditurePage({
     const file = e.target.files?.[0];
     if (!file || !uploadTarget) return;
     try {
-      const result = await uploadMutation.mutateAsync({ file, row: uploadTarget });
+      const result = await uploadMutation.mutateAsync({ file, row: uploadTarget.row, monthIndex: uploadTarget.monthIndex });
       if (result.storageWarning) {
         setStorageWarning({ usagePercent: result.usagePercent });
       }
@@ -199,6 +199,20 @@ export default function ExpenditurePage({
 
   async function handleSplit(mergeId: string, mergedRowIndex: number, subItemIndexes: number[]) {
     await splitMutation.mutateAsync({ mergeId, mergedRowIndex, subItemIndexes });
+  }
+
+  async function handlePersonnelBatchUpdate(updates: { rowIndex: number; monthlyAmounts: number[] }[]) {
+    for (const update of updates) {
+      const row = data?.rows.find((r) => r.rowIndex === update.rowIndex);
+      if (!row) continue;
+      await updateMutation.mutateAsync({
+        rowIndex: update.rowIndex,
+        programName: row.programName,
+        description: row.description,
+        expenseDate: row.expenseDate,
+        monthlyAmounts: update.monthlyAmounts,
+      });
+    }
   }
 
   function handleUploadSuccess(uploadedRows: { category: string; rowIndex: number }[]) {
@@ -335,6 +349,7 @@ export default function ExpenditurePage({
           onUpdate={handleInlineUpdate}
           onMerge={canWrite ? handleMerge : undefined}
           onSplit={canWrite ? handleSplit : undefined}
+          onPersonnelBatchUpdate={canWrite ? handlePersonnelBatchUpdate : undefined}
           highlightRowIndex={highlightRowIndex}
         />
       )}
@@ -373,7 +388,7 @@ export default function ExpenditurePage({
       <ConfirmDialog
         open={deleteFileOpen}
         title="지출부 파일 삭제"
-        description={`"${deleteFileTarget?.description || '해당 행'}"의 지출부 파일을 삭제하시겠습니까? Google Drive에서도 삭제됩니다.`}
+        description={`"${deleteFileTarget?.row.description || deleteFileTarget?.row.programName || '해당 행'}"${deleteFileTarget?.monthIndex !== undefined ? ` ${['3월','4월','5월','6월','7월','8월','9월','10월','11월','12월','1월','2월'][deleteFileTarget.monthIndex]} ` : ' '}지출부 파일을 삭제하시겠습니까? Google Drive에서도 삭제됩니다.`}
         loading={deleteFileMutation.isPending}
         onConfirm={handleDeleteFileConfirm}
         onClose={() => setDeleteFileOpen(false)}

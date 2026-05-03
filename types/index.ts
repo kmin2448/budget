@@ -127,6 +127,8 @@ export interface ExpenditureDetailRow {
   fileUrl?: string;
   fileId?: string;
   mergeInfo?: { id: string; subItems: MergeSubItem[] } | null;
+  // 인건비 전용: 월별 지출부 파일 목록
+  monthFiles?: { monthIndex: number; fileId: string; fileUrl: string }[];
 }
 
 export interface ExpenditureBudgetInfo {
