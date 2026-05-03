@@ -1,6 +1,6 @@
 import { formatKRW } from '@/lib/utils';
 import type { DashboardSummary } from '@/hooks/useDashboard';
-import { CheckCircle, Clock, BarChart2 } from 'lucide-react';
+import { CheckCircle, Clock, BarChart2, Wallet } from 'lucide-react';
 
 interface SummaryCardsProps {
   summary: DashboardSummary;
@@ -26,7 +26,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
 
       {/* ── 1. 총예산 카드 ── */}
-      <div className="rounded-[2px] border border-[#E3E3E0] bg-white shadow-soft h-[150px] p-4 flex flex-col gap-2">
+      <div className="rounded-[2px] border border-[#E3E3E0] bg-white shadow-soft min-h-[150px] p-4 flex flex-col gap-2">
         <div className="flex items-center h-[22px]">
           <p className="text-xs font-medium text-text-secondary">총예산</p>
         </div>
@@ -49,7 +49,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
       </div>
 
       {/* ── 2. 잔액 카드 ── */}
-      <div className="rounded-[2px] border border-[#E3E3E0] bg-white shadow-soft h-[150px] p-4 flex flex-col gap-2">
+      <div className="rounded-[2px] border border-[#E3E3E0] bg-white shadow-soft min-h-[150px] p-4 flex flex-col gap-2">
         <div className="flex items-center h-[22px]">
           <p className="text-xs font-medium text-text-secondary">잔액</p>
         </div>
@@ -92,7 +92,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
       </div>
 
       {/* ── 3. 집행완료 + 집행예정 통합 카드 ── */}
-      <div className="rounded-[2px] border border-[#E3E3E0] bg-white shadow-soft h-[150px] p-4 flex flex-col gap-2">
+      <div className="rounded-[2px] border border-[#E3E3E0] bg-white shadow-soft min-h-[150px] p-4 flex flex-col gap-2">
         <p className="text-xs font-medium text-text-secondary">집행 현황</p>
         <div className="flex-1 flex flex-col justify-between">
           <div className="flex items-center justify-between">
@@ -114,6 +114,19 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
             <div className="text-right">
               <p className="text-lg font-semibold text-planned">{formatKRW(summary.executionPlanned)}</p>
               <p className="text-xs text-text-secondary">지출일자 미확정 건</p>
+            </div>
+          </div>
+          <div className="border-t border-divider" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Wallet className="h-4 w-4 text-text-secondary" />
+              <span className="text-sm text-text-secondary">잔액</span>
+            </div>
+            <div className="text-right">
+              <p className={`text-lg font-semibold ${summary.balance >= 0 ? 'text-[#131310]' : 'text-red-500'}`}>
+                {formatKRW(summary.balance)}
+              </p>
+              <p className="text-xs text-text-secondary">예산계획 기준</p>
             </div>
           </div>
         </div>

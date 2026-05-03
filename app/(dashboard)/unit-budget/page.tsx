@@ -287,6 +287,10 @@ export default function UnitBudgetPage() {
               <span className="inline-block h-3 w-3 rounded-sm border border-sky-300 bg-sky-100" />
               <span className="text-sky-600">편성(공식)예산 동기화 대기 중</span>
             </span>
+            <span className="flex items-center gap-1 text-xs whitespace-nowrap">
+              <span className="text-red-500 font-bold leading-none">●</span>
+              <span className="text-red-500">집행액이 편성,계획금액보다 큰 경우</span>
+            </span>
           </div>
 
           {/* ── 검색(좌) + 버튼(우) ── */}
