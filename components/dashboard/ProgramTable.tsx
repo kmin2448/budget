@@ -381,7 +381,7 @@ export function ProgramTable({
     );
   }
 
-  const colSpan = 10;
+  const colSpan = 11;
 
   return (
     <div className={cn(
@@ -419,6 +419,7 @@ export function ProgramTable({
                 <TableHead className="w-28 text-right text-text-secondary font-medium">예산계획</TableHead>
                 <TableHead className="w-28 text-right text-text-secondary font-medium">집행완료</TableHead>
                 <TableHead className="w-28 text-right text-text-secondary font-medium">집행예정</TableHead>
+                <TableHead className="w-28 text-right text-text-secondary font-medium">잔액</TableHead>
                 <TableHead className="w-16 text-right text-text-secondary font-medium">집행률</TableHead>
                 <TableHead className="w-[120px] text-center text-text-secondary font-medium">완료/보류</TableHead>
               </TableRow>
@@ -433,8 +434,9 @@ export function ProgramTable({
                   officialBudget: acc.officialBudget + r.officialBudget,
                   executionComplete: acc.executionComplete + r.executionComplete,
                   executionPlanned: acc.executionPlanned + r.executionPlanned,
+                  balance: acc.balance + r.balance,
                 }),
-                { budgetPlan: 0, officialBudget: 0, executionComplete: 0, executionPlanned: 0 },
+                { budgetPlan: 0, officialBudget: 0, executionComplete: 0, executionPlanned: 0, balance: 0 },
               );
               const catRate =
                 catTotal.budgetPlan > 0
@@ -485,6 +487,9 @@ export function ProgramTable({
                   </TableCell>
                   <TableCell className="py-2 text-right font-semibold text-planned tabular-nums">
                     {formatKRW(catTotal.executionPlanned)}
+                  </TableCell>
+                  <TableCell className={cn('py-2 text-right font-semibold tabular-nums', catTotal.balance < 0 ? 'text-red-500' : 'text-[#131310]')}>
+                    {formatKRW(catTotal.balance)}
                   </TableCell>
                   <TableCell className="py-2 text-right">
                     <ExecutionRateBadge rate={catRate} />
@@ -624,6 +629,9 @@ export function ProgramTable({
                           </TableCell>
                           <TableCell className="py-2 text-right text-sm tabular-nums text-planned">
                             {formatKRW(row.executionPlanned)}
+                          </TableCell>
+                          <TableCell className={cn('py-2 text-right text-sm tabular-nums', row.balance < 0 ? 'text-red-500' : 'text-gray-700')}>
+                            {formatKRW(row.balance)}
                           </TableCell>
                           <TableCell className="py-2 text-right">
                             <ExecutionRateBadge rate={row.executionRate} />

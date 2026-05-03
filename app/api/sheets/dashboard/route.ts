@@ -108,8 +108,9 @@ export async function GET(req: NextRequest) {
         const staff       = String(row[10] ?? '').trim();   // K: 담당직원
         const budgetPlanRow  = Number(row[11] ?? 0);        // L: 예산계획
         const officialBudget = Number(row[12] ?? 0);        // M: 편성(공식)예산 (신규)
-        const execComplete   = Number(row[15] ?? 0);        // P: 집행완료 (M열 추가로 O→P)
-        const execPlanned    = Number(row[16] ?? 0);        // Q: 집행예정 (M열 추가로 P→Q)
+        const rowBalance     = Number(row[14] ?? 0);        // O: 잔액
+        const execComplete   = Number(row[15] ?? 0);        // P: 집행완료
+        const execPlanned    = Number(row[16] ?? 0);        // Q: 집행예정
         const advanceFunds   = Number(row[17] ?? 0);        // R: 선지원금 (M열 추가로 Q→R)
         const additionalReflection     = String(row[18] ?? '').trim(); // S: 추가 반영사항
         const additionalReflectionDate = sheetsSerialToDateStr(row[19]);         // T: 작성일
@@ -137,7 +138,7 @@ export async function GET(req: NextRequest) {
           executionComplete: execComplete,
           executionPlanned: execPlanned,
           advanceFunds,
-          balance: budgetPlanRow - execComplete - execPlanned,
+          balance: rowBalance,
           executionRate: calcExecutionRate(execComplete, execPlanned, budgetPlanRow),
         };
       })
