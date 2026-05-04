@@ -406,11 +406,11 @@ export function ProgramTable({
       )}
 
         <DndContext sensors={sensors} collisionDetection={sameTypeCollision} onDragEnd={handleDragEnd}>
-          <Table className="w-full min-w-[960px]">
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow className="bg-sidebar hover:bg-sidebar">
                 <TableHead className={cn('shrink-0 px-2', editMode ? 'w-16' : 'w-10')} />
-                <TableHead className="min-w-[120px] text-text-secondary font-medium">
+                <TableHead className="text-text-secondary font-medium">
                   구분 / 프로그램명
                 </TableHead>
                 <TableHead className="w-12 text-text-secondary font-medium">소관</TableHead>
