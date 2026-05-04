@@ -184,23 +184,23 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
   const [memoOpen, setMemoOpen] = useState(false);
 
   const isCollapsedOnly = !!(collapsed && !onClose);
-  const leftOffset = onClose ? 196 : (isCollapsedOnly ? 68 : 184);
+  const leftOffset = onClose ? 176 : (isCollapsedOnly ? 68 : 164);
 
   return (
     <div className="flex h-full flex-col bg-sidebar">
       {/* 로고 */}
-      <div className="flex h-14 items-center justify-between border-b border-divider px-4">
+      <div className="flex h-12 items-center justify-between border-b border-divider px-3">
         {!collapsed && (
-          <span className="truncate text-[15px] font-semibold text-primary tracking-tight">
+          <span className="truncate text-sm font-semibold text-primary tracking-tight">
             COSS 예산관리
           </span>
         )}
         {collapsed && !onClose && (
-          <span className="mx-auto text-[15px] font-semibold text-primary">C</span>
+          <span className="mx-auto text-sm font-semibold text-primary">C</span>
         )}
         {onClose && (
           <>
-            <span className="truncate text-[15px] font-semibold text-primary tracking-tight">
+            <span className="truncate text-sm font-semibold text-primary tracking-tight">
               COSS 예산관리
             </span>
             <button
@@ -237,7 +237,7 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
                       title={collapsed ? item.label : undefined}
                       onClick={onClose}
                       className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+                        'flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition-all duration-150',
                         collapsed && !onClose ? 'justify-center px-0' : '',
                         isActive
                           ? 'bg-primary-bg text-primary'
@@ -246,7 +246,7 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
                     >
                       <Icon
                         className={cn(
-                          'h-4 w-4 shrink-0 transition-colors',
+                          'h-3.5 w-3.5 shrink-0 transition-colors',
                           isActive ? 'text-primary' : 'text-text-secondary',
                         )}
                       />
@@ -265,7 +265,7 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
             onClick={() => setMemoOpen(prev => !prev)}
             title={isCollapsedOnly ? '메모장' : undefined}
             className={cn(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+              'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition-all duration-150',
               isCollapsedOnly ? 'justify-center px-0' : '',
               memoOpen
                 ? 'bg-primary-bg text-primary'
@@ -274,7 +274,7 @@ function SidebarContent({ collapsed, onClose }: { collapsed?: boolean; onClose?:
           >
             <NotebookPen
               className={cn(
-                'h-4 w-4 shrink-0 transition-colors',
+                'h-3.5 w-3.5 shrink-0 transition-colors',
                 memoOpen ? 'text-primary' : 'text-text-secondary',
               )}
             />
@@ -319,7 +319,7 @@ export function Sidebar() {
       <aside
         className={cn(
           'relative hidden h-screen flex-col border-r border-divider bg-sidebar transition-all duration-200 md:flex',
-          collapsed ? 'w-16' : 'w-[180px]',
+          collapsed ? 'w-16' : 'w-[160px]',
         )}
       >
         <SidebarContent collapsed={collapsed} />
