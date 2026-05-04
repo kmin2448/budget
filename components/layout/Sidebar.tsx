@@ -65,11 +65,6 @@ function UserSection({ collapsed, onClose }: { collapsed?: boolean; onClose?: ()
 
   return (
     <div className="border-t border-divider px-3 py-3">
-      {isExpanded && (
-        <p className="mb-1.5 text-center text-[9px] text-gray-400 tracking-tight">
-          {APP_VERSION}
-        </p>
-      )}
       <DropdownMenu>
         <DropdownMenuTrigger
           className={cn(
@@ -90,6 +85,9 @@ function UserSection({ collapsed, onClose }: { collapsed?: boolean; onClose?: ()
               </p>
               <p className="truncate text-[10px] text-text-secondary">
                 {session?.user?.email ?? ''}
+              </p>
+              <p className="truncate text-[9px] text-gray-400 tracking-tight">
+                {APP_VERSION}
               </p>
             </div>
           )}

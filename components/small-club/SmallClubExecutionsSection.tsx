@@ -915,7 +915,7 @@ export function SmallClubExecutionsSection({ canWrite }: Props) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="검색 (사용구분, 건명, 팀명)"
-            className="h-8 w-52 rounded-md border border-[#E3E3E0] bg-white pl-8 pr-3 text-xs text-[#131310] placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-8 w-52 rounded-[2px] border border-[#E3E3E0] bg-white pl-8 pr-3 text-xs text-[#131310] placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         <div className="flex items-center gap-1 flex-wrap">
@@ -937,13 +937,13 @@ export function SmallClubExecutionsSection({ canWrite }: Props) {
       </div>
 
       {isError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[2px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error instanceof Error ? error.message : '데이터를 불러오지 못했습니다.'}
         </div>
       )}
 
       {isLoading ? (
-        <div className="h-64 animate-pulse rounded-lg bg-[#F3F3EE]" />
+        <div className="h-64 animate-pulse rounded-[2px] bg-[#F3F3EE]" />
       ) : (
         <DndContext
           sensors={sensors}
@@ -951,7 +951,7 @@ export function SmallClubExecutionsSection({ canWrite }: Props) {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="overflow-x-auto rounded-lg border border-[#E3E3E0]">
+          <div className="overflow-x-auto rounded-[2px] border border-[#E3E3E0]">
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-[#F3F3EE]">

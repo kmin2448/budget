@@ -258,7 +258,7 @@ export function SmallClubSummaryTable({
 
   if (summaries.length === 0) {
     return (
-      <div className="rounded-lg border border-[#E3E3E0] bg-white px-4 py-6 text-center text-sm text-gray-400">
+      <div className="rounded-[2px] border border-[#E3E3E0] bg-white px-4 py-6 text-center text-sm text-gray-400">
         소학회 데이터가 없습니다.
       </div>
     );
@@ -271,7 +271,7 @@ export function SmallClubSummaryTable({
         value={editState?.[key] ?? ''}
         onChange={(e) => setField(key, e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded border border-[#E3E3E0] px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        className="w-full rounded-[2px] border border-[#E3E3E0] px-2 py-1 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
       />
     </div>
   );

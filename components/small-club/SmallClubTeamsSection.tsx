@@ -126,7 +126,7 @@ export function SmallClubTeamsSection({ canWrite, onAdvisorOrderChange }: Props)
             placeholder="팀명, 지도교수, 멘토, 주제 검색…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 w-full rounded-md border border-[#E3E3E0] bg-white pl-8 pr-3 text-sm placeholder:text-gray-300 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="h-8 w-full rounded-[2px] border border-[#E3E3E0] bg-white pl-8 pr-3 text-sm placeholder:text-gray-300 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           />
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -147,18 +147,18 @@ export function SmallClubTeamsSection({ canWrite, onAdvisorOrderChange }: Props)
       </div>
 
       {isError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-[2px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error instanceof Error ? error.message : '데이터를 불러오지 못했습니다.'}
         </div>
       )}
       {isTeamInfoError && (
-        <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+        <div className="rounded-[2px] border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
           팀 정보 로드 실패: {teamInfoError instanceof Error ? teamInfoError.message : '팀 정보를 불러오지 못했습니다.'}
         </div>
       )}
 
       {isSummaryLoading || isLoading ? (
-        <div className="h-40 animate-pulse rounded-lg bg-[#F3F3EE]" />
+        <div className="h-40 animate-pulse rounded-[2px] bg-[#F3F3EE]" />
       ) : (
         <SmallClubSummaryTable
           summaries={filteredSummaries}
