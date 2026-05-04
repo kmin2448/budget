@@ -49,7 +49,7 @@ export interface BudgetChangeHistory {
   created_at: string;
 }
 
-// 지출부 파일 메타데이터
+// 청구서 파일 메타데이터
 export interface ExpenditureFile {
   id: string;
   sheet_name: string;
@@ -128,7 +128,7 @@ export interface ExpenditureDetailRow {
   fileUrl?: string;
   fileId?: string;
   mergeInfo?: { id: string; subItems: MergeSubItem[] } | null;
-  // 인건비 전용: 월별 지출부 파일 목록
+  // 인건비 전용: 월별 청구서 파일 목록
   monthFiles?: { monthIndex: number; fileId: string; fileUrl: string }[];
 }
 

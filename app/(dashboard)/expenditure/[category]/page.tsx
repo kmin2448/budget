@@ -391,8 +391,8 @@ export default function ExpenditurePage({
       {/* 파일 삭제 확인 */}
       <ConfirmDialog
         open={deleteFileOpen}
-        title="지출부 파일 삭제"
-        description={`"${deleteFileTarget?.row.description || deleteFileTarget?.row.programName || '해당 행'}"${deleteFileTarget?.monthIndex !== undefined ? ` ${['3월','4월','5월','6월','7월','8월','9월','10월','11월','12월','1월','2월'][deleteFileTarget.monthIndex]} ` : ' '}지출부 파일을 삭제하시겠습니까? Google Drive에서도 삭제됩니다.`}
+        title="청구서 파일 삭제"
+        description={`"${deleteFileTarget?.row.description || deleteFileTarget?.row.programName || '해당 행'}"${deleteFileTarget?.monthIndex !== undefined ? ` ${['3월','4월','5월','6월','7월','8월','9월','10월','11월','12월','1월','2월'][deleteFileTarget.monthIndex]} ` : ' '}청구서 파일을 삭제하시겠습니까? Google Drive에서도 삭제됩니다.`}
         loading={deleteFileMutation.isPending}
         onConfirm={handleDeleteFileConfirm}
         onClose={() => setDeleteFileOpen(false)}

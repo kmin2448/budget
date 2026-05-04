@@ -578,7 +578,7 @@ export function ExpenditureTable({
               )}
             </TableCell>
 
-            {/* 지출부 — canWrite면 항상 노출 */}
+            {/* 청구서 — canWrite면 항상 노출 */}
             <TableCell className="w-20 py-2 text-center" onClick={(e) => e.stopPropagation()}>
               {row.hasFile ? (
                 <div className="flex items-center justify-center gap-1">
@@ -654,7 +654,7 @@ export function ExpenditureTable({
                       {isPersonnel && monthFile && monthFile.monthIndex !== -1 && (
                         <span
                           className="inline-block h-2 w-2 rounded-full bg-green-500"
-                          title="지출부 업로드됨"
+                          title="청구서 업로드됨"
                         />
                       )}
                     </div>
@@ -692,11 +692,11 @@ export function ExpenditureTable({
                               href={monthFile.fileUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="지출부 열기"
+                              title="청구서 열기"
                               className="inline-flex items-center gap-0.5 rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-medium text-green-700 ring-1 ring-green-200 hover:bg-green-100"
                             >
                               <FileText className="h-2.5 w-2.5" />
-                              지출부
+                              청구서
                             </a>
                             {canWrite && (
                               <button
@@ -712,7 +712,7 @@ export function ExpenditureTable({
                           <button
                             onClick={() => onUpload(row, i)}
                             className="inline-flex items-center gap-0.5 rounded border border-dashed border-gray-200 px-1.5 py-0.5 text-[10px] text-gray-400 hover:border-primary/40 hover:text-primary"
-                            title="지출부 업로드"
+                            title="청구서 업로드"
                           >
                             <Upload className="h-2.5 w-2.5" />
                             업로드
@@ -728,7 +728,7 @@ export function ExpenditureTable({
             {/* 인건비 레거시 파일 — month_index 없이 저장된 파일 표시 */}
             {isPersonnel && row.monthFiles?.some((f) => f.monthIndex === -1) && (
               <div className="mt-2 border-t border-gray-100 pt-2" onClick={(e) => e.stopPropagation()}>
-                <p className="mb-1 text-[10px] text-gray-400">월 미지정 지출부</p>
+                <p className="mb-1 text-[10px] text-gray-400">월 미지정 청구서</p>
                 <div className="flex flex-wrap gap-1">
                   {row.monthFiles.filter((f) => f.monthIndex === -1).map((f) => (
                     <div key={f.fileId} className="flex items-center gap-0.5">
@@ -739,7 +739,7 @@ export function ExpenditureTable({
                         className="inline-flex items-center gap-0.5 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 ring-1 ring-amber-200 hover:bg-amber-100"
                       >
                         <FileText className="h-2.5 w-2.5" />
-                        지출부 (월 미지정)
+                        청구서 (월 미지정)
                       </a>
                       {canWrite && (
                         <button
@@ -1141,7 +1141,7 @@ export function ExpenditureTable({
                 <TableHead className="w-[21rem] text-xs font-medium text-gray-500">지출건명</TableHead>
                 <TableHead className="w-36 text-right text-xs font-medium text-gray-500">집행금액</TableHead>
                 <TableHead className="w-28 text-center text-xs font-medium text-gray-500">지출일자</TableHead>
-                <TableHead className="w-20 text-center text-xs font-medium text-gray-500">지출부</TableHead>
+                <TableHead className="w-20 text-center text-xs font-medium text-gray-500">청구서</TableHead>
               </>
             )}
             {showActions && <TableHead className="w-20 text-center text-xs font-medium text-gray-500">관리</TableHead>}
