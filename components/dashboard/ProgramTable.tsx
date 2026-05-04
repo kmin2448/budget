@@ -406,20 +406,20 @@ export function ProgramTable({
       )}
 
         <DndContext sensors={sensors} collisionDetection={sameTypeCollision} onDragEnd={handleDragEnd}>
-          <Table className="w-full min-w-[1050px]">
+          <Table className="w-full min-w-[960px]">
             <TableHeader>
               <TableRow className="bg-sidebar hover:bg-sidebar">
                 <TableHead className={cn('shrink-0 px-2', editMode ? 'w-16' : 'w-10')} />
-                <TableHead className="min-w-[180px] text-text-secondary font-medium">
+                <TableHead className="min-w-[120px] text-text-secondary font-medium">
                   구분 / 프로그램명
                 </TableHead>
-                <TableHead className="w-14 text-text-secondary font-medium">소관</TableHead>
-                <TableHead className="w-28 text-text-secondary font-medium">담당교원</TableHead>
-                <TableHead className="w-28 text-text-secondary font-medium">담당직원</TableHead>
-                <TableHead className="w-28 text-right text-text-secondary font-medium">예산계획</TableHead>
-                <TableHead className="w-28 text-right text-text-secondary font-medium">집행완료</TableHead>
-                <TableHead className="w-28 text-right text-text-secondary font-medium">집행예정</TableHead>
-                <TableHead className="w-28 text-right text-text-secondary font-medium">잔액</TableHead>
+                <TableHead className="w-12 text-text-secondary font-medium">소관</TableHead>
+                <TableHead className="w-20 text-text-secondary font-medium">담당교원</TableHead>
+                <TableHead className="w-20 text-text-secondary font-medium">담당직원</TableHead>
+                <TableHead className="w-[108px] text-right text-text-secondary font-medium">예산계획</TableHead>
+                <TableHead className="w-[108px] text-right text-text-secondary font-medium">집행완료</TableHead>
+                <TableHead className="w-[108px] text-right text-text-secondary font-medium">집행예정</TableHead>
+                <TableHead className="w-[108px] text-right text-text-secondary font-medium">잔액</TableHead>
                 <TableHead className="w-16 text-right text-text-secondary font-medium">집행률</TableHead>
                 <TableHead className="w-[120px] text-center text-text-secondary font-medium">완료/보류</TableHead>
               </TableRow>
